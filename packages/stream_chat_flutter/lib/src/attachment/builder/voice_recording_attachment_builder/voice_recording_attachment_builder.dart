@@ -11,12 +11,12 @@ class VoiceRecordingAttachmentBuilder extends StreamAttachmentWidgetBuilder {
   }
 
   Duration _resolveDuration(Attachment attachment) {
-    final duration = attachment.extraData['duration'] as double?;
+    final duration = attachment.extraData['duration'] as int?;
     if (duration == null) {
       return Duration.zero;
     }
 
-    return Duration(milliseconds: duration.round() * 1000);
+    return Duration(milliseconds: duration * 1000);
   }
 
   List<double> _resolveWaveform(Attachment attachment) {
