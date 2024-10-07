@@ -119,6 +119,7 @@ class StreamMessageTextField extends StatefulWidget {
     this.scribbleEnabled = true,
     this.enableIMEPersonalizedLearning = true,
     this.contentInsertionConfiguration,
+    this.contextMenuBuilder,
   })  : assert(obscuringCharacter.length == 1, ''),
         smartDashesType = smartDashesType ??
             (obscureText ? SmartDashesType.disabled : SmartDashesType.enabled),
@@ -515,6 +516,10 @@ class StreamMessageTextField extends StatefulWidget {
   /// {@macro flutter.widgets.editableText.contentInsertionConfiguration}
   final ContentInsertionConfiguration? contentInsertionConfiguration;
 
+  /// {@macro flutter.widgets.editableText.contextMenuBuilder}
+  /// If null then default [AdaptiveTextSelectionToolbar.editableText] is used.
+  final Widget? contextMenuBuilder;
+
   @override
   _StreamMessageTextFieldState createState() => _StreamMessageTextFieldState();
 
@@ -708,6 +713,13 @@ class _StreamMessageTextFieldState extends State<StreamMessageTextField>
         scribbleEnabled: widget.scribbleEnabled,
         enableIMEPersonalizedLearning: widget.enableIMEPersonalizedLearning,
         contentInsertionConfiguration: widget.contentInsertionConfiguration,
+        contextMenuBuilder:
+            (BuildContext context, EditableTextState editableTextState) {
+          return widget.contextMenuBuilder ??
+              AdaptiveTextSelectionToolbar.editableText(
+                editableTextState: editableTextState,
+              ); // Returns an empty container, effectively disabling the menu
+        },
       );
 
   @override

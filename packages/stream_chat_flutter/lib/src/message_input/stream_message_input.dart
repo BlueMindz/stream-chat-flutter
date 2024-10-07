@@ -152,6 +152,7 @@ class StreamMessageInput extends StatefulWidget {
     this.hintGetter = _defaultHintGetter,
     this.contentInsertionConfiguration,
     this.useNativeAttachmentPickerOnMobile = false,
+    this.contextMenuBuilder,
   });
 
   /// The predicate used to send a message on desktop/web
@@ -350,6 +351,10 @@ class StreamMessageInput extends StatefulWidget {
   /// Forces use of native attachment picker on mobile instead of the custom
   /// Stream attachment picker.
   final bool useNativeAttachmentPickerOnMobile;
+
+  /// {@macro flutter.widgets.editableText.contextMenuBuilder}
+  /// If null then default [AdaptiveTextSelectionToolbar.editableText] is used.
+  final Widget? contextMenuBuilder;
 
   static String? _defaultHintGetter(
     BuildContext context,
@@ -953,6 +958,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
                         autocorrect: widget.autoCorrect,
                         contentInsertionConfiguration:
                             widget.contentInsertionConfiguration,
+                        contextMenuBuilder: widget.contextMenuBuilder,
                       ),
                     ),
                   ),
