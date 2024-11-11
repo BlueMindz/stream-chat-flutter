@@ -61,6 +61,7 @@ class MessageWidgetContent extends StatelessWidget {
     required this.showThreadReplyIndicator,
     required this.showTimeStamp,
     required this.showUsername,
+    required this.showEditedLabel,
     required this.messageWidget,
     required this.onThreadTap,
     this.onUserAvatarTap,
@@ -213,6 +214,9 @@ class MessageWidgetContent extends StatelessWidget {
 
   /// {@macro showUsername}
   final bool showUsername;
+
+  /// {@macro showEdited}
+  final bool showEditedLabel;
 
   /// {@macro messageWidget}
   final StreamMessageWidget messageWidget;
@@ -442,6 +446,7 @@ class MessageWidgetContent extends StatelessWidget {
       showThreadReplyIndicator: showThreadReplyIndicator,
       showTimeStamp: showTimeStamp,
       showUsername: showUsername,
+      showEditedLabel: showEditedLabel,
       streamChatTheme: streamChatTheme,
       streamChat: streamChat,
       hasNonUrlAttachments: hasNonUrlAttachments,
