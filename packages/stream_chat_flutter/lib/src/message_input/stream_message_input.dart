@@ -1388,7 +1388,8 @@ class StreamMessageInputState extends State<StreamMessageInput>
       message = await widget.preMessageSending!(message);
     }
 
-    message = message.replaceMentionsWithId();
+    // Uncomment this to replace user name mentions with their ID. I prefer not.
+    // message = message.replaceMentionsWithId();
 
     // If the channel is not up to date, we should reload it before sending
     // the message.
