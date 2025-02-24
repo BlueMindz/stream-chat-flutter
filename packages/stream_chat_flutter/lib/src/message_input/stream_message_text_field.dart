@@ -710,6 +710,7 @@ class _StreamMessageTextFieldState extends State<StreamMessageTextField>
         autofillHints: widget.autofillHints,
         clipBehavior: widget.clipBehavior,
         restorationId: widget.restorationId,
+        // ignore: deprecated_member_use
         scribbleEnabled: widget.scribbleEnabled,
         enableIMEPersonalizedLearning: widget.enableIMEPersonalizedLearning,
         contentInsertionConfiguration: widget.contentInsertionConfiguration,

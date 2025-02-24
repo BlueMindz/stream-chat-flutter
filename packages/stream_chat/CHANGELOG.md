@@ -1,3 +1,49 @@
+## 9.4.0
+
+🔄 Changed
+
+- Updated minimum Flutter version to 3.27.4 for the SDK.
+
+## 9.3.0
+
+✅ Added
+
+- Added support for overriding the `baseUrl` of the websocket.
+
+  ```dart
+  final client = StreamChatClient(
+    apiKey,
+    logLevel: Level.INFO,
+    baseWsUrl: 'http://localhost:8080',
+  );
+  ```
+
+## 9.2.0
+
+- Bug fixes and improvements
+
+## 9.1.0
+
+✅ Added
+
+- Added support for Threads v2 feature, which allows users to query all the threads.
+
+## 9.0.0
+
+✅ Added
+
+- Added support for Polls feature, which allows users to create and vote on polls in chat messages.
+
+🔄 Changed
+
+- Updated minimum Dart version to 3.5.4 for the SDK.
+
+## 8.3.0
+
+✅ Added
+
+- Added support for AI assistant states and events.
+
 ## 8.2.0
 
 ✅ Added
