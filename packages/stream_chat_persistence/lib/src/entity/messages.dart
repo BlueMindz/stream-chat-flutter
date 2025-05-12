@@ -59,7 +59,7 @@ class Messages extends Table {
   /// If both are null, returns [currentDateAndTime].
   Expression<DateTime> get createdAt {
     return coalesce<DateTime>(
-      [localCreatedAt, remoteCreatedAt, currentDateAndTime],
+      [remoteCreatedAt, localCreatedAt, currentDateAndTime],
     );
   }
 
@@ -75,7 +75,7 @@ class Messages extends Table {
   /// If both are null, returns [createdAt].
   Expression<DateTime> get updatedAt {
     return coalesce<DateTime>(
-      [localUpdatedAt, remoteUpdatedAt, createdAt],
+      [remoteUpdatedAt, localUpdatedAt, createdAt],
     );
   }
 
@@ -90,7 +90,7 @@ class Messages extends Table {
   /// Returns the latest between [localDeletedAt] and [remoteDeletedAt].
   Expression<DateTime> get deletedAt {
     return coalesce<DateTime>(
-      [localDeletedAt, remoteDeletedAt],
+      [remoteDeletedAt, localDeletedAt],
     );
   }
 
@@ -125,6 +125,13 @@ class Messages extends Table {
   /// A Map of [messageText] translations.
   TextColumn get i18n =>
       text().nullable().map(NullableMapConverter<String>())();
+
+  /// The list of user ids that should be able to see the message.
+  TextColumn get restrictedVisibility =>
+      text().nullable().map(ListConverter<String>())();
+
+  /// Id of the draft message if this message is a parent message.
+  TextColumn get draftMessageId => text().nullable()();
 
   /// Message custom extraData
   TextColumn get extraData => text().nullable().map(MapConverter())();

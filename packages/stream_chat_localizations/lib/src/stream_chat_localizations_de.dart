@@ -81,6 +81,9 @@ class StreamChatLocalizationsDe extends GlobalStreamChatLocalizations {
   String get messageDeletedLabel => 'Nachricht gelöscht';
 
   @override
+  String get systemMessageLabel => 'Systemnachricht';
+
+  @override
   String get editedMessageLabel => 'Bearbeitet';
 
   @override
@@ -547,10 +550,17 @@ class StreamChatLocalizationsDe extends GlobalStreamChatLocalizations {
   String get updateYourCommentLabel => 'Kommentar aktualisieren';
 
   @override
-  String get enterYourCommentLabel => 'Kommentar eingeben';
+  String get enterYourCommentLabel => 'Geben Sie Ihren Kommentar ein';
+
+  @override
+  String get endVoteConfirmationText =>
+      'Sind Sie sicher, dass Sie die Abstimmung beenden möchten?';
 
   @override
   String get createLabel => 'Erstellen';
+
+  @override
+  String get endLabel => 'Beenden';
 
   @override
   String pollVotingModeLabel(PollVotingMode votingMode) {
@@ -613,4 +623,48 @@ class StreamChatLocalizationsDe extends GlobalStreamChatLocalizations {
 
   @override
   String get holdToRecordLabel => 'Zum Aufnehmen halten, zum Senden loslassen';
+
+  @override
+  String get sendAnywayLabel => 'Trotzdem senden';
+
+  @override
+  String get moderatedMessageBlockedText =>
+      'Nachricht wurde durch Moderationsrichtlinien blockiert';
+
+  @override
+  String get moderationReviewModalTitle => 'Bist du sicher?';
+
+  @override
+  String get moderationReviewModalDescription =>
+      '''Bedenke, wie dein Kommentar andere beeinflussen könnte, und achte darauf, unsere Community-Richtlinien einzuhalten.''';
+
+  @override
+  String get emptyMessagePreviewText => '';
+
+  @override
+  String get voiceRecordingText => 'Sprachaufnahme';
+
+  @override
+  String get audioAttachmentText => 'Audio';
+
+  @override
+  String get imageAttachmentText => 'Bild';
+
+  @override
+  String get videoAttachmentText => 'Video';
+
+  @override
+  String get pollYouVotedText => 'Du hast abgestimmt';
+
+  @override
+  String pollSomeoneVotedText(String username) => '$username hat abgestimmt';
+
+  @override
+  String get pollYouCreatedText => 'Du hast erstellt';
+
+  @override
+  String pollSomeoneCreatedText(String username) => '$username hat erstellt';
+
+  @override
+  String get draftLabel => 'Entwurf';
 }

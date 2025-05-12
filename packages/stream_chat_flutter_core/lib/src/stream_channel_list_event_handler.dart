@@ -1,4 +1,4 @@
-import 'package:stream_chat/stream_chat.dart' show ChannelState, Event;
+import 'package:stream_chat/stream_chat.dart' show Event, Member;
 import 'package:stream_chat_flutter_core/src/stream_channel_list_controller.dart';
 
 /// Contains handlers that are called from [StreamChannelListController] for
@@ -49,8 +49,19 @@ mixin class StreamChannelListEventHandler {
   /// This event is fired when a channel is updated.
   ///
   /// By default, this updates the channel received in the event.
-  // ignore: no-empty-block
-  void onChannelUpdated(Event event, StreamChannelListController controller) {}
+  void onChannelUpdated(Event event, StreamChannelListController controller) {
+    controller.channels = [...controller.currentItems];
+  }
+
+  /// Function which gets called for the event
+  /// [EventType.memberUpdated].
+  ///
+  /// This event is fired when a member is updated.
+  ///
+  /// By default, this sorts the channels.
+  void onMemberUpdated(Event event, StreamChannelListController controller) {
+    controller.channels = [...controller.currentItems];
+  }
 
   /// Function which gets called for the event
   /// [EventType.channelVisible].
@@ -67,12 +78,12 @@ mixin class StreamChannelListEventHandler {
 
     if (channelId == null || channelType == null) return;
 
+    final currentChannels = [...controller.currentItems];
+
     final channel = await controller.getChannel(
       id: channelId,
       type: channelType,
     );
-
-    final currentChannels = [...controller.currentItems];
 
     final updatedChannels = [
       channel,
@@ -185,16 +196,26 @@ mixin class StreamChannelListEventHandler {
     final channels = [...controller.currentItems];
 
     final updatedChannels = channels.map((channel) {
-      final members = [...channel.state!.members];
-      final memberIndex = members.indexWhere(
-        (it) => user.id == (it.userId ?? it.user?.id),
+      final existingMembership = channel.membership;
+      final existingMembers = [...channel.state!.members];
+
+      // Return if the user is not a existing member of the channel.
+      if (!existingMembers.any((m) => m.userId == user.id)) return channel;
+
+      Member? maybeUpdateMemberUser(Member? existingMember) {
+        if (existingMember == null) return null;
+        if (existingMember.userId == user.id) {
+          return existingMember.copyWith(user: user);
+        }
+        return existingMember;
+      }
+
+      channel.state!.updateChannelState(
+        channel.state!.channelState.copyWith(
+          membership: maybeUpdateMemberUser(existingMembership),
+          members: [...existingMembers.map(maybeUpdateMemberUser).nonNulls],
+        ),
       );
-
-      if (memberIndex < 0) return channel;
-
-      members[memberIndex] = members[memberIndex].copyWith(user: user);
-      final updatedState = ChannelState(members: [...members]);
-      channel.state!.updateChannelState(updatedState);
 
       return channel;
     });

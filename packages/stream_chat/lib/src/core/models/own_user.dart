@@ -17,6 +17,7 @@ class OwnUser extends User {
     this.unreadChannels = 0,
     this.channelMutes = const [],
     this.unreadThreads = 0,
+    this.blockedUserIds = const [],
     required super.id,
     super.role,
     super.name,
@@ -30,6 +31,7 @@ class OwnUser extends User {
     super.banExpires,
     super.teams,
     super.language,
+    super.teamsRole,
   });
 
   /// Create a new instance from json.
@@ -52,6 +54,7 @@ class OwnUser extends User {
         extraData: user.extraData,
         teams: user.teams,
         language: user.language,
+        teamsRole: user.teamsRole,
       );
 
   /// Creates a copy of [OwnUser] with specified attributes overridden.
@@ -72,10 +75,12 @@ class OwnUser extends User {
     List<ChannelMute>? channelMutes,
     List<Device>? devices,
     List<Mute>? mutes,
+    List<String>? blockedUserIds,
     int? totalUnreadCount,
     int? unreadChannels,
     int? unreadThreads,
     String? language,
+    Map<String, String>? teamsRole,
   }) =>
       OwnUser(
         id: id ?? this.id,
@@ -99,7 +104,9 @@ class OwnUser extends User {
         totalUnreadCount: totalUnreadCount ?? this.totalUnreadCount,
         unreadChannels: unreadChannels ?? this.unreadChannels,
         unreadThreads: unreadThreads ?? this.unreadThreads,
+        blockedUserIds: blockedUserIds ?? this.blockedUserIds,
         language: language ?? this.language,
+        teamsRole: teamsRole ?? this.teamsRole,
       );
 
   /// Returns a new [OwnUser] that is a combination of this ownUser
@@ -124,8 +131,10 @@ class OwnUser extends User {
       totalUnreadCount: other.totalUnreadCount,
       unreadChannels: other.unreadChannels,
       unreadThreads: other.unreadThreads,
+      blockedUserIds: other.blockedUserIds,
       updatedAt: other.updatedAt,
       language: other.language,
+      teamsRole: other.teamsRole,
     );
   }
 
@@ -153,6 +162,10 @@ class OwnUser extends User {
   @JsonKey(includeIfNull: false)
   final int unreadThreads;
 
+  /// List of user ids that are blocked by the user.
+  @JsonKey(includeIfNull: false)
+  final List<String> blockedUserIds;
+
   /// Known top level fields.
   ///
   /// Useful for [Serializer] methods.
@@ -163,6 +176,7 @@ class OwnUser extends User {
     'unread_channels',
     'channel_mutes',
     'unread_threads',
+    'blocked_user_ids',
     ...User.topLevelFields,
   ];
 }

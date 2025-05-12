@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:stream_chat/src/core/models/call_payload.dart';
-import 'package:stream_chat/src/core/models/user_block.dart';
 import 'package:stream_chat/stream_chat.dart';
 import 'package:test/test.dart';
 
@@ -4372,11 +4371,13 @@ void main() {
       "agora_uid": 12,
       "token": "token"}
       ''';
+
+      // ignore: deprecated_member_use_from_same_package
       final response = CallTokenPayload.fromJson(json.decode(jsonExample));
       expect(response.agoraAppId, isA<String>());
       expect(response.agoraUid, isA<int>());
       expect(response.token, isA<String>());
-    });
+    }, skip: 'Deprecated, Will be removed in the next major version');
 
     test('CreateCallPayload', () {
       const jsonExample = '''
@@ -4387,9 +4388,12 @@ void main() {
       "hms":{"room_id":"test", "room_name":"test"}
       }}
       ''';
+
+      // ignore: deprecated_member_use_from_same_package
       final response = CreateCallPayload.fromJson(json.decode(jsonExample));
+      // ignore: deprecated_member_use_from_same_package
       expect(response.call, isA<CallPayload>());
-    });
+    }, skip: 'Deprecated, Will be removed in the next major version');
 
     test('UserBlockResponse', () {
       const jsonExample = '''

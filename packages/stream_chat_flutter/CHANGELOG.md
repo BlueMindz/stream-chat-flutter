@@ -1,3 +1,80 @@
+## Upcoming
+
+🔄 Changed
+
+- Updated `share_plus` dependency to `^11.0.0`.
+- Updated `desktop_drop` dependency to `">=0.5.0 <0.7.0"`.
+
+## 9.9.0
+
+✅ Added
+
+- Added support for Draft messages preview.
+- Added a new `StreamDraftListView` for displaying draft messages.
+- Added a confirmation dialog for end vote in Polls. [[#2211]](https://github.com/GetStream/stream-chat-flutter/issues/2211)
+
+🐞 Fixed
+
+- [[#2182]](https://github.com/GetStream/stream-chat-flutter/issues/2182) Fixes StreamMessageInput not listening to channel capabilities.
+
+🔄 Changed
+
+- Exported `StreamQuotedMessageWidget` to allow customization of quoted messages using `StreamMessageWidget.quotedMessageBuilder`.
+
+## 9.8.0
+
+🐞 Fixed
+
+- [[#2184]](https://github.com/GetStream/stream-chat-flutter/issues/2184) Fixed messages not being
+  marked as read when scrolled to the bottom.
+- [[#2187]](https://github.com/GetStream/stream-chat-flutter/issues/2187) Fixed `MessageListView`
+  scrolling back up after reaching bottom when unread indicator or scroll to bottom button is
+  tapped.
+- [[#2085]](https://github.com/GetStream/stream-chat-flutter/issues/2085) Fixed handling of read
+  events in the Channel class.
+- [[#2150]](https://github.com/GetStream/stream-chat-flutter/issues/2150) Fixed Push notifications
+  for mentions shows user ID instead of Username.
+- [[#2203]](https://github.com/GetStream/stream-chat-flutter/issues/2203) Fixed StreamMessageInput
+  shows Poll option even if polls are disabled in channel config.
+
+## 9.7.0
+
+🐞 Fixed
+
+- [[#2118]](https://github.com/GetStream/stream-chat-flutter/issues/2118) Fixed invalid assertions
+  applied on message input command and attachment button.
+- [[#2042]](https://github.com/GetStream/stream-chat-flutter/issues/2042) Fixed `StreamMessageInput`
+  send message predicate to properly handle shift+enter for new lines and improve message text validation.
+
+✅ Added
+
+- Added support for new message moderation feature in the SDK.
+
+## 9.6.0
+
+🐞 Fixed
+
+- [[#2137]](https://github.com/GetStream/stream-chat-flutter/issues/2137) Fixed message input
+  buttons not being able to customized.
+- [[#1775]](https://github.com/GetStream/stream-chat-flutter/issues/1775) Fix incorrect message order.
+
+## 9.5.0
+
+🐞 Fixed
+
+- Fixed `StreamMessageInput` not able to edit the ogAttachments.
+- Fixed `MessageWidget` showing pinned background for deleted messages.
+
+✅ Added
+
+- Introduced `StreamMessageInput.useSystemAttachmentPicker` for system media picker support.
+- Introduced `StreamMessageThemeData.messageDeletedStyle` to style the text on a deleted message.
+
+🔄 Changed
+
+- Updated the message list view to prevent pinning messages that have restricted visibility.
+- Deprecated `StreamMessageInput.useNativeAttachmentPickerOnMobile` in favor of `StreamMessageInput.useSystemAttachmentPicker`.
+
 ## 9.4.0
 
 🔄 Changed

@@ -8,17 +8,24 @@ export 'src/lazy_load_scroll_view.dart';
 export 'src/message_list_core.dart' hide MessageListCoreState;
 export 'src/message_text_field_controller.dart';
 export 'src/paged_value_notifier.dart'
-    show PagedValueListenableBuilder, PagedValue, PagedValueNotifier;
+    show
+        PagedValueListenableBuilder,
+        PagedValue,
+        PagedValueNotifier,
+        PagedValuePatternMatching;
 export 'src/paged_value_scroll_view.dart';
 export 'src/stream_channel.dart';
 export 'src/stream_channel_list_controller.dart';
 export 'src/stream_channel_list_event_handler.dart';
 export 'src/stream_chat_core.dart';
+export 'src/stream_draft_list_controller.dart';
+export 'src/stream_draft_list_event_handler.dart';
 export 'src/stream_member_list_controller.dart';
 export 'src/stream_message_input_controller.dart';
 export 'src/stream_message_search_list_controller.dart';
 export 'src/stream_poll_controller.dart';
 export 'src/stream_poll_vote_list_controller.dart';
 export 'src/stream_thread_list_controller.dart';
+export 'src/stream_thread_list_event_handler.dart';
 export 'src/stream_user_list_controller.dart';
 export 'src/typedef.dart';

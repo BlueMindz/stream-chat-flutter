@@ -93,7 +93,7 @@ class FakeChatApi extends Fake implements StreamChatApi {
 
 class FakeClientState extends Fake implements ClientState {
   @override
-  OwnUser? get currentUser => OwnUser(id: 'test-user-id');
+  OwnUser? get currentUser => OwnUser(id: 'test-user-id', name: 'Test User');
 
   @override
   int totalUnreadCount = 0;
@@ -105,6 +105,8 @@ class FakeClientState extends Fake implements ClientState {
 }
 
 class FakeMessage extends Fake implements Message {}
+
+class FakeDraftMessage extends Fake implements DraftMessage {}
 
 class FakeAttachmentFile extends Fake implements AttachmentFile {}
 
@@ -202,3 +204,14 @@ class FakeWebSocketWithConnectionError extends Fake implements WebSocket {
 }
 
 class FakeChannelState extends Fake implements ChannelState {}
+
+class FakePartialUpdateMemberResponse extends Fake
+    implements PartialUpdateMemberResponse {
+  FakePartialUpdateMemberResponse({
+    Member? channelMember,
+  }) : _channelMember = channelMember ?? Member();
+
+  final Member _channelMember;
+  @override
+  Member get channelMember => _channelMember;
+}

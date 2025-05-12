@@ -86,7 +86,10 @@ class StreamChatLocalizationsFr extends GlobalStreamChatLocalizations {
   String get messageDeletedLabel => 'Message supprimé';
 
   @override
-  String get editedMessageLabel => 'Édité';
+  String get systemMessageLabel => 'Message système';
+
+  @override
+  String get editedMessageLabel => 'Modifié';
 
   @override
   String get messageReactionsLabel => 'Réactions aux messages';
@@ -556,10 +559,17 @@ Limite de pièces jointes dépassée : il n'est pas possible d'ajouter plus de $
   String get updateYourCommentLabel => 'Mettre à jour votre commentaire';
 
   @override
-  String get enterYourCommentLabel => 'Saisir votre commentaire';
+  String get enterYourCommentLabel => 'Entrez votre commentaire';
+
+  @override
+  String get endVoteConfirmationText =>
+      'Êtes-vous sûr de vouloir terminer le vote?';
 
   @override
   String get createLabel => 'Créer';
+
+  @override
+  String get endLabel => 'Terminer';
 
   @override
   String pollVotingModeLabel(PollVotingMode votingMode) {
@@ -625,4 +635,48 @@ Limite de pièces jointes dépassée : il n'est pas possible d'ajouter plus de $
   @override
   String get holdToRecordLabel =>
       'Maintenez pour enregistrer, relâchez pour envoyer';
+
+  @override
+  String get sendAnywayLabel => 'Envoyer quand même';
+
+  @override
+  String get moderatedMessageBlockedText =>
+      'Message bloqué par les politiques de modération';
+
+  @override
+  String get moderationReviewModalTitle => 'Êtes-vous sûr ?';
+
+  @override
+  String get moderationReviewModalDescription =>
+      '''Réfléchissez à la façon dont votre commentaire pourrait affecter les autres et assurez-vous de respecter nos directives communautaires.''';
+
+  @override
+  String get emptyMessagePreviewText => '';
+
+  @override
+  String get voiceRecordingText => 'Enregistrement vocal';
+
+  @override
+  String get audioAttachmentText => 'Audio';
+
+  @override
+  String get imageAttachmentText => 'Image';
+
+  @override
+  String get videoAttachmentText => 'Vidéo';
+
+  @override
+  String get pollYouVotedText => 'Vous avez voté';
+
+  @override
+  String pollSomeoneVotedText(String username) => '$username a voté';
+
+  @override
+  String get pollYouCreatedText => 'Vous avez créé';
+
+  @override
+  String pollSomeoneCreatedText(String username) => '$username a créé';
+
+  @override
+  String get draftLabel => 'Brouillon';
 }

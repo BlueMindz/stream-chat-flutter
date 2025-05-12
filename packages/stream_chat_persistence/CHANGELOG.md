@@ -1,3 +1,30 @@
+## Upcoming
+
+- Fixed an issue in the `getChannelStates` method where `paginationParams.offset` greater than the
+  available channel count would cause an exception. The method now properly handles this edge case.
+
+## 9.9.0
+
+- Added support for `User.teamsRole` field.
+
+## 9.8.0
+
+- Added `pinnedAt` and `archivedAt` fields on `Member`.
+- Added support for DraftMessages.
+
+## 9.7.0
+
+- Updated `stream_chat` dependency to [`9.7.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.6.0
+
+- Updated `stream_chat` dependency to [`9.6.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.5.0
+
+- Added support for `Message.restrictedVisibility` field.
+- Added support for `Member.extraData` field.
+
 ## 9.4.0
 
 - Updated minimum Flutter version to 3.27.4 for the SDK.

@@ -4,17 +4,16 @@ import 'dart:math';
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:photo_manager/photo_manager.dart';
 import 'package:stream_chat_flutter/platform_widget_builder/src/platform_widget_builder.dart';
 import 'package:stream_chat_flutter/src/message_input/attachment_button.dart';
 import 'package:stream_chat_flutter/src/message_input/command_button.dart';
-import 'package:stream_chat_flutter/src/message_input/dm_checkbox.dart';
-import 'package:stream_chat_flutter/src/message_input/quoted_message_widget.dart';
+import 'package:stream_chat_flutter/src/message_input/dm_checkbox_list_tile.dart';
 import 'package:stream_chat_flutter/src/message_input/quoting_message_top_area.dart';
-import 'package:stream_chat_flutter/src/message_input/simple_safe_area.dart';
 import 'package:stream_chat_flutter/src/message_input/stream_message_input_icon_button.dart';
 import 'package:stream_chat_flutter/src/message_input/tld.dart';
+import 'package:stream_chat_flutter/src/misc/empty_widget.dart';
 import 'package:stream_chat_flutter/src/misc/gradient_box_border.dart';
+import 'package:stream_chat_flutter/src/misc/simple_safe_area.dart';
 import 'package:stream_chat_flutter/stream_chat_flutter.dart';
 
 const _kCommandTrigger = '/';
@@ -125,8 +124,10 @@ class StreamMessageInput extends StatefulWidget {
     this.hideSendAsDm = false,
     this.enableVoiceRecording = false,
     this.sendVoiceRecordingAutomatically = false,
-    this.idleSendButton,
-    this.activeSendButton,
+    Widget? idleSendIcon,
+    @Deprecated("Use 'idleSendIcon' instead") Widget? idleSendButton,
+    Widget? activeSendIcon,
+    @Deprecated("Use 'activeSendIcon' instead") Widget? activeSendButton,
     this.showCommandsButton = true,
     this.userMentionsTileBuilder,
     this.maxAttachmentSize = kDefaultMaxAttachmentSize,
@@ -157,10 +158,26 @@ class StreamMessageInput extends StatefulWidget {
     this.ogPreviewFilter = _defaultOgPreviewFilter,
     this.hintGetter = _defaultHintGetter,
     this.contentInsertionConfiguration,
-    this.useNativeAttachmentPickerOnMobile = false,
+    bool useSystemAttachmentPicker = false,
+    @Deprecated(
+      'Use useSystemAttachmentPicker instead. '
+      'This feature was deprecated after v9.4.0',
+    )
+    bool useNativeAttachmentPickerOnMobile = false,
     this.contextMenuBuilder,
     this.pollConfig,
-  });
+  })  : assert(
+          idleSendIcon == null || idleSendButton == null,
+          'idleSendIcon and idleSendButton cannot be used together',
+        ),
+        idleSendIcon = idleSendIcon ?? idleSendButton,
+        assert(
+          activeSendIcon == null || activeSendButton == null,
+          'activeSendIcon and activeSendButton cannot be used together',
+        ),
+        activeSendIcon = activeSendIcon ?? activeSendButton,
+        useSystemAttachmentPicker = useSystemAttachmentPicker || //
+            useNativeAttachmentPickerOnMobile;
 
   /// The predicate used to send a message on desktop/web
   final KeyEventPredicate sendMessageKeyPredicate;
@@ -287,10 +304,18 @@ class StreamMessageInput extends StatefulWidget {
   final bool autofocus;
 
   /// Send button widget in an idle state
-  final Widget? idleSendButton;
+  final Widget? idleSendIcon;
+
+  /// Send button widget in an idle state
+  @Deprecated("Use 'idleSendIcon' instead")
+  Widget? get idleSendButton => idleSendIcon;
 
   /// Send button widget in an active state
-  final Widget? activeSendButton;
+  final Widget? activeSendIcon;
+
+  /// Send button widget in an active state
+  @Deprecated("Use 'activeSendIcon' instead")
+  Widget? get activeSendButton => activeSendIcon;
 
   /// Customize the tile for the mentions overlay.
   final UserMentionTileBuilder? userMentionsTileBuilder;
@@ -375,9 +400,25 @@ class StreamMessageInput extends StatefulWidget {
   /// {@macro flutter.widgets.editableText.contentInsertionConfiguration}
   final ContentInsertionConfiguration? contentInsertionConfiguration;
 
+  /// If True, allows you to use the system’s default media picker instead of
+  /// the custom media picker provided by the library. This can be beneficial
+  /// for several reasons:
+  ///
+  /// 1. Consistency: Provides a consistent user experience by using the
+  /// familiar system media picker.
+  /// 2. Permissions: Reduces the need for additional permissions, as the system
+  /// media picker handles permissions internally.
+  /// 3. Simplicity: Simplifies the implementation by leveraging the built-in
+  /// functionality of the system media picker.
+  final bool useSystemAttachmentPicker;
+
   /// Forces use of native attachment picker on mobile instead of the custom
   /// Stream attachment picker.
-  final bool useNativeAttachmentPickerOnMobile;
+  @Deprecated(
+    'Use useSystemAttachmentPicker instead. '
+    'This feature was deprecated after v9.4.0',
+  )
+  bool get useNativeAttachmentPickerOnMobile => useSystemAttachmentPicker;
 
   /// {@macro flutter.widgets.editableText.contextMenuBuilder}
   /// If null then default [AdaptiveTextSelectionToolbar.editableText] is used.
@@ -412,39 +453,40 @@ class StreamMessageInput extends StatefulWidget {
     return true;
   }
 
-  static bool _defaultValidator(Message message) =>
-      message.text?.isNotEmpty == true || message.attachments.isNotEmpty;
+  static bool _defaultValidator(Message message) {
+    // The message is valid if it has text or attachments.
+    if (message.attachments.isNotEmpty) return true;
+    if (message.text?.trim() case final text? when text.isNotEmpty) return true;
+
+    return false;
+  }
 
   static bool _defaultSendMessageKeyPredicate(
     FocusNode node,
     KeyEvent event,
   ) {
-    if (CurrentPlatform.isWeb ||
-        CurrentPlatform.isMacOS ||
-        CurrentPlatform.isWindows ||
-        CurrentPlatform.isLinux) {
-      // On desktop/web, send the message when the user presses the enter key.
-      return event is KeyUpEvent &&
-          event.logicalKey == LogicalKeyboardKey.enter;
-    }
+    // Do not handle the event if the user is using a mobile device.
+    if (CurrentPlatform.isAndroid || CurrentPlatform.isIos) return false;
 
-    return false;
+    // Do not send the message if the shift key is pressed. Generally, this
+    // means the user is trying to add a new line.
+    if (HardwareKeyboard.instance.isShiftPressed) return false;
+
+    // Otherwise, send the message when the user presses the enter key.
+    final isEnterKeyPressed = event.logicalKey == LogicalKeyboardKey.enter;
+    return isEnterKeyPressed && event is KeyDownEvent;
   }
 
   static bool _defaultClearQuotedMessageKeyPredicate(
     FocusNode node,
     KeyEvent event,
   ) {
-    if (CurrentPlatform.isWeb ||
-        CurrentPlatform.isMacOS ||
-        CurrentPlatform.isWindows ||
-        CurrentPlatform.isLinux) {
-      // On desktop/web, clear the quoted message when the user presses the escape key.
-      return event is KeyUpEvent &&
-          event.logicalKey == LogicalKeyboardKey.escape;
-    }
+    // Do not handle the event if the user is using a mobile device.
+    if (CurrentPlatform.isAndroid || CurrentPlatform.isIos) return false;
 
-    return false;
+    // Otherwise, Clear the quoted message when the user presses the escape key.
+    final isEscapeKeyPressed = event.logicalKey == LogicalKeyboardKey.escape;
+    return isEscapeKeyPressed && event is KeyDownEvent;
   }
 
   @override
@@ -453,7 +495,7 @@ class StreamMessageInput extends StatefulWidget {
 
 /// State of [StreamMessageInput]
 class StreamMessageInputState extends State<StreamMessageInput>
-    with RestorationMixin<StreamMessageInput>, WidgetsBindingObserver {
+    with RestorationMixin<StreamMessageInput> {
   bool get _commandEnabled => _effectiveController.message.command != null;
 
   bool _actionsShrunk = false;
@@ -485,29 +527,64 @@ class StreamMessageInputState extends State<StreamMessageInput>
     assert(_controller != null, '');
 
     registerForRestoration(_controller!, 'messageInputController');
-    _effectiveController
-      ..removeListener(_onChangedDebounced)
-      ..addListener(_onChangedDebounced);
-    if (!_isEditing && _timeOut <= 0) _startSlowMode();
+    _initialiseEffectiveController();
   }
 
   void _initialiseEffectiveController() {
     _effectiveController
       ..removeListener(_onChangedDebounced)
       ..addListener(_onChangedDebounced);
-    if (!_isEditing && _timeOut <= 0) _startSlowMode();
   }
+
+  StreamSubscription<Draft?>? _draftStreamSubscription;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     if (widget.messageInputController == null) {
       _createLocalController();
     } else {
       _initialiseEffectiveController();
     }
     _effectiveFocusNode.addListener(_focusNodeListener);
+
+    WidgetsBinding.instance.endOfFrame.then((_) {
+      if (mounted) return _initializeState();
+    });
+  }
+
+  void _initializeState() {
+    // Call the listener once to make sure the initial state is reflected
+    // correctly in the UI.
+    _onChangedDebounced.call();
+
+    final channel = StreamChannel.of(context).channel;
+    final config = StreamChatConfiguration.of(context);
+
+    // Resumes the cooldown if the channel has currently an active cooldown.
+    if (!_isEditing) {
+      _effectiveController.startCooldown(channel.getRemainingCooldown());
+    }
+
+    // Starts listening to the draft stream for the current channel/thread.
+    if (!_isEditing && config.draftMessagesEnabled) {
+      final draftStream = switch (_effectiveController.message.parentId) {
+        final parentId? => channel.state?.threadDraftStream(parentId),
+        _ => channel.state?.draftStream,
+      };
+
+      _draftStreamSubscription = draftStream?.distinct().listen(_onDraftUpdate);
+    }
+  }
+
+  void _onDraftUpdate(Draft? draft) {
+    // If the draft is removed, reset the controller.
+    if (draft == null) return _effectiveController.reset();
+
+    // Otherwise, update the controller with the draft message.
+    if (draft.message case final draftMessage) {
+      _effectiveController.message = draftMessage.toMessage();
+    }
   }
 
   @override
@@ -515,29 +592,6 @@ class StreamMessageInputState extends State<StreamMessageInput>
     _streamChatTheme = StreamChatTheme.of(context);
     _messageInputTheme = StreamMessageInputTheme.of(context);
     super.didChangeDependencies();
-  }
-
-  bool _askingForPermission = false;
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) async {
-    if (state == AppLifecycleState.resumed &&
-        _permissionState != null &&
-        !_askingForPermission) {
-      _askingForPermission = true;
-
-      try {
-        final newPermissionState = await PhotoManager.requestPermissionExtend();
-        if (newPermissionState != _permissionState && mounted) {
-          setState(() {
-            _permissionState = newPermissionState;
-          });
-        }
-      } catch (_) {}
-
-      _askingForPermission = false;
-    }
-    super.didChangeAppLifecycleState(state);
   }
 
   @override
@@ -574,206 +628,175 @@ class StreamMessageInputState extends State<StreamMessageInput>
   // ignore: no-empty-block
   void _focusNodeListener() {}
 
-  int _timeOut = 0;
-  Timer? _slowModeTimer;
-
-  PermissionState? _permissionState;
-
-  void _startSlowMode() {
-    if (!mounted) {
-      return;
-    }
-    final channel = StreamChannel.of(context).channel;
-    final cooldownStartedAt = channel.cooldownStartedAt;
-    if (cooldownStartedAt != null) {
-      final diff = DateTime.now().difference(cooldownStartedAt).inSeconds;
-      if (diff < channel.cooldown) {
-        _timeOut = channel.cooldown - diff;
-        if (_timeOut > 0) {
-          _slowModeTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-            if (_timeOut == 0) {
-              timer.cancel();
-            } else {
-              if (mounted) {
-                setState(() => _timeOut -= 1);
-              }
-            }
-          });
-        }
-      }
-    }
-  }
-
-  void _stopSlowMode() => _slowModeTimer?.cancel();
-
   @override
   Widget build(BuildContext context) {
+    bool canSendOrUpdateMessage(List<ChannelCapability> capabilities) {
+      var result = capabilities.contains(ChannelCapability.sendMessage);
+      if (_isEditing) {
+        result |= capabilities.contains(ChannelCapability.updateOwnMessage);
+        result |= capabilities.contains(ChannelCapability.updateAnyMessage);
+      }
+
+      return result;
+    }
+
     final channel = StreamChannel.of(context).channel;
-    if (channel.state != null &&
-        !channel.ownCapabilities.contains(PermissionType.sendMessage)) {
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 15,
+    final messageInput = BetterStreamBuilder(
+      stream: channel.ownCapabilitiesStream.map(canSendOrUpdateMessage),
+      initialData: canSendOrUpdateMessage(channel.ownCapabilities),
+      builder: (context, enabled) {
+        // Allow the user to send messages if the user has the permission to
+        // send messages or if the user is editing a message.
+        if (enabled) {
+          return _buildAutocompleteMessageInput(context);
+        }
+
+        // Otherwise, show the no permission message.
+        return _buildNoPermissionMessage(context);
+      },
+    );
+
+    final shadow = widget.shadow ?? _messageInputTheme.shadow;
+    final elevation = widget.elevation ?? _messageInputTheme.elevation;
+    return Material(
+      elevation: elevation ?? 8,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: _messageInputTheme.inputBackgroundColor,
+          boxShadow: [if (shadow != null) shadow],
+        ),
+        child: SimpleSafeArea(
+          enabled: widget.enableSafeArea ?? _messageInputTheme.enableSafeArea,
+          child: Center(child: messageInput),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAutocompleteMessageInput(BuildContext context) {
+    return StreamAutocomplete(
+      focusNode: _effectiveFocusNode,
+      messageEditingController: _effectiveController,
+      fieldViewBuilder: _buildMessageInput,
+      autocompleteTriggers: [
+        ...widget.customAutocompleteTriggers,
+        StreamAutocompleteTrigger(
+          trigger: _kCommandTrigger,
+          triggerOnlyAtStart: true,
+          optionsViewBuilder: (
+            context,
+            autocompleteQuery,
+            messageEditingController,
+          ) {
+            final query = autocompleteQuery.query;
+            return StreamCommandAutocompleteOptions(
+              query: query,
+              channel: StreamChannel.of(context).channel,
+              onCommandSelected: (command) {
+                _effectiveController.command = command.name;
+                // removing the overlay after the command is selected
+                StreamAutocomplete.of(context).closeSuggestions();
+              },
+            );
+          },
+        ),
+        if (widget.enableMentionsOverlay)
+          StreamAutocompleteTrigger(
+            trigger: _kMentionTrigger,
+            optionsViewBuilder: (
+              context,
+              autocompleteQuery,
+              messageEditingController,
+            ) {
+              final query = autocompleteQuery.query;
+              return StreamMentionAutocompleteOptions(
+                query: query,
+                channel: StreamChannel.of(context).channel,
+                mentionAllAppUsers: widget.mentionAllAppUsers,
+                mentionsTileBuilder: widget.userMentionsTileBuilder,
+                onMentionUserTap: (user) {
+                  // adding the mentioned user to the controller.
+                  _effectiveController.addMentionedUser(user);
+
+                  // accepting the autocomplete option.
+                  StreamAutocomplete.of(context)
+                      .acceptAutocompleteOption(user.name);
+                },
+              );
+            },
           ),
-          child: Text(
-            context.translations.sendMessagePermissionError,
-            style: _messageInputTheme.inputTextStyle,
-          ),
+      ],
+    );
+  }
+
+  Widget _buildMessageInput(
+    BuildContext context,
+    StreamMessageEditingController controller,
+    FocusNode focusNode,
+  ) {
+    return StreamMessageValueListenableBuilder(
+      valueListenable: controller,
+      builder: (context, value, _) => Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          spacing: 8,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget?>[
+            _buildTopMessageArea(context),
+            _buildTextField(context),
+            _buildDmCheckbox(context),
+          ].nonNulls.toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildTopMessageArea(BuildContext context) {
+    if (_hasQuotedMessage && !_isEditing) {
+      // Ensure this doesn't show on web & desktop
+      return PlatformWidgetBuilder(
+        mobile: (context, child) => child,
+        child: QuotingMessageTopArea(
+          hasQuotedMessage: _hasQuotedMessage,
+          onQuotedMessageCleared: widget.onQuotedMessageCleared,
         ),
       );
     }
 
-    return StreamMessageValueListenableBuilder(
-      valueListenable: _effectiveController,
-      builder: (context, value, _) {
-        Widget child = DecoratedBox(
-          decoration: BoxDecoration(
-            color: _messageInputTheme.inputBackgroundColor,
-            boxShadow: widget.shadow == null
-                ? (_streamChatTheme.messageInputTheme.shadow == null
-                    ? []
-                    : [_streamChatTheme.messageInputTheme.shadow!])
-                : [widget.shadow!],
-          ),
-          child: SimpleSafeArea(
-            enabled: widget.enableSafeArea ??
-                _streamChatTheme.messageInputTheme.enableSafeArea ??
-                true,
-            child: GestureDetector(
-              onPanUpdate: (details) {
-                if (details.delta.dy > 0) {
-                  _effectiveFocusNode.unfocus();
-                }
-              },
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_hasQuotedMessage && !_isEditing)
-                    // Ensure this doesn't show on web & desktop
-                    PlatformWidgetBuilder(
-                      mobile: (context, child) => child,
-                      child: QuotingMessageTopArea(
-                        hasQuotedMessage: _hasQuotedMessage,
-                        onQuotedMessageCleared: widget.onQuotedMessageCleared,
-                      ),
-                    )
-                  else if (_effectiveController.ogAttachment != null)
-                    OGAttachmentPreview(
-                      attachment: _effectiveController.ogAttachment!,
-                      onDismissPreviewPressed: () {
-                        _effectiveController.clearOGAttachment();
-                        _effectiveFocusNode.unfocus();
-                      },
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: _buildTextField(context),
-                  ),
-                  if (_effectiveController.message.parentId != null &&
-                      !widget.hideSendAsDm)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        right: 16,
-                        left: 16,
-                        bottom: 12,
-                      ),
-                      child: DmCheckbox(
-                        foregroundDecoration: BoxDecoration(
-                          border: _effectiveController.showInChannel
-                              ? null
-                              : Border.all(
-                                  color: _streamChatTheme
-                                      .colorTheme.textHighEmphasis
-                                      // ignore: deprecated_member_use
-                                      .withOpacity(0.5),
-                                  width: 2,
-                                ),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        color: _effectiveController.showInChannel
-                            ? _streamChatTheme.colorTheme.accentPrimary
-                            : _streamChatTheme.colorTheme.barsBg,
-                        onTap: () {
-                          _effectiveController.showInChannel =
-                              !_effectiveController.showInChannel;
-                        },
-                        crossFadeState: _effectiveController.showInChannel
-                            ? CrossFadeState.showFirst
-                            : CrossFadeState.showSecond,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        );
-        if (!_isEditing) {
-          child = Material(
-            elevation: widget.elevation ??
-                _streamChatTheme.messageInputTheme.elevation ??
-                8,
-            color: _messageInputTheme.inputBackgroundColor,
-            child: child,
-          );
-        }
+    if (_effectiveController.ogAttachment != null) {
+      return OGAttachmentPreview(
+        attachment: _effectiveController.ogAttachment!,
+        onDismissPreviewPressed: () {
+          _effectiveController.clearOGAttachment();
+          _effectiveFocusNode.unfocus();
+        },
+      );
+    }
 
-        return StreamAutocomplete(
-          focusNode: _effectiveFocusNode,
-          messageEditingController: _effectiveController,
-          fieldViewBuilder: (_, __, ___) => child,
-          autocompleteTriggers: [
-            ...widget.customAutocompleteTriggers,
-            StreamAutocompleteTrigger(
-              trigger: _kCommandTrigger,
-              triggerOnlyAtStart: true,
-              optionsViewBuilder: (
-                context,
-                autocompleteQuery,
-                messageEditingController,
-              ) {
-                final query = autocompleteQuery.query;
-                return StreamCommandAutocompleteOptions(
-                  query: query,
-                  channel: StreamChannel.of(context).channel,
-                  onCommandSelected: (command) {
-                    _effectiveController.command = command.name;
-                    // removing the overlay after the command is selected
-                    StreamAutocomplete.of(context).closeSuggestions();
-                  },
-                );
-              },
-            ),
-            if (widget.enableMentionsOverlay)
-              StreamAutocompleteTrigger(
-                trigger: _kMentionTrigger,
-                optionsViewBuilder: (
-                  context,
-                  autocompleteQuery,
-                  messageEditingController,
-                ) {
-                  final query = autocompleteQuery.query;
-                  return StreamMentionAutocompleteOptions(
-                    query: query,
-                    channel: StreamChannel.of(context).channel,
-                    mentionAllAppUsers: widget.mentionAllAppUsers,
-                    mentionsTileBuilder: widget.userMentionsTileBuilder,
-                    onMentionUserTap: (user) {
-                      // adding the mentioned user to the controller.
-                      _effectiveController.addMentionedUser(user);
+    return null;
+  }
 
-                      // accepting the autocomplete option.
-                      StreamAutocomplete.of(context)
-                          .acceptAutocompleteOption(user.name);
-                    },
-                  );
-                },
-              ),
-          ],
-        );
-      },
+  Widget? _buildDmCheckbox(BuildContext context) {
+    if (widget.hideSendAsDm) return null;
+
+    final insideThread = _effectiveController.message.parentId != null;
+    if (!insideThread) return null;
+
+    return DmCheckboxListTile(
+      value: _effectiveController.showInChannel,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+      onChanged: (value) => _effectiveController.showInChannel = value,
+    );
+  }
+
+  Widget _buildNoPermissionMessage(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 15),
+      child: Text(
+        context.translations.sendMessagePermissionError,
+        style: _messageInputTheme.inputTextStyle,
+      ),
     );
   }
 
@@ -843,16 +866,16 @@ class StreamMessageInputState extends State<StreamMessageInput>
   }
 
   Widget _buildSendButton(BuildContext context) {
-    if (widget.sendButtonBuilder != null) {
-      return widget.sendButtonBuilder!(context, _effectiveController);
+    if (widget.sendButtonBuilder case final builder?) {
+      return builder(context, _effectiveController);
     }
 
     return StreamMessageSendButton(
       onSendMessage: sendMessage,
-      timeOut: _timeOut,
+      timeOut: _effectiveController.cooldownTimeOut,
       isIdle: !widget.validator(_effectiveController.message),
-      idleSendButton: widget.idleSendButton,
-      activeSendButton: widget.activeSendButton,
+      idleSendIcon: widget.idleSendIcon,
+      activeSendIcon: widget.activeSendIcon,
     );
   }
 
@@ -889,7 +912,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
       secondChild: widget.disableAttachments &&
               !widget.showCommandsButton &&
               !(widget.actionsBuilder != null)
-          ? const Offstage()
+          ? const Empty()
           : Row(
               spacing: widget.spaceBetweenActions,
               mainAxisSize: MainAxisSize.min,
@@ -901,8 +924,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
   List<Widget> _actionsList() {
     final channel = StreamChannel.of(context).channel;
     final defaultActions = <Widget>[
-      if (!widget.disableAttachments &&
-          channel.ownCapabilities.contains(PermissionType.uploadFile))
+      if (!widget.disableAttachments && channel.canUploadFile)
         _buildAttachmentButton(context),
       if (widget.showCommandsButton &&
           !_isEditing &&
@@ -979,12 +1001,14 @@ class StreamMessageInputState extends State<StreamMessageInput>
         if (it != AttachmentPickerType.poll) return false;
         if (_effectiveController.message.parentId != null) return true;
         final channel = StreamChannel.of(context).channel;
-        if (channel.ownCapabilities.contains(PermissionType.sendPoll)) {
-          return false;
-        }
+        if (channel.config?.polls == true && channel.canSendPoll) return false;
 
         return true;
       });
+
+    final messageInputTheme = StreamMessageInputTheme.of(context);
+    final useSystemPicker = widget.useSystemAttachmentPicker ||
+        (messageInputTheme.useSystemAttachmentPicker ?? false);
 
     final value = await showStreamAttachmentPickerModalBottomSheet(
       context: context,
@@ -993,8 +1017,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
       pollConfig: widget.pollConfig,
       initialPoll: initialPoll,
       initialAttachments: initialAttachments,
-      useNativeAttachmentPickerOnMobile:
-          widget.useNativeAttachmentPickerOnMobile,
+      useSystemAttachmentPicker: useSystemPicker,
     );
 
     if (value == null || value is! AttachmentPickerValue) return;
@@ -1049,22 +1072,9 @@ class StreamMessageInputState extends State<StreamMessageInput>
             _buildAttachments(),
             LimitedBox(
               maxHeight: widget.maxHeight,
-              child: PlatformWidgetBuilder(
-                web: (context, child) => Focus(
-                  skipTraversal: true,
-                  onKeyEvent: _handleKeyPressed,
-                  child: child!,
-                ),
-                desktop: (context, child) => Focus(
-                  skipTraversal: true,
-                  onKeyEvent: _handleKeyPressed,
-                  child: child!,
-                ),
-                mobile: (context, child) => Focus(
-                  skipTraversal: true,
-                  onKeyEvent: _handleKeyPressed,
-                  child: child!,
-                ),
+              child: Focus(
+                skipTraversal: true,
+                onKeyEvent: _handleKeyPressed,
                 child: StreamMessageTextField(
                   key: const Key('messageInputText'),
                   maxLines: widget.maxLines,
@@ -1210,8 +1220,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
       value = value.trim();
 
       final channel = StreamChannel.of(context).channel;
-      if (value.isNotEmpty &&
-          channel.ownCapabilities.contains(PermissionType.sendTypingEvents)) {
+      if (value.isNotEmpty && channel.canSendTypingEvents) {
         // Notify the server that the user started typing.
         channel.keyStroke(_effectiveController.message.parentId).onError(
           (error, stackTrace) {
@@ -1244,7 +1253,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
       hintType = HintType.searchGif;
     } else if (_effectiveController.attachments.isNotEmpty) {
       hintType = HintType.addACommentOrSend;
-    } else if (_timeOut != 0) {
+    } else if (_effectiveController.isSlowModeActive) {
       hintType = HintType.slowModeOn;
     } else {
       hintType = HintType.writeAMessage;
@@ -1278,10 +1287,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
 
     // Reset the og attachment if the text doesn't contain any url
     if (matchedUrls.isEmpty ||
-        !StreamChannel.of(context)
-            .channel
-            .ownCapabilities
-            .contains(PermissionType.sendLinks)) {
+        !StreamChannel.of(context).channel.canSendLinks) {
       _effectiveController.clearOGAttachment();
       return;
     }
@@ -1330,7 +1336,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
   }
 
   Widget _buildReplyToMessage() {
-    if (!_hasQuotedMessage) return const Offstage();
+    if (!_hasQuotedMessage) return const Empty();
     final quotedMessage = _effectiveController.message.quotedMessage!;
 
     final quotedMessageBuilder = widget.quotedMessageBuilder;
@@ -1363,7 +1369,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
     }).toList(growable: false);
 
     // If there are no attachments, return an empty widget
-    if (nonOGAttachments.isEmpty) return const Offstage();
+    if (nonOGAttachments.isEmpty) return const Empty();
 
     // If the user has provided a custom attachment list builder, use that.
     final attachmentListBuilder = widget.attachmentListBuilder;
@@ -1458,17 +1464,14 @@ class StreamMessageInputState extends State<StreamMessageInput>
 
   /// Sends the current message
   Future<void> sendMessage() async {
-    if (_timeOut > 0 ||
-        (_effectiveController.text.trim().isEmpty &&
-            _effectiveController.attachments.isEmpty)) {
-      return;
-    }
+    if (_effectiveController.isSlowModeActive) return;
+    if (!widget.validator(_effectiveController.message)) return;
 
     final streamChannel = StreamChannel.of(context);
     final channel = streamChannel.channel;
     var message = _effectiveController.value;
 
-    if (!channel.ownCapabilities.contains(PermissionType.sendLinks) &&
+    if (!channel.canSendLinks &&
         _urlRegex.allMatches(message.text ?? '').any((element) =>
             element.group(0)?.split('.').last.isValidTLD() == true)) {
       showInfoBottomSheet(
@@ -1478,29 +1481,19 @@ class StreamMessageInputState extends State<StreamMessageInput>
           color: StreamChatTheme.of(context).colorTheme.accentError,
           size: 24,
         ),
-        title: 'Links are disabled',
-        details: 'Sending links is not allowed in this conversation.',
+        title: context.translations.linkDisabledError,
+        details: context.translations.linkDisabledDetails,
         okText: context.translations.okLabel,
       );
       return;
     }
 
-    final containsCommand = message.command != null;
-    // If the message contains command we should append it to the text
-    // before sending it.
-    if (containsCommand) {
-      message = message.copyWith(text: '/${message.command} ${message.text}');
-    }
-
-    var shouldKeepFocus = widget.shouldKeepFocusAfterMessage;
-    shouldKeepFocus ??= !_commandEnabled;
-
+    _maybeDeleteDraftMessage(message);
     widget.onQuotedMessageCleared?.call();
-
     _effectiveController.reset();
 
-    if (widget.preMessageSending != null) {
-      message = await widget.preMessageSending!(message);
+    if (widget.preMessageSending case final onPreMessageSending?) {
+      message = await onPreMessageSending.call(message);
     }
 
     // Uncomment this to replace user name mentions with their ID. I prefer not.
@@ -1519,7 +1512,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
     await _sendOrUpdateMessage(message: message);
 
     if (mounted) {
-      if (shouldKeepFocus) {
+      if (widget.shouldKeepFocusAfterMessage ?? !_commandEnabled) {
         FocusScope.of(context).requestFocus(_effectiveFocusNode);
       } else {
         FocusScope.of(context).unfocus();
@@ -1530,21 +1523,22 @@ class StreamMessageInputState extends State<StreamMessageInput>
   Future<void> _sendOrUpdateMessage({
     required Message message,
   }) async {
-    final channel = StreamChannel.of(context).channel;
-
     try {
-      Future sendingFuture;
-      if (_isEditing) {
-        sendingFuture = channel.updateMessage(message);
-      } else {
-        sendingFuture = channel.sendMessage(message);
+      final channel = StreamChannel.of(context).channel;
+
+      // Note: edited messages which are bounced back with an error needs to be
+      // sent as new messages as the backend doesn't store them.
+      final resp = await switch (_isEditing && !message.isBouncedWithError) {
+        true => channel.updateMessage(message),
+        false => channel.sendMessage(message),
+      };
+
+      // We don't want to start the cooldown if an already sent message is
+      // being edited.
+      if (!_isEditing) {
+        _effectiveController.startCooldown(channel.getRemainingCooldown());
       }
 
-      final resp = await sendingFuture;
-      if (resp.message?.isError ?? false) {
-        _effectiveController.message = message;
-      }
-      _startSlowMode();
       widget.onMessageSent?.call(resp.message);
     } catch (e, stk) {
       if (widget.onError != null) {
@@ -1571,16 +1565,65 @@ class StreamMessageInputState extends State<StreamMessageInput>
     );
   }
 
+  void _maybeUpdateOrDeleteDraftMessage() {
+    final message = _effectiveController.message;
+    final isMessageValid = widget.validator.call(message);
+
+    // If the message is valid, we need to create or update it as a draft
+    // message for the channel or thread.
+    if (isMessageValid) return _maybeUpdateDraftMessage(message);
+
+    // Otherwise, we need to delete the draft message.
+    return _maybeDeleteDraftMessage(message);
+  }
+
+  void _maybeUpdateDraftMessage(Message message) {
+    final channel = StreamChannel.of(context).channel;
+    final draft = switch (message.parentId) {
+      final parentId? => channel.state?.threadDraft(parentId),
+      null => channel.state?.draft,
+    };
+
+    final draftMessage = message.toDraftMessage();
+
+    // If the draft message didn't change, we don't need to update it.
+    if (draft?.message == draftMessage) return;
+
+    return channel.createDraft(draftMessage).ignore();
+  }
+
+  void _maybeDeleteDraftMessage(Message message) {
+    final channel = StreamChannel.of(context).channel;
+    final draft = switch (message.parentId) {
+      final parentId? => channel.state?.threadDraft(parentId),
+      null => channel.state?.draft,
+    };
+
+    // If there is no draft message, we don't need to delete it.
+    if (draft == null) return;
+
+    return channel.deleteDraft(parentId: message.parentId).ignore();
+  }
+
+  @override
+  void deactivate() {
+    final config = StreamChatConfiguration.of(context);
+    if (!_isEditing && config.draftMessagesEnabled) {
+      _maybeUpdateOrDeleteDraftMessage();
+    }
+
+    super.deactivate();
+  }
+
   @override
   void dispose() {
     _effectiveController.removeListener(_onChangedDebounced);
     _controller?.dispose();
     _effectiveFocusNode.removeListener(_focusNodeListener);
     _focusNode?.dispose();
-    _stopSlowMode();
     _onChangedDebounced.cancel();
     _audioRecorderController.dispose();
-    WidgetsBinding.instance.removeObserver(this);
+    _draftStreamSubscription?.cancel();
     super.dispose();
   }
 }
