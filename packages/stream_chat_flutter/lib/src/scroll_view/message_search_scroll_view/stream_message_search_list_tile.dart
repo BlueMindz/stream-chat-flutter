@@ -226,6 +226,8 @@ class MessageSearchTileMessageDate extends StatelessWidget {
     return StreamTimestamp(
       date: createdAt.toLocal(),
       style: textStyle,
+      formatter: (context, date) =>
+          Jiffy.parseFromDateTime(date).format(pattern: 'yyyy/MM/dd'),
     );
   }
 }
