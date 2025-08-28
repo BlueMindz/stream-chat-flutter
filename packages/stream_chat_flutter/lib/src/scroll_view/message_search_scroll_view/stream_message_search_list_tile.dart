@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter/src/misc/timestamp.dart';
+import 'package:stream_chat_flutter/src/utils/date_formatter.dart';
 import 'package:stream_chat_flutter/stream_chat_flutter.dart';
 
 /// A widget that displays a message search item.
@@ -212,6 +213,7 @@ class MessageSearchTileMessageDate extends StatelessWidget {
     super.key,
     required this.message,
     this.textStyle,
+    this.dateFormat,
   });
 
   /// The searched message response.
@@ -220,14 +222,23 @@ class MessageSearchTileMessageDate extends StatelessWidget {
   /// The text style to use for the date.
   final TextStyle? textStyle;
 
+  /// The date format to display date.
+  final String? dateFormat;
+
   @override
   Widget build(BuildContext context) {
     final createdAt = message.createdAt;
     return StreamTimestamp(
       date: createdAt.toLocal(),
       style: textStyle,
-      formatter: (context, date) =>
-          Jiffy.parseFromDateTime(date).format(pattern: 'yyyy/MM/dd'),
+      formatter: (context, date) {
+        if (createdAt.isToday) return Jiffy.parseFromDateTime(date).jm;
+        if (createdAt.isYesterday) return context.translations.yesterdayLabel;
+        if (createdAt.isWithinAWeek) return Jiffy.parseFromDateTime(date).EEEE;
+
+        return Jiffy.parseFromDateTime(date)
+            .format(pattern: dateFormat ?? 'yyyy/MM/dd');
+      },
     );
   }
 }
