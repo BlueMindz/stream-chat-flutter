@@ -8,6 +8,7 @@ part of 'event.dart';
 
 Event _$EventFromJson(Map<String, dynamic> json) => Event(
       type: json['type'] as String? ?? 'local.event',
+      userId: json['user_id'] as String?,
       cid: json['cid'] as String?,
       connectionId: json['connection_id'] as String?,
       createdAt: json['created_at'] == null
@@ -64,12 +65,29 @@ Event _$EventFromJson(Map<String, dynamic> json) => Event(
       draft: json['draft'] == null
           ? null
           : Draft.fromJson(json['draft'] as Map<String, dynamic>),
+      reminder: json['reminder'] == null
+          ? null
+          : MessageReminder.fromJson(json['reminder'] as Map<String, dynamic>),
+      pushPreference: json['push_preference'] == null
+          ? null
+          : PushPreference.fromJson(
+              json['push_preference'] as Map<String, dynamic>),
+      channelPushPreference: json['channel_push_preference'] == null
+          ? null
+          : ChannelPushPreference.fromJson(
+              json['channel_push_preference'] as Map<String, dynamic>),
+      channelMessageCount: (json['channel_message_count'] as num?)?.toInt(),
+      lastDeliveredAt: json['last_delivered_at'] == null
+          ? null
+          : DateTime.parse(json['last_delivered_at'] as String),
+      lastDeliveredMessageId: json['last_delivered_message_id'] as String?,
       extraData: json['extra_data'] as Map<String, dynamic>? ?? const {},
       isLocal: json['is_local'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$EventToJson(Event instance) => <String, dynamic>{
       'type': instance.type,
+      if (instance.userId case final value?) 'user_id': value,
       if (instance.cid case final value?) 'cid': value,
       if (instance.channelId case final value?) 'channel_id': value,
       if (instance.channelType case final value?) 'channel_type': value,
@@ -106,6 +124,17 @@ Map<String, dynamic> _$EventToJson(Event instance) => <String, dynamic>{
       if (instance.lastReadMessageId case final value?)
         'last_read_message_id': value,
       if (instance.draft?.toJson() case final value?) 'draft': value,
+      if (instance.reminder?.toJson() case final value?) 'reminder': value,
+      if (instance.pushPreference?.toJson() case final value?)
+        'push_preference': value,
+      if (instance.channelPushPreference?.toJson() case final value?)
+        'channel_push_preference': value,
+      if (instance.channelMessageCount case final value?)
+        'channel_message_count': value,
+      if (instance.lastDeliveredAt?.toIso8601String() case final value?)
+        'last_delivered_at': value,
+      if (instance.lastDeliveredMessageId case final value?)
+        'last_delivered_message_id': value,
       'extra_data': instance.extraData,
     };
 

@@ -10,6 +10,7 @@ class Event {
   /// Constructor used for json serialization
   Event({
     this.type = 'local.event',
+    this.userId,
     this.cid,
     this.connectionId,
     DateTime? createdAt,
@@ -39,6 +40,12 @@ class Event {
     this.unreadMessages,
     this.lastReadMessageId,
     this.draft,
+    this.reminder,
+    this.pushPreference,
+    this.channelPushPreference,
+    this.channelMessageCount,
+    this.lastDeliveredAt,
+    this.lastDeliveredMessageId,
     this.extraData = const {},
     this.isLocal = true,
   }) : createdAt = createdAt?.toUtc() ?? DateTime.now().toUtc();
@@ -53,6 +60,9 @@ class Event {
   /// The type of the event
   /// [EventType] contains some predefined constant types
   final String type;
+
+  /// The user id of the user to which the event belongs
+  final String? userId;
 
   /// The channel cid to which the event belongs
   final String? cid;
@@ -146,6 +156,24 @@ class Event {
   /// The draft sent with the event.
   final Draft? draft;
 
+  /// The message reminder sent with the event.
+  final MessageReminder? reminder;
+
+  /// Push notification preferences for the current user.
+  final PushPreference? pushPreference;
+
+  /// Push notification preferences for the current user for this channel.
+  final ChannelPushPreference? channelPushPreference;
+
+  /// The total number of messages in the channel.
+  final int? channelMessageCount;
+
+  /// The date of the last delivered message.
+  final DateTime? lastDeliveredAt;
+
+  /// The id of the last delivered message.
+  final String? lastDeliveredMessageId;
+
   /// Map of custom channel extraData
   final Map<String, Object?> extraData;
 
@@ -153,6 +181,7 @@ class Event {
   /// Useful for [Serializer] methods.
   static final topLevelFields = [
     'type',
+    'user_id',
     'cid',
     'connection_id',
     'created_at',
@@ -183,6 +212,12 @@ class Event {
     'unread_messages',
     'last_read_message_id',
     'draft',
+    'reminder',
+    'push_preference',
+    'channel_push_preference',
+    'channel_message_count',
+    'last_delivered_at',
+    'last_delivered_message_id',
   ];
 
   /// Serialize to json
@@ -193,6 +228,7 @@ class Event {
   /// Creates a copy of [Event] with specified attributes overridden.
   Event copyWith({
     String? type,
+    String? userId,
     String? cid,
     String? channelId,
     String? channelType,
@@ -222,10 +258,17 @@ class Event {
     int? unreadMessages,
     String? lastReadMessageId,
     Draft? draft,
+    MessageReminder? reminder,
+    PushPreference? pushPreference,
+    ChannelPushPreference? channelPushPreference,
+    int? channelMessageCount,
+    DateTime? lastDeliveredAt,
+    String? lastDeliveredMessageId,
     Map<String, Object?>? extraData,
   }) =>
       Event(
         type: type ?? this.type,
+        userId: userId ?? this.userId,
         cid: cid ?? this.cid,
         connectionId: connectionId ?? this.connectionId,
         createdAt: createdAt ?? this.createdAt,
@@ -255,6 +298,14 @@ class Event {
         unreadMessages: unreadMessages ?? this.unreadMessages,
         lastReadMessageId: lastReadMessageId ?? this.lastReadMessageId,
         draft: draft ?? this.draft,
+        reminder: reminder ?? this.reminder,
+        pushPreference: pushPreference ?? this.pushPreference,
+        channelPushPreference:
+            channelPushPreference ?? this.channelPushPreference,
+        channelMessageCount: channelMessageCount ?? this.channelMessageCount,
+        lastDeliveredAt: lastDeliveredAt ?? this.lastDeliveredAt,
+        lastDeliveredMessageId:
+            lastDeliveredMessageId ?? this.lastDeliveredMessageId,
         isLocal: isLocal,
         extraData: extraData ?? this.extraData,
       );
@@ -286,4 +337,17 @@ enum AITypingState {
   /// The AI assistant is generating a response.
   @JsonValue('AI_STATE_GENERATING')
   generating,
+}
+
+/// Helper extension methods for [Event].
+extension EventExtension on Event {
+  /// Whether the event is from the given user.
+  bool isFromUser({String? userId}) {
+    if (userId == null) return false;
+
+    final eventUserId = this.userId ?? user?.id;
+    if (eventUserId == null) return false;
+
+    return eventUserId == userId;
+  }
 }

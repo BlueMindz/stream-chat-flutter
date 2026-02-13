@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+      # TODO: Remove feat/design-refresh once merged to master
+      - feat/design-refresh
   workflow_dispatch:
     inputs:
       platform:
@@ -49,8 +51,8 @@ jobs:
           echo "Selected platform: $platform"
           
           # Set outputs only if they should be true
-          [[ "$platform" == "ios" || "$platform" == "both" ]] && echo "run_ios=true" >> $GITHUB_OUTPUT
-          [[ "$platform" == "android" || "$platform" == "both" ]] && echo "run_android=true" >> $GITHUB_OUTPUT
+          [[ "$platform" == "ios" || "$platform" == "both" ]] && echo "run_ios=true" >> $GITHUB_OUTPUT || true
+          [[ "$platform" == "android" || "$platform" == "both" ]] && echo "run_android=true" >> $GITHUB_OUTPUT || true
 
   android:
     needs: determine_platforms
@@ -64,7 +66,7 @@ jobs:
           ssh-private-key: ${{ secrets.BOT_SSH_PRIVATE_KEY }}
 
       - name: "Git Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -99,7 +101,7 @@ jobs:
   ios:
     needs: determine_platforms
     if: ${{ needs.determine_platforms.outputs.run_ios == 'true' }}
-    runs-on: macos-latest
+    runs-on: macos-15 # Requires xcode 15 or later
     timeout-minutes: 30
     steps:
       - name: Connect Bot
@@ -108,7 +110,7 @@ jobs:
           ssh-private-key: ${{ secrets.BOT_SSH_PRIVATE_KEY }}
 
       - name: "Git Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
         

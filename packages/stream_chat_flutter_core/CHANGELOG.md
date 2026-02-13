@@ -1,3 +1,78 @@
+## 9.23.0
+
+- Updated `stream_chat` dependency to [`9.23.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.22.0
+
+- Updated `stream_chat` dependency to [`9.22.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.21.0
+
+- Updated `stream_chat` dependency to [`9.21.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.20.0
+
+🐞 Fixed
+
+- Fixed race condition where `connectUser` could be blocked when connectivity monitoring triggers
+  during initial connection. [[#2409]](https://github.com/GetStream/stream-chat-flutter/issues/2409)
+
+## 9.19.0
+
+- Updated `stream_chat` dependency to [`9.19.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.18.0
+
+- Updated `stream_chat` dependency to [`9.18.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.17.0
+
+- Updated `stream_chat` dependency to [`9.17.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.16.0
+
+🐞 Fixed
+
+- Fixed `MessageListCore` not properly loading and paginating thread replies.
+
+✅ Added
+
+- Added methods for paginating thread replies in `StreamChannel`.
+
+## 9.15.0
+
+✅ Added
+
+- Added `StreamChatCore.maybeOf()` method for safe context access in async operations.
+- Added `StreamChannel.maybeOf()` method for safe context access in async operations.
+
+🐞 Fixed
+
+- Fixed `MessageListCore.dispose()` crash when channel reload fails due to insufficient permissions.
+- Fixed incorrect parent message comparison in `MessageListCore.didUpdateWidget()`.
+- Ensure `StreamChannel` future builder completes after channel
+  initialization. [[#2323]](https://github.com/GetStream/stream-chat-flutter/issues/2323)
+
+## 9.14.0
+
+🐞 Fixed
+
+- Fixed cached messages are cleared from channels with unread messages when accessed
+  offline. [[#2083]](https://github.com/GetStream/stream-chat-flutter/issues/2083)
+
+## 9.13.0
+
+🐞 Fixed
+
+- Fixed pagination end detection logic to properly determine when the top or bottom of the message
+  list has been reached.
+
+## 9.12.0
+
+✅ Added
+
+- Added `StreamMessageReminderListController` to manage the list of message reminders.
+
 ## 9.11.0
 
 - Updated `stream_chat` dependency to [`9.11.0`](https://pub.dev/packages/stream_chat/changelog).

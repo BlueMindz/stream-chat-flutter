@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter/src/misc/separated_reorderable_list_view.dart';
+import 'package:stream_chat_flutter/src/poll/creator/stream_delete_option_dialog.dart';
 import 'package:stream_chat_flutter/stream_chat_flutter.dart';
 
 class _NullConst {
@@ -56,6 +57,8 @@ class PollOptionListItem extends StatelessWidget {
     super.key,
     required this.option,
     this.hintText,
+    this.focusNode,
+    this.onRemove,
     this.onChanged,
   });
 
@@ -64,6 +67,12 @@ class PollOptionListItem extends StatelessWidget {
 
   /// Hint to be displayed in the poll option list item.
   final String? hintText;
+
+  /// The focus node for the text field.
+  final FocusNode? focusNode;
+
+  /// Callback called when the poll option item is removed.
+  final ValueSetter<PollOptionItem>? onRemove;
 
   /// Callback called when the poll option item is changed.
   final ValueSetter<PollOptionItem>? onChanged;
@@ -74,6 +83,8 @@ class PollOptionListItem extends StatelessWidget {
     final fillColor = theme.optionsTextFieldFillColor;
     final borderRadius = theme.optionsTextFieldBorderRadius;
 
+    final colorTheme = StreamChatTheme.of(context).colorTheme;
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: fillColor,
@@ -81,6 +92,17 @@ class PollOptionListItem extends StatelessWidget {
       ),
       child: Row(
         children: [
+          Padding(
+            padding: const EdgeInsetsDirectional.all(16),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.grab,
+              child: Icon(
+                size: 24,
+                Icons.drag_handle_rounded,
+                color: colorTheme.textLowEmphasis,
+              ),
+            ),
+          ),
           Expanded(
             child: StreamPollTextField(
               initialValue: option.text,
@@ -90,13 +112,29 @@ class PollOptionListItem extends StatelessWidget {
               borderRadius: borderRadius,
               errorText: option.error,
               errorStyle: theme.optionsTextFieldErrorStyle,
-              onChanged: (text) => onChanged?.call(option.copyWith(text: text)),
+              focusNode: focusNode,
+              contentPadding: const EdgeInsets.symmetric(vertical: 18),
+              onChanged: switch (onChanged) {
+                final onChanged? => (text) {
+                    final updated = option.copyWith(text: text);
+                    return onChanged.call(updated);
+                  },
+                _ => null,
+              },
             ),
           ),
-          const SizedBox(
-            width: 48,
-            height: 48,
-            child: Icon(Icons.drag_handle_rounded),
+          IconButton(
+            iconSize: 24,
+            icon: const StreamSvgIcon(icon: StreamSvgIcons.delete),
+            style: IconButton.styleFrom(
+              foregroundColor: colorTheme.textLowEmphasis,
+            ),
+            // TODO: Enable once we have min SDK set to 3.29.0
+            // onLongPress: () {/* Consume long press */},
+            onPressed: switch (onRemove) {
+              final onRemove? => () => onRemove.call(option),
+              _ => null,
+            },
           ),
         ],
       ),
@@ -115,6 +153,7 @@ class PollOptionReorderableListView extends StatefulWidget {
     this.itemHintText,
     this.allowDuplicate = false,
     this.initialOptions = const [],
+    this.optionsRange,
     this.onOptionsChanged,
   });
 
@@ -132,6 +171,12 @@ class PollOptionReorderableListView extends StatefulWidget {
   /// The initial list of poll options.
   final List<PollOptionItem> initialOptions;
 
+  /// The range of allowed options (min and max).
+  ///
+  /// If `null`, there are no limits. If only min or max is specified,
+  /// the other bound is unlimited.
+  final Range<int>? optionsRange;
+
   /// Callback called when the items are updated or reordered.
   final ValueSetter<List<PollOptionItem>>? onOptionsChanged;
 
@@ -142,9 +187,59 @@ class PollOptionReorderableListView extends StatefulWidget {
 
 class _PollOptionReorderableListViewState
     extends State<PollOptionReorderableListView> {
-  late var _options = <String, PollOptionItem>{
-    for (final option in widget.initialOptions) option.id: option,
-  };
+  late Map<String, FocusNode> _focusNodes;
+  late Map<String, PollOptionItem> _options;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeOptions();
+  }
+
+  @override
+  void dispose() {
+    _disposeOptions();
+    super.dispose();
+  }
+
+  void _initializeOptions() {
+    _focusNodes = <String, FocusNode>{};
+    _options = <String, PollOptionItem>{};
+
+    for (final option in widget.initialOptions) {
+      _options[option.id] = option;
+      _focusNodes[option.id] = FocusNode();
+    }
+
+    // Ensure we have at least the minimum number of options
+    _ensureMinimumOptions(notifyParent: true);
+  }
+
+  void _ensureMinimumOptions({bool notifyParent = false}) {
+    // Ensure we have at least the minimum number of options
+    final minOptions = widget.optionsRange?.min ?? 1;
+
+    var optionsAdded = false;
+    while (_options.length < minOptions) {
+      final option = PollOptionItem();
+      _options[option.id] = option;
+      _focusNodes[option.id] = FocusNode();
+      optionsAdded = true;
+    }
+
+    // Notify parent if we added options and it's requested
+    if (optionsAdded && notifyParent) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onOptionsChanged?.call([..._options.values]);
+      });
+    }
+  }
+
+  void _disposeOptions() {
+    _focusNodes.values.forEach((it) => it.dispose());
+    _focusNodes.clear();
+    _options.clear();
+  }
 
   @override
   void didUpdateWidget(covariant PollOptionReorderableListView oldWidget) {
@@ -155,13 +250,12 @@ class _PollOptionReorderableListViewState
     final newOptions = widget.initialOptions;
 
     final optionItemEquality = ListEquality<PollOptionItem>(
-      EqualityBy((it) => (it.id, it.text)),
+      EqualityBy((it) => it.id),
     );
 
     if (optionItemEquality.equals(currOptions, newOptions) case false) {
-      _options = <String, PollOptionItem>{
-        for (final option in widget.initialOptions) option.id: option,
-      };
+      _disposeOptions();
+      _initializeOptions();
     }
   }
 
@@ -202,6 +296,24 @@ class _PollOptionReorderableListViewState
     return null;
   }
 
+  Future<void> _onOptionRemoved(PollOptionItem option) async {
+    final confirm = await showPollDeleteOptionDialog(context: context);
+    if (!mounted || confirm != true) return;
+
+    setState(() {
+      _options.remove(option.id);
+      _focusNodes.remove(option.id)?.dispose();
+    });
+
+    // Ensure we have at least the minimum number of options
+    _ensureMinimumOptions();
+
+    // Notify the parent widget about the change
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onOptionsChanged?.call([..._options.values]);
+    });
+  }
+
   void _onOptionChanged(PollOptionItem option) {
     setState(() {
       // Update the changed option.
@@ -216,8 +328,10 @@ class _PollOptionReorderableListViewState
 
         return value.copyWith(error: _validateOption(value));
       });
+    });
 
-      // Notify the parent widget about the change
+    // Notify the parent widget about the change
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onOptionsChanged?.call([..._options.values]);
     });
   }
@@ -234,21 +348,48 @@ class _PollOptionReorderableListViewState
       _options = <String, PollOptionItem>{
         for (final option in options) option.id: option,
       };
+    });
 
-      // Notify the parent widget about the change
+    // Notify the parent widget about the change
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       widget.onOptionsChanged?.call([..._options.values]);
     });
   }
 
   void _onAddOptionPressed() {
-    setState(() {
-      // Create a new option and add it to the map.
-      final option = PollOptionItem();
-      _options[option.id] = option;
+    // Check if we've reached the maximum number of options allowed
+    if (widget.optionsRange?.max case final maxOptions?) {
+      // Don't add more options if we've reached the limit
+      if (_options.length >= maxOptions) return;
+    }
 
-      // Notify the parent widget about the change
-      widget.onOptionsChanged?.call([..._options.values]);
+    // Create a new option item
+    final option = PollOptionItem();
+
+    setState(() {
+      _options[option.id] = option;
+      _focusNodes[option.id] = FocusNode();
     });
+
+    // Notify the parent widget about the change and request focus on the
+    // newly added option text field.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      widget.onOptionsChanged?.call([..._options.values]);
+      _focusNodes[option.id]?.requestFocus();
+    });
+  }
+
+  bool get _canAddMoreOptions {
+    // Don't allow adding if there's already an empty option
+    final hasEmptyOption = _options.values.any((it) => it.text.isEmpty);
+    if (hasEmptyOption) return false;
+
+    // Check max options limit
+    if (widget.optionsRange?.max case final maxOptions?) {
+      return _options.length < maxOptions;
+    }
+
+    return true;
   }
 
   @override
@@ -271,6 +412,7 @@ class _PollOptionReorderableListViewState
             physics: const NeverScrollableScrollPhysics(),
             proxyDecorator: _proxyDecorator,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
+            onReorderStart: (_) => FocusScope.of(context).unfocus(),
             onReorder: _onOptionReorder,
             itemBuilder: (context, index) {
               final option = _options.values.elementAt(index);
@@ -278,6 +420,8 @@ class _PollOptionReorderableListViewState
                 key: Key(option.id),
                 option: option,
                 hintText: widget.itemHintText,
+                focusNode: _focusNodes[option.id],
+                onRemove: _onOptionRemoved,
                 onChanged: _onOptionChanged,
               );
             },
@@ -287,7 +431,7 @@ class _PollOptionReorderableListViewState
         SizedBox(
           width: double.infinity,
           child: FilledButton.tonal(
-            onPressed: _onAddOptionPressed,
+            onPressed: _canAddMoreOptions ? _onAddOptionPressed : null,
             style: TextButton.styleFrom(
               alignment: Alignment.centerLeft,
               textStyle: theme.optionsTextFieldStyle,

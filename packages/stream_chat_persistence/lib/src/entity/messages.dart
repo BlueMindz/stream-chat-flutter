@@ -105,6 +105,9 @@ class Messages extends Table {
   /// Id of the User who sent the message
   TextColumn get userId => text().nullable()();
 
+  /// The channel role of the user who sent the message
+  TextColumn get channelRole => text().nullable()();
+
   /// Whether the message is pinned or not
   BoolColumn get pinned => boolean().withDefault(const Constant(false))();
 
@@ -128,9 +131,6 @@ class Messages extends Table {
   /// The list of user ids that should be able to see the message.
   TextColumn get restrictedVisibility =>
       text().nullable().map(ListConverter<String>())();
-
-  /// Id of the draft message if this message is a parent message.
-  TextColumn get draftMessageId => text().nullable()();
 
   /// Message custom extraData
   TextColumn get extraData => text().nullable().map(MapConverter())();

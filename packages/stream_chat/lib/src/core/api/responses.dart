@@ -11,12 +11,15 @@ import 'package:stream_chat/src/core/models/draft.dart';
 import 'package:stream_chat/src/core/models/event.dart';
 import 'package:stream_chat/src/core/models/member.dart';
 import 'package:stream_chat/src/core/models/message.dart';
+import 'package:stream_chat/src/core/models/message_reminder.dart';
 import 'package:stream_chat/src/core/models/poll.dart';
 import 'package:stream_chat/src/core/models/poll_option.dart';
 import 'package:stream_chat/src/core/models/poll_vote.dart';
+import 'package:stream_chat/src/core/models/push_preference.dart';
 import 'package:stream_chat/src/core/models/reaction.dart';
 import 'package:stream_chat/src/core/models/read.dart';
 import 'package:stream_chat/src/core/models/thread.dart';
+import 'package:stream_chat/src/core/models/unread_counts.dart';
 import 'package:stream_chat/src/core/models/user.dart';
 import 'package:stream_chat/src/core/models/user_block.dart';
 
@@ -763,4 +766,83 @@ class QueryDraftsResponse extends _BaseResponse {
   /// Create a new instance from a json
   static QueryDraftsResponse fromJson(Map<String, dynamic> json) =>
       _$QueryDraftsResponseFromJson(json);
+}
+
+/// Base Model response for draft based api calls.
+class MessageReminderResponse extends _BaseResponse {
+  /// Draft returned by the api call
+  late MessageReminder reminder;
+}
+
+/// Model response for [StreamChatClient.createReminder] api call
+@JsonSerializable(createToJson: false)
+class CreateReminderResponse extends MessageReminderResponse {
+  /// Create a new instance from a json
+  static CreateReminderResponse fromJson(Map<String, dynamic> json) =>
+      _$CreateReminderResponseFromJson(json);
+}
+
+/// Model response for [StreamChatClient.updateReminder] api call
+@JsonSerializable(createToJson: false)
+class UpdateReminderResponse extends MessageReminderResponse {
+  /// Create a new instance from a json
+  static UpdateReminderResponse fromJson(Map<String, dynamic> json) =>
+      _$UpdateReminderResponseFromJson(json);
+}
+
+/// Model response for [StreamChatClient.queryReminders] api call
+@JsonSerializable(createToJson: false)
+class QueryRemindersResponse extends _BaseResponse {
+  /// List of reminders returned by the query
+  @JsonKey(defaultValue: [])
+  late List<MessageReminder> reminders;
+
+  /// The next page token
+  late String? next;
+
+  /// Create a new instance from a json
+  static QueryRemindersResponse fromJson(Map<String, dynamic> json) =>
+      _$QueryRemindersResponseFromJson(json);
+}
+
+/// Model response for [StreamChatClient.getUnreadCount] api call
+@JsonSerializable(createToJson: false)
+class GetUnreadCountResponse extends _BaseResponse {
+  /// Total number of unread messages across all channels
+  late int totalUnreadCount;
+
+  /// Total number of threads with unread replies
+  late int totalUnreadThreadsCount;
+
+  /// Total number of unread messages grouped by team
+  late Map<String, int>? totalUnreadCountByTeam;
+
+  /// List of channels with unread messages
+  late List<UnreadCountsChannel> channels;
+
+  /// Summary of unread counts grouped by channel type
+  late List<UnreadCountsChannelType> channelType;
+
+  /// List of threads with unread replies
+  late List<UnreadCountsThread> threads;
+
+  /// Create a new instance from a json
+  static GetUnreadCountResponse fromJson(Map<String, dynamic> json) =>
+      _$GetUnreadCountResponseFromJson(json);
+}
+
+/// Model response for [StreamChatClient.setPushPreferences] api call
+@JsonSerializable(createToJson: false)
+class UpsertPushPreferencesResponse extends _BaseResponse {
+  /// Mapping of user IDs to their push preferences
+  @JsonKey(defaultValue: {})
+  late Map<String, PushPreference> userPreferences;
+
+  /// Mapping of user IDs to their channel-specific push preferences
+  @JsonKey(defaultValue: {})
+  late Map<String, Map<String, ChannelPushPreference>> userChannelPreferences;
+
+  /// Create a new instance from a json
+  static UpsertPushPreferencesResponse fromJson(Map<String, dynamic> json) =>
+      _$UpsertPushPreferencesResponseFromJson(json);
 }

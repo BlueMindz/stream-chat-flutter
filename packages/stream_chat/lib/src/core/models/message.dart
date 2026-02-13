@@ -4,12 +4,14 @@ import 'package:json_annotation/json_annotation.dart';
 import 'package:stream_chat/src/core/models/attachment.dart';
 import 'package:stream_chat/src/core/models/comparable_field.dart';
 import 'package:stream_chat/src/core/models/draft.dart';
+import 'package:stream_chat/src/core/models/message_reminder.dart';
 import 'package:stream_chat/src/core/models/message_state.dart';
 import 'package:stream_chat/src/core/models/moderation.dart';
 import 'package:stream_chat/src/core/models/poll.dart';
 import 'package:stream_chat/src/core/models/reaction.dart';
 import 'package:stream_chat/src/core/models/reaction_group.dart';
 import 'package:stream_chat/src/core/models/user.dart';
+import 'package:stream_chat/src/core/util/extension.dart';
 import 'package:stream_chat/src/core/util/serializer.dart';
 import 'package:uuid/uuid.dart';
 
@@ -67,6 +69,8 @@ class Message extends Equatable implements ComparableFieldProvider {
     this.restrictedVisibility,
     this.moderation,
     this.draft,
+    this.reminder,
+    this.channelRole,
   })  : id = id ?? const Uuid().v4(),
         type = MessageType(type),
         pinExpires = pinExpires?.toUtc(),
@@ -307,6 +311,24 @@ class Message extends Equatable implements ComparableFieldProvider {
   /// This is present when the message is a thread i.e. contains replies.
   final Draft? draft;
 
+  /// Optional reminder for this message.
+  ///
+  /// This is present when a user has set a reminder for this message.
+  final MessageReminder? reminder;
+
+  static Object? _channelRoleReadValue(Map<Object?, Object?> json, String key) {
+    // Extract the channel role from the member object if present.
+    final member = json['member'];
+    if (member is! Map<String, Object?>) return null;
+
+    final channelRole = member[key].safeCast<String>();
+    return channelRole;
+  }
+
+  /// The role of the user in the channel the message belongs to.
+  @JsonKey(includeToJson: false, readValue: _channelRoleReadValue)
+  final String? channelRole;
+
   /// Message custom extraData.
   final Map<String, Object?> extraData;
 
@@ -354,6 +376,8 @@ class Message extends Equatable implements ComparableFieldProvider {
     'moderation',
     'moderation_details',
     'draft',
+    'reminder',
+    'member',
   ];
 
   /// Serialize to json.
@@ -415,6 +439,8 @@ class Message extends Equatable implements ComparableFieldProvider {
     List<String>? restrictedVisibility,
     Moderation? moderation,
     Object? draft = _nullConst,
+    Object? reminder = _nullConst,
+    String? channelRole,
   }) {
     assert(() {
       if (pinExpires is! DateTime &&
@@ -495,6 +521,9 @@ class Message extends Equatable implements ComparableFieldProvider {
       restrictedVisibility: restrictedVisibility ?? this.restrictedVisibility,
       moderation: moderation ?? this.moderation,
       draft: draft == _nullConst ? this.draft : draft as Draft?,
+      reminder:
+          reminder == _nullConst ? this.reminder : reminder as MessageReminder?,
+      channelRole: channelRole ?? this.channelRole,
     );
   }
 
@@ -539,6 +568,8 @@ class Message extends Equatable implements ComparableFieldProvider {
       restrictedVisibility: other.restrictedVisibility,
       moderation: other.moderation,
       draft: other.draft,
+      reminder: other.reminder,
+      channelRole: other.channelRole,
     );
   }
 
@@ -603,6 +634,8 @@ class Message extends Equatable implements ComparableFieldProvider {
         restrictedVisibility,
         moderation,
         draft,
+        reminder,
+        channelRole,
       ];
 
   @override

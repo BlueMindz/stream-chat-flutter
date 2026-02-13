@@ -443,3 +443,72 @@ QueryDraftsResponse _$QueryDraftsResponseFromJson(Map<String, dynamic> json) =>
               .toList() ??
           []
       ..next = json['next'] as String?;
+
+CreateReminderResponse _$CreateReminderResponseFromJson(
+        Map<String, dynamic> json) =>
+    CreateReminderResponse()
+      ..duration = json['duration'] as String?
+      ..reminder =
+          MessageReminder.fromJson(json['reminder'] as Map<String, dynamic>);
+
+UpdateReminderResponse _$UpdateReminderResponseFromJson(
+        Map<String, dynamic> json) =>
+    UpdateReminderResponse()
+      ..duration = json['duration'] as String?
+      ..reminder =
+          MessageReminder.fromJson(json['reminder'] as Map<String, dynamic>);
+
+QueryRemindersResponse _$QueryRemindersResponseFromJson(
+        Map<String, dynamic> json) =>
+    QueryRemindersResponse()
+      ..duration = json['duration'] as String?
+      ..reminders = (json['reminders'] as List<dynamic>?)
+              ?.map((e) => MessageReminder.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          []
+      ..next = json['next'] as String?;
+
+GetUnreadCountResponse _$GetUnreadCountResponseFromJson(
+        Map<String, dynamic> json) =>
+    GetUnreadCountResponse()
+      ..duration = json['duration'] as String?
+      ..totalUnreadCount = (json['total_unread_count'] as num).toInt()
+      ..totalUnreadThreadsCount =
+          (json['total_unread_threads_count'] as num).toInt()
+      ..totalUnreadCountByTeam =
+          (json['total_unread_count_by_team'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, (e as num).toInt()),
+      )
+      ..channels = (json['channels'] as List<dynamic>)
+          .map((e) => UnreadCountsChannel.fromJson(e as Map<String, dynamic>))
+          .toList()
+      ..channelType = (json['channel_type'] as List<dynamic>)
+          .map((e) =>
+              UnreadCountsChannelType.fromJson(e as Map<String, dynamic>))
+          .toList()
+      ..threads = (json['threads'] as List<dynamic>)
+          .map((e) => UnreadCountsThread.fromJson(e as Map<String, dynamic>))
+          .toList();
+
+UpsertPushPreferencesResponse _$UpsertPushPreferencesResponseFromJson(
+        Map<String, dynamic> json) =>
+    UpsertPushPreferencesResponse()
+      ..duration = json['duration'] as String?
+      ..userPreferences = (json['user_preferences'] as Map<String, dynamic>?)
+              ?.map(
+            (k, e) =>
+                MapEntry(k, PushPreference.fromJson(e as Map<String, dynamic>)),
+          ) ??
+          {}
+      ..userChannelPreferences =
+          (json['user_channel_preferences'] as Map<String, dynamic>?)?.map(
+                (k, e) => MapEntry(
+                    k,
+                    (e as Map<String, dynamic>).map(
+                      (k, e) => MapEntry(
+                          k,
+                          ChannelPushPreference.fromJson(
+                              e as Map<String, dynamic>)),
+                    )),
+              ) ??
+              {};

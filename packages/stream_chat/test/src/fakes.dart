@@ -43,6 +43,63 @@ class FakeTokenManager extends Fake implements TokenManager {
 
 class FakeMultiPartFile extends Fake implements MultipartFile {}
 
+/// Fake persistence client for testing persistence client reliability features
+class FakePersistenceClient extends Fake implements ChatPersistenceClient {
+  FakePersistenceClient({
+    DateTime? lastSyncAt,
+    List<String>? channelCids,
+  })  : _lastSyncAt = lastSyncAt,
+        _channelCids = channelCids ?? [];
+
+  String? _userId;
+  bool _isConnected = false;
+  DateTime? _lastSyncAt;
+  List<String> _channelCids;
+
+  // Track method calls for testing
+  int connectCallCount = 0;
+  int disconnectCallCount = 0;
+
+  @override
+  bool get isConnected => _isConnected;
+
+  @override
+  String? get userId => _userId;
+
+  @override
+  Future<void> connect(String userId) async {
+    _userId = userId;
+    _isConnected = true;
+    connectCallCount++;
+  }
+
+  @override
+  Future<void> disconnect({bool flush = false}) async {
+    if (flush) await this.flush();
+
+    _userId = null;
+    _isConnected = false;
+    disconnectCallCount++;
+  }
+
+  @override
+  Future<void> flush() async {
+    _lastSyncAt = null;
+    _channelCids = [];
+  }
+
+  @override
+  Future<DateTime?> getLastSyncAt() async => _lastSyncAt;
+
+  @override
+  Future<void> updateLastSyncAt(DateTime lastSyncAt) async {
+    _lastSyncAt = lastSyncAt;
+  }
+
+  @override
+  Future<List<String>> getChannelCids() async => _channelCids;
+}
+
 class FakeChatApi extends Fake implements StreamChatApi {
   UserApi? _user;
 
@@ -92,15 +149,47 @@ class FakeChatApi extends Fake implements StreamChatApi {
 }
 
 class FakeClientState extends Fake implements ClientState {
+  FakeClientState({
+    OwnUser? currentUser,
+  }) : _currentUser = currentUser;
+
+  OwnUser? _currentUser;
+
   @override
-  OwnUser? get currentUser => OwnUser(id: 'test-user-id', name: 'Test User');
+  OwnUser? get currentUser {
+    return _currentUser ??= OwnUser(
+      id: 'test-user-id',
+      name: 'Test User',
+      privacySettings: const PrivacySettings(
+        typingIndicators: TypingIndicators(),
+        readReceipts: ReadReceipts(),
+      ),
+    );
+  }
+
+  @override
+  void updateUser(User? user) {
+    if (user == null) return;
+    if (_currentUser case final current? when user.id != current.id) return;
+
+    _currentUser = OwnUser.fromUser(user);
+  }
 
   @override
   int totalUnreadCount = 0;
 
   @override
+  Map<String, Channel> get channels => _channels;
+  final _channels = <String, Channel>{};
+
+  @override
+  void addChannels(Map<String, Channel> channelMap) {
+    _channels.addAll(channelMap);
+  }
+
+  @override
   void removeChannel(String channelCid) {
-    return;
+    _channels.remove(channelCid);
   }
 }
 
@@ -117,22 +206,20 @@ class FakeUser extends Fake implements User {}
 class FakePollVote extends Fake implements PollVote {}
 
 class FakeWebSocket extends Fake implements WebSocket {
-  BehaviorSubject<ConnectionStatus>? _connectionStatusController;
-
-  BehaviorSubject<ConnectionStatus> get connectionStatusController =>
-      _connectionStatusController ??=
-          BehaviorSubject.seeded(ConnectionStatus.disconnected);
+  late final _connectionStatusController = BehaviorSubject.seeded(
+    ConnectionStatus.disconnected,
+  );
 
   set connectionStatus(ConnectionStatus value) {
-    connectionStatusController.add(value);
+    _connectionStatusController.add(value);
   }
 
   @override
-  ConnectionStatus get connectionStatus => connectionStatusController.value;
+  ConnectionStatus get connectionStatus => _connectionStatusController.value;
 
   @override
   Stream<ConnectionStatus> get connectionStatusStream =>
-      connectionStatusController.stream;
+      _connectionStatusController.stream;
 
   @override
   Completer<Event>? connectionCompleter;
@@ -157,28 +244,29 @@ class FakeWebSocket extends Fake implements WebSocket {
   void disconnect() {
     connectionStatus = ConnectionStatus.disconnected;
     connectionCompleter = null;
-    _connectionStatusController?.close();
-    _connectionStatusController = null;
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _connectionStatusController.close();
   }
 }
 
 class FakeWebSocketWithConnectionError extends Fake implements WebSocket {
-  BehaviorSubject<ConnectionStatus>? _connectionStatusController;
-
-  BehaviorSubject<ConnectionStatus> get connectionStatusController =>
-      _connectionStatusController ??=
-          BehaviorSubject.seeded(ConnectionStatus.disconnected);
+  late final _connectionStatusController = BehaviorSubject.seeded(
+    ConnectionStatus.disconnected,
+  );
 
   set connectionStatus(ConnectionStatus value) {
-    connectionStatusController.add(value);
+    _connectionStatusController.add(value);
   }
 
   @override
-  ConnectionStatus get connectionStatus => connectionStatusController.value;
+  ConnectionStatus get connectionStatus => _connectionStatusController.value;
 
   @override
   Stream<ConnectionStatus> get connectionStatusStream =>
-      connectionStatusController.stream;
+      _connectionStatusController.stream;
 
   @override
   Completer<Event>? connectionCompleter;
@@ -198,8 +286,11 @@ class FakeWebSocketWithConnectionError extends Fake implements WebSocket {
   void disconnect() {
     connectionStatus = ConnectionStatus.disconnected;
     connectionCompleter = null;
-    _connectionStatusController?.close();
-    _connectionStatusController = null;
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _connectionStatusController.close();
   }
 }
 

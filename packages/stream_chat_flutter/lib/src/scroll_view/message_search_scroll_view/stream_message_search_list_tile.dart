@@ -141,6 +141,7 @@ class StreamMessageSearchListTile extends StatelessWidget {
             MessageSearchTileMessageDate(
               message: message,
               textStyle: channelPreviewTheme.lastMessageAtStyle,
+              formatter: channelPreviewTheme.lastMessageAtFormatter,
             ),
           ],
         );
@@ -213,7 +214,7 @@ class MessageSearchTileMessageDate extends StatelessWidget {
     super.key,
     required this.message,
     this.textStyle,
-    this.dateFormat,
+    this.formatter,
   });
 
   /// The searched message response.
@@ -222,8 +223,8 @@ class MessageSearchTileMessageDate extends StatelessWidget {
   /// The text style to use for the date.
   final TextStyle? textStyle;
 
-  /// The date format to display date.
-  final String? dateFormat;
+  /// An optional formatter to format the date.
+  final DateFormatter? formatter;
 
   @override
   Widget build(BuildContext context) {
@@ -231,14 +232,7 @@ class MessageSearchTileMessageDate extends StatelessWidget {
     return StreamTimestamp(
       date: createdAt.toLocal(),
       style: textStyle,
-      formatter: (context, date) {
-        if (createdAt.isToday) return Jiffy.parseFromDateTime(date).jm;
-        if (createdAt.isYesterday) return context.translations.yesterdayLabel;
-        if (createdAt.isWithinAWeek) return Jiffy.parseFromDateTime(date).EEEE;
-
-        return Jiffy.parseFromDateTime(date)
-            .format(pattern: dateFormat ?? 'yyyy/MM/dd');
-      },
+      formatter: formatter,
     );
   }
 }

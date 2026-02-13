@@ -1,7 +1,6 @@
-// ignore_for_file: lines_longer_than_80_chars
+// ignore_for_file: lines_longer_than_80_chars, cascade_invocations, deprecated_member_use_from_same_package, avoid_redundant_argument_values
 
 import 'package:mocktail/mocktail.dart';
-import 'package:stream_chat/src/client/retry_policy.dart';
 import 'package:stream_chat/stream_chat.dart';
 import 'package:test/test.dart';
 
@@ -202,6 +201,11 @@ void main() {
 
       // client logger
       when(() => client.logger).thenReturn(_createLogger('mock-client-logger'));
+
+      // mock channel delivery reporter
+      when(
+        () => client.channelDeliveryReporter.submitForDelivery(any()),
+      ).thenAnswer((_) async {});
     });
 
     // Setting up a initialized channel
@@ -210,6 +214,7 @@ void main() {
         channelId,
         channelType,
         mockChannelConfig: true,
+        ownCapabilities: [ChannelCapability.readEvents],
       );
       channel = Channel.fromState(client, channelState);
     });
@@ -246,6 +251,7 @@ void main() {
       test('should work fine', () async {
         final message = Message(
           id: 'test-message-id',
+          text: 'Hello world!',
           user: client.state.currentUser,
         );
 
@@ -460,6 +466,293 @@ void main() {
               channelType,
             )).called(1);
       });
+
+      test('should not send if the message is invalid', () async {
+        final message = Message(id: 'test-message-id');
+
+        expect(
+          () => channel.sendMessage(message),
+          throwsA(isA<StreamChatError>()),
+        );
+
+        verifyNever(
+          () => client.sendMessage(any(), channelId, channelType),
+        );
+      });
+
+      test(
+        'should not send empty message when all attachments are cancelled',
+        () async {
+          final attachment = Attachment(
+            id: 'test-attachment-id',
+            type: 'image',
+            file: AttachmentFile(size: 100, path: 'test-file-path'),
+          );
+
+          final message = Message(
+            id: 'test-message-id',
+            attachments: [attachment],
+          );
+
+          when(
+            () => client.sendImage(
+              any(),
+              channelId,
+              channelType,
+              onSendProgress: any(named: 'onSendProgress'),
+              cancelToken: any(named: 'cancelToken'),
+              extraData: any(named: 'extraData'),
+            ),
+          ).thenAnswer(
+            (_) async => throw StreamChatNetworkError.raw(
+              code: 0,
+              message: 'Request cancelled',
+              isRequestCancelledError: true,
+            ),
+          );
+
+          expect(
+            () => channel.sendMessage(message),
+            throwsA(isA<StreamChatError>()),
+          );
+
+          verify(
+            () => client.sendImage(
+              any(),
+              channelId,
+              channelType,
+              onSendProgress: any(named: 'onSendProgress'),
+              cancelToken: any(named: 'cancelToken'),
+              extraData: any(named: 'extraData'),
+            ),
+          );
+
+          verifyNever(
+            () => client.sendMessage(any(), channelId, channelType),
+          );
+        },
+      );
+
+      test(
+        'should send message when attachment is cancelled but text exists',
+        () async {
+          final attachment = Attachment(
+            id: 'test-attachment-id',
+            type: 'image',
+            file: AttachmentFile(size: 100, path: 'test-file-path'),
+          );
+
+          final message = Message(
+            id: 'test-message-id',
+            text: 'Hello world!',
+            attachments: [attachment],
+          );
+
+          when(
+            () => client.sendImage(
+              any(),
+              channelId,
+              channelType,
+              onSendProgress: any(named: 'onSendProgress'),
+              cancelToken: any(named: 'cancelToken'),
+              extraData: any(named: 'extraData'),
+            ),
+          ).thenAnswer(
+            (_) async => throw StreamChatNetworkError.raw(
+              code: 0,
+              message: 'Request cancelled',
+              isRequestCancelledError: true,
+            ),
+          );
+
+          when(
+            () => client.sendMessage(
+              any(that: isSameMessageAs(message)),
+              channelId,
+              channelType,
+            ),
+          ).thenAnswer(
+            (_) async => SendMessageResponse()
+              ..message = message.copyWith(
+                attachments: [],
+                state: MessageState.sent,
+              ),
+          );
+
+          final res = await channel.sendMessage(message);
+
+          expect(res, isNotNull);
+          expect(res.message.text, 'Hello world!');
+
+          verify(
+            () => client.sendImage(
+              any(),
+              channelId,
+              channelType,
+              onSendProgress: any(named: 'onSendProgress'),
+              cancelToken: any(named: 'cancelToken'),
+              extraData: any(named: 'extraData'),
+            ),
+          );
+
+          verify(
+            () => client.sendMessage(
+              any(that: isSameMessageAs(message)),
+              channelId,
+              channelType,
+            ),
+          );
+        },
+      );
+
+      test(
+        'should send message when attachment is cancelled but quoted message exists',
+        () async {
+          final attachment = Attachment(
+            id: 'test-attachment-id',
+            type: 'image',
+            file: AttachmentFile(size: 100, path: 'test-file-path'),
+          );
+
+          final quotedMessage = Message(
+            id: 'quoted-123',
+            text: 'Original message',
+          );
+
+          final message = Message(
+            id: 'test-message-id',
+            attachments: [attachment],
+            quotedMessageId: quotedMessage.id,
+          );
+
+          when(
+            () => client.sendImage(
+              any(),
+              channelId,
+              channelType,
+              onSendProgress: any(named: 'onSendProgress'),
+              cancelToken: any(named: 'cancelToken'),
+              extraData: any(named: 'extraData'),
+            ),
+          ).thenAnswer(
+            (_) async => throw StreamChatNetworkError.raw(
+              code: 0,
+              message: 'Request cancelled',
+              isRequestCancelledError: true,
+            ),
+          );
+
+          when(
+            () => client.sendMessage(
+              any(that: isSameMessageAs(message)),
+              channelId,
+              channelType,
+            ),
+          ).thenAnswer(
+            (_) async => SendMessageResponse()
+              ..message = message.copyWith(
+                attachments: [],
+                state: MessageState.sent,
+              ),
+          );
+
+          final res = await channel.sendMessage(message);
+
+          expect(res, isNotNull);
+          expect(res.message.quotedMessageId, quotedMessage.id);
+
+          verify(
+            () => client.sendImage(
+              any(),
+              channelId,
+              channelType,
+              onSendProgress: any(named: 'onSendProgress'),
+              cancelToken: any(named: 'cancelToken'),
+              extraData: any(named: 'extraData'),
+            ),
+          );
+
+          verify(
+            () => client.sendMessage(
+              any(that: isSameMessageAs(message)),
+              channelId,
+              channelType,
+            ),
+          );
+        },
+      );
+
+      test(
+        'should send message when attachment is cancelled but poll exists',
+        () async {
+          final attachment = Attachment(
+            id: 'test-attachment-id',
+            type: 'image',
+            file: AttachmentFile(size: 100, path: 'test-file-path'),
+          );
+
+          final message = Message(
+            id: 'test-message-id',
+            attachments: [attachment],
+            pollId: 'poll-123',
+          );
+
+          when(
+            () => client.sendImage(
+              any(),
+              channelId,
+              channelType,
+              onSendProgress: any(named: 'onSendProgress'),
+              cancelToken: any(named: 'cancelToken'),
+              extraData: any(named: 'extraData'),
+            ),
+          ).thenAnswer(
+            (_) async => throw StreamChatNetworkError.raw(
+              code: 0,
+              message: 'Request cancelled',
+              isRequestCancelledError: true,
+            ),
+          );
+
+          when(
+            () => client.sendMessage(
+              any(that: isSameMessageAs(message)),
+              channelId,
+              channelType,
+            ),
+          ).thenAnswer(
+            (_) async => SendMessageResponse()
+              ..message = message.copyWith(
+                attachments: [],
+                state: MessageState.sent,
+              ),
+          );
+
+          final res = await channel.sendMessage(message);
+
+          expect(res, isNotNull);
+          expect(res.message.pollId, 'poll-123');
+
+          verify(
+            () => client.sendImage(
+              any(),
+              channelId,
+              channelType,
+              onSendProgress: any(named: 'onSendProgress'),
+              cancelToken: any(named: 'cancelToken'),
+              extraData: any(named: 'extraData'),
+            ),
+          );
+
+          verify(
+            () => client.sendMessage(
+              any(that: isSameMessageAs(message)),
+              channelId,
+              channelType,
+            ),
+          );
+        },
+      );
     });
 
     group('`.createDraft`', () {
@@ -570,6 +863,112 @@ void main() {
               channelType,
               parentId: parentId,
             )).called(1);
+      });
+    });
+
+    group('`.createReminder`', () {
+      const messageId = 'test-message-id';
+
+      setUp(() {
+        when(() => client.createReminder(
+              messageId,
+              remindAt: any(named: 'remindAt'),
+            )).thenAnswer(
+          (_) async => CreateReminderResponse()
+            ..reminder = MessageReminder(
+              messageId: messageId,
+              channelCid: channelCid,
+              userId: 'test-user-id',
+              remindAt: DateTime(2024, 6, 15, 14, 30),
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+        );
+      });
+
+      test('should call client.createReminder', () async {
+        final res = await channel.createReminder(messageId);
+
+        expect(res, isNotNull);
+        expect(res.reminder.messageId, messageId);
+
+        verify(() => channel.client.createReminder(messageId)).called(1);
+      });
+
+      test('with remindAt should pass remindAt to client', () async {
+        final remindAt = DateTime(2024, 6, 15, 14, 30);
+        final res = await channel.createReminder(messageId, remindAt: remindAt);
+
+        expect(res, isNotNull);
+        expect(res.reminder.messageId, messageId);
+        expect(res.reminder.remindAt, remindAt);
+
+        verify(() => channel.client.createReminder(
+              messageId,
+              remindAt: remindAt,
+            )).called(1);
+      });
+    });
+
+    group('`.updateReminder`', () {
+      const messageId = 'test-message-id';
+
+      setUp(() {
+        when(() => client.updateReminder(
+              messageId,
+              remindAt: any(named: 'remindAt'),
+            )).thenAnswer(
+          (_) async => UpdateReminderResponse()
+            ..reminder = MessageReminder(
+              messageId: messageId,
+              channelCid: channelCid,
+              userId: 'test-user-id',
+              remindAt: DateTime(2024, 8, 20, 16, 45),
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+        );
+      });
+
+      test('should call client.updateReminder', () async {
+        final res = await channel.updateReminder(messageId);
+
+        expect(res, isNotNull);
+        expect(res.reminder.messageId, messageId);
+
+        verify(() => channel.client.updateReminder(messageId)).called(1);
+      });
+
+      test('with remindAt should pass remindAt to client', () async {
+        final remindAt = DateTime(2024, 8, 20, 16, 45);
+        final res = await channel.updateReminder(messageId, remindAt: remindAt);
+
+        expect(res, isNotNull);
+        expect(res.reminder.messageId, messageId);
+        expect(res.reminder.remindAt, remindAt);
+
+        verify(() => channel.client.updateReminder(
+              messageId,
+              remindAt: remindAt,
+            )).called(1);
+      });
+    });
+
+    group('`.deleteReminder`', () {
+      const messageId = 'test-message-id';
+
+      setUp(() {
+        when(() => client.deleteReminder(messageId)).thenAnswer(
+          (_) async => EmptyResponse(),
+        );
+      });
+
+      test('should call client.deleteReminder', () async {
+        final res = await channel.deleteReminder(messageId);
+
+        expect(res, isNotNull);
+
+        verify(() => channel.client.deleteReminder(messageId)).called(1);
       });
     });
 
@@ -1167,7 +1566,7 @@ void main() {
 
       test('should work fine with `query`', () async {
         const query = 'test-search-query';
-        const sort = [SortOption('test-sort-field')];
+        const sort = [SortOption.asc('test-sort-field')];
         const pagination = PaginationParams();
 
         final results = List.generate(3, (index) => GetMessageResponse());
@@ -1200,7 +1599,7 @@ void main() {
 
       test('should work fine with `messageFilters`', () async {
         final messageFilters = Filter.query('key', 'text');
-        const sort = [SortOption('test-sort-field')];
+        const sort = [SortOption.desc('test-sort-field')];
         const pagination = PaginationParams();
 
         final results = List.generate(3, (index) => GetMessageResponse());
@@ -2287,6 +2686,53 @@ void main() {
           message: any(named: 'message'))).called(1);
     });
 
+    test('`.addMembers` with hideHistoryBefore', () async {
+      final members = List.generate(
+        3,
+        (index) => Member(userId: 'test-member-id-$index'),
+      );
+      final memberIds = members
+          .map((it) => it.userId)
+          .whereType<String>()
+          .toList(growable: false);
+      final message = Message(id: 'test-message-id', text: 'Members Added');
+      final hideHistoryBefore = DateTime.parse('2024-01-01T00:00:00Z');
+
+      final channelModel = ChannelModel(cid: channelCid);
+
+      when(() => client.addChannelMembers(
+            channelId,
+            channelType,
+            memberIds,
+            message: message,
+            hideHistoryBefore: hideHistoryBefore,
+          )).thenAnswer(
+        (_) async => AddMembersResponse()
+          ..channel = channelModel
+          ..members = members
+          ..message = message,
+      );
+
+      final res = await channel.addMembers(
+        memberIds,
+        message: message,
+        hideHistoryBefore: hideHistoryBefore,
+      );
+
+      expect(res, isNotNull);
+      expect(res.channel.cid, channelModel.cid);
+      expect(res.members.length, members.length);
+      expect(res.message?.id, message.id);
+
+      verify(() => client.addChannelMembers(
+            channelId,
+            channelType,
+            memberIds,
+            message: message,
+            hideHistoryBefore: hideHistoryBefore,
+          )).called(1);
+    });
+
     test('`.inviteMembers`', () async {
       final members = List.generate(
         3,
@@ -2401,20 +2847,6 @@ void main() {
           () => client.sendAction(channelId, channelType, message.id, formData),
         ).called(1);
       });
-    });
-
-    test('`.markRead`', () async {
-      const messageId = 'test-message-id';
-
-      when(() => client.markChannelRead(channelId, channelType,
-          messageId: messageId)).thenAnswer((_) async => EmptyResponse());
-
-      final res = await channel.markRead(messageId: messageId);
-
-      expect(res, isNotNull);
-
-      verify(() => client.markChannelRead(channelId, channelType,
-          messageId: messageId)).called(1);
     });
 
     group('`.watch`', () {
@@ -2643,6 +3075,178 @@ void main() {
           ),
         ).called(1);
       });
+
+      test('should truncate state when querying around message id', () async {
+        final initialMessages = [
+          Message(id: 'msg1', text: 'Hello 1'),
+          Message(id: 'msg2', text: 'Hello 2'),
+          Message(id: 'msg3', text: 'Hello 3'),
+        ];
+
+        final stateWithMessages = _generateChannelState(
+          channelId,
+          channelType,
+        ).copyWith(messages: initialMessages);
+
+        channel.state!.updateChannelState(stateWithMessages);
+        expect(channel.state!.messages, hasLength(3));
+
+        final newState = _generateChannelState(
+          channelId,
+          channelType,
+        ).copyWith(messages: [
+          Message(id: 'msg-before-1', text: 'Message before 1'),
+          Message(id: 'msg-before-2', text: 'Message before 2'),
+          Message(id: 'target-message-id', text: 'Target message'),
+          Message(id: 'msg-after-1', text: 'Message after 1'),
+          Message(id: 'msg-after-2', text: 'Message after 2'),
+        ]);
+
+        when(
+          () => client.queryChannel(
+            channelType,
+            channelId: channelId,
+            channelData: any(named: 'channelData'),
+            messagesPagination: any(named: 'messagesPagination'),
+            membersPagination: any(named: 'membersPagination'),
+            watchersPagination: any(named: 'watchersPagination'),
+          ),
+        ).thenAnswer((_) async => newState);
+
+        const pagination = PaginationParams(idAround: 'target-message-id');
+
+        final res = await channel.query(messagesPagination: pagination);
+
+        expect(res, isNotNull);
+        expect(channel.state!.messages, hasLength(5));
+        expect(channel.state!.messages[2].id, 'target-message-id');
+
+        verify(
+          () => client.queryChannel(
+            channelType,
+            channelId: channelId,
+            channelData: any(named: 'channelData'),
+            messagesPagination: pagination,
+            membersPagination: any(named: 'membersPagination'),
+            watchersPagination: any(named: 'watchersPagination'),
+          ),
+        ).called(1);
+      });
+
+      test('should truncate state when querying around created date', () async {
+        final initialMessages = [
+          Message(id: 'msg1', text: 'Hello 1'),
+          Message(id: 'msg2', text: 'Hello 2'),
+          Message(id: 'msg3', text: 'Hello 3'),
+        ];
+
+        final stateWithMessages = _generateChannelState(
+          channelId,
+          channelType,
+        ).copyWith(messages: initialMessages);
+
+        channel.state!.updateChannelState(stateWithMessages);
+        expect(channel.state!.messages, hasLength(3));
+
+        final targetDate = DateTime.now();
+        final newState = _generateChannelState(
+          channelId,
+          channelType,
+        ).copyWith(messages: [
+          Message(id: 'msg-before-1', text: 'Message before 1'),
+          Message(id: 'msg-before-2', text: 'Message before 2'),
+          Message(id: 'target-message', text: 'Target message'),
+          Message(id: 'msg-after-1', text: 'Message after 1'),
+          Message(id: 'msg-after-2', text: 'Message after 2'),
+        ]);
+
+        when(
+          () => client.queryChannel(
+            channelType,
+            channelId: channelId,
+            channelData: any(named: 'channelData'),
+            messagesPagination: any(named: 'messagesPagination'),
+            membersPagination: any(named: 'membersPagination'),
+            watchersPagination: any(named: 'watchersPagination'),
+          ),
+        ).thenAnswer((_) async => newState);
+
+        final pagination = PaginationParams(createdAtAround: targetDate);
+
+        final res = await channel.query(messagesPagination: pagination);
+
+        expect(res, isNotNull);
+        expect(channel.state!.messages, hasLength(5));
+        expect(channel.state!.messages[2].id, 'target-message');
+
+        verify(
+          () => client.queryChannel(
+            channelType,
+            channelId: channelId,
+            channelData: any(named: 'channelData'),
+            messagesPagination: pagination,
+            membersPagination: any(named: 'membersPagination'),
+            watchersPagination: any(named: 'watchersPagination'),
+          ),
+        ).called(1);
+      });
+
+      test(
+        'should submit for delivery when querying latest messages (no pagination)',
+        () async {
+          final channelState = _generateChannelState(channelId, channelType);
+
+          when(
+            () => client.queryChannel(
+              channelType,
+              channelId: channelId,
+              channelData: any(named: 'channelData'),
+              messagesPagination: any(named: 'messagesPagination'),
+              membersPagination: any(named: 'membersPagination'),
+              watchersPagination: any(named: 'watchersPagination'),
+            ),
+          ).thenAnswer((_) async => channelState);
+
+          // Query without pagination params (fetching latest messages)
+          await channel.query();
+
+          // Verify submitForDelivery was called
+          verify(
+            () => client.channelDeliveryReporter.submitForDelivery([channel]),
+          ).called(1);
+        },
+      );
+
+      test(
+        'should NOT submit for delivery when querying with pagination (older messages)',
+        () async {
+          final channelState = _generateChannelState(channelId, channelType);
+
+          when(
+            () => client.queryChannel(
+              channelType,
+              channelId: channelId,
+              channelData: any(named: 'channelData'),
+              messagesPagination: any(named: 'messagesPagination'),
+              membersPagination: any(named: 'membersPagination'),
+              watchersPagination: any(named: 'watchersPagination'),
+            ),
+          ).thenAnswer((_) async => channelState);
+
+          // Query with pagination params (fetching older messages)
+          await channel.query(
+            messagesPagination: const PaginationParams(
+              limit: 20,
+              lessThan: 'some-message-id',
+            ),
+          );
+
+          // Verify submitForDelivery was NOT called
+          verifyNever(
+            () => client.channelDeliveryReporter.submitForDelivery([channel]),
+          );
+        },
+      );
     });
 
     test('`.queryMembers`', () async {
@@ -2966,97 +3570,6 @@ void main() {
       return expectLater(channel.on(eventType), emitsInOrder([event]));
     });
 
-    group(
-      '`.keyStroke`',
-      () {
-        test('should return if `config.typingEvents` is false', () async {
-          when(() => channel.config?.typingEvents).thenReturn(false);
-
-          final typingEvent = Event(type: EventType.typingStart);
-
-          await channel.keyStroke();
-
-          verifyNever(() => client.sendEvent(
-                channelId,
-                channelType,
-                any(that: isSameEventAs(typingEvent)),
-              ));
-        });
-
-        test(
-          '''should send `typingStart` event if there is not already a typingEvent or the difference between the two is > 3 seconds''',
-          () async {
-            final startTypingEvent = Event(type: EventType.typingStart);
-            final stopTypingEvent = Event(type: EventType.typingStop);
-
-            when(() => channel.config?.typingEvents).thenReturn(true);
-
-            when(() => client.sendEvent(
-                  channelId,
-                  channelType,
-                  any(that: isSameEventAs(startTypingEvent)),
-                )).thenAnswer((_) async => EmptyResponse());
-            when(() => client.sendEvent(
-                  channelId,
-                  channelType,
-                  any(that: isSameEventAs(stopTypingEvent)),
-                )).thenAnswer((_) async => EmptyResponse());
-
-            await channel.keyStroke();
-
-            verify(() => client.sendEvent(
-                  channelId,
-                  channelType,
-                  any(that: isSameEventAs(startTypingEvent)),
-                )).called(1);
-            verify(() => client.sendEvent(
-                  channelId,
-                  channelType,
-                  any(that: isSameEventAs(stopTypingEvent)),
-                )).called(1);
-          },
-        );
-      },
-    );
-
-    group('`.stopTyping`', () {
-      test('should return if `config.typingEvents` is false', () async {
-        when(() => channel.config?.typingEvents).thenReturn(false);
-
-        final typingStopEvent = Event(type: EventType.typingStop);
-
-        await channel.stopTyping();
-
-        verifyNever(() => client.sendEvent(
-              channelId,
-              channelType,
-              any(that: isSameEventAs(typingStopEvent)),
-            ));
-      });
-
-      test('should send `typingStop` successfully', () async {
-        final typingStopEvent = Event(type: EventType.typingStop);
-
-        when(() => channel.config?.typingEvents).thenReturn(true);
-
-        when(() => client.sendEvent(
-              channelId,
-              channelType,
-              any(that: isSameEventAs(typingStopEvent)),
-            )).thenAnswer((_) async => EmptyResponse());
-
-        await channel.stopTyping();
-
-        verify(() => client.sendEvent(
-              channelId,
-              channelType,
-              any(that: isSameEventAs(typingStopEvent)),
-            )).called(1);
-      });
-    });
-
-    // This test verifies that stale error messages (error messages without bounce moderation)
-    // are automatically cleaned up when we send a new message.
     group('stale error message cleanup', () {
       final channelState = _generateChannelState(channelId, channelType);
 
@@ -3128,6 +3641,11 @@ void main() {
 
       // client logger
       when(() => client.logger).thenReturn(_createLogger('mock-client-logger'));
+
+      // mock channel delivery reporter
+      when(
+        () => client.channelDeliveryReporter.submitForDelivery(any()),
+      ).thenAnswer((_) async {});
     });
 
     group(
@@ -3514,6 +4032,28 @@ void main() {
             },
           );
         });
+
+        test(
+          'should submit channel for delivery when message is received',
+          () async {
+            final message = Message(
+              id: 'test-message-id',
+              user: User(id: 'other-user'),
+              createdAt: initialLastMessageAt.add(const Duration(seconds: 3)),
+            );
+
+            final newMessageEvent = createNewMessageEvent(message);
+            client.addEvent(newMessageEvent);
+
+            // Wait for the event to get processed
+            await Future.delayed(Duration.zero);
+
+            // Verify submitForDelivery was called
+            verify(
+              () => client.channelDeliveryReporter.submitForDelivery([channel]),
+            ).called(1);
+          },
+        );
       },
     );
 
@@ -3853,56 +4393,8 @@ void main() {
         expect(updatedRead?.lastRead.isAtSameMomentAs(DateTime(2022)), isTrue);
       });
 
-      test('should update read state on notification mark read event',
-          () async {
-        // Create the current read state
-        final currentUser = User(id: 'test-user');
-        final currentRead = Read(
-          user: currentUser,
-          lastRead: DateTime(2020),
-          unreadMessages: 10,
-        );
-
-        // Setup initial read state
-        channel.state?.updateChannelState(
-          channel.state!.channelState.copyWith(
-            read: [currentRead],
-          ),
-        );
-
-        // Verify initial state
-        final read = channel.state?.read.first;
-        expect(read?.user.id, 'test-user');
-        expect(read?.unreadMessages, 10);
-        expect(read?.lastReadMessageId, isNull);
-        expect(read?.lastRead.isAtSameMomentAs(DateTime(2020)), isTrue);
-
-        // Create mark read notification event
-        final markReadEvent = Event(
-          cid: channel.cid,
-          type: EventType.notificationMarkRead,
-          user: currentUser,
-          createdAt: DateTime(2022),
-          unreadMessages: 0,
-          lastReadMessageId: 'message-123',
-        );
-
-        // Dispatch event
-        client.addEvent(markReadEvent);
-
-        // Wait for event to be processed
-        await Future.delayed(Duration.zero);
-
-        // Verify read state is updated
-        final updatedRead = channel.state?.read.first;
-        expect(updatedRead?.user.id, 'test-user');
-        expect(updatedRead?.unreadMessages, 0);
-        expect(updatedRead?.lastReadMessageId, 'message-123');
-        expect(updatedRead?.lastRead.isAtSameMomentAs(DateTime(2022)), isTrue);
-      });
-
       test(
-        'should add a new read state if not exist on notification mark read',
+        'should add a new read state if not exist on message read event',
         () async {
           // Create the current read state
           final currentUser = User(id: 'test-user');
@@ -3914,7 +4406,7 @@ void main() {
           // Create mark read notification event
           final markReadEvent = Event(
             cid: channel.cid,
-            type: EventType.notificationMarkRead,
+            type: EventType.messageRead,
             user: currentUser,
             createdAt: DateTime(2022),
             unreadMessages: 0,
@@ -4009,6 +4501,290 @@ void main() {
           final updated = channel.state?.read;
           expect(updated?.length, 1);
           expect(updated?.any((r) => r.user.id == 'non-existing-user'), isTrue);
+        },
+      );
+
+      test(
+        'should preserve delivery info on message read event',
+        () async {
+          final currentUser = User(id: 'test-user');
+          final currentRead = Read(
+            user: currentUser,
+            lastRead: DateTime(2020),
+            unreadMessages: 10,
+            lastDeliveredAt: DateTime(2021),
+            lastDeliveredMessageId: 'delivered-msg-456',
+          );
+
+          // Setup initial read state with delivery info
+          channel.state?.updateChannelState(
+            channel.state!.channelState.copyWith(
+              read: [currentRead],
+            ),
+          );
+
+          // Verify initial state
+          final read = channel.state?.read.first;
+          expect(read?.lastDeliveredAt, isNotNull);
+          expect(
+            read?.lastDeliveredAt?.isAtSameMomentAs(DateTime(2021)),
+            isTrue,
+          );
+          expect(read?.lastDeliveredMessageId, 'delivered-msg-456');
+
+          // Create message read event (doesn't include delivery info)
+          final messageReadEvent = Event(
+            cid: channel.cid,
+            type: EventType.messageRead,
+            user: currentUser,
+            createdAt: DateTime(2022),
+            unreadMessages: 0,
+            lastReadMessageId: 'message-123',
+          );
+
+          // Dispatch event
+          client.addEvent(messageReadEvent);
+
+          // Wait for event to be processed
+          await Future.delayed(Duration.zero);
+
+          // Verify read state is updated but delivery info is preserved
+          final updatedRead = channel.state?.read.first;
+          expect(updatedRead?.user.id, 'test-user');
+          expect(updatedRead?.unreadMessages, 0);
+          expect(updatedRead?.lastReadMessageId, 'message-123');
+          expect(
+            updatedRead?.lastRead.isAtSameMomentAs(DateTime(2022)),
+            isTrue,
+          );
+          // Delivery info should be preserved
+          expect(updatedRead?.lastDeliveredAt, isNotNull);
+          expect(
+            updatedRead?.lastDeliveredAt?.isAtSameMomentAs(DateTime(2021)),
+            isTrue,
+          );
+          expect(updatedRead?.lastDeliveredMessageId, 'delivered-msg-456');
+        },
+      );
+
+      test(
+        'should reconcile delivery when message read event is from current user',
+        () async {
+          final currentUser = client.state.currentUser;
+          final updatedUser = currentUser?.copyWith(id: 'current-user-id');
+
+          client.state.updateUser(updatedUser);
+          addTearDown(() => client.state.updateUser(currentUser));
+
+          when(
+            () => client.channelDeliveryReporter.reconcileDelivery([channel]),
+          ).thenAnswer((_) => Future.value());
+
+          // Create message read event from current user
+          final messageReadEvent = Event(
+            cid: channel.cid,
+            type: EventType.messageRead,
+            user: currentUser,
+            createdAt: DateTime(2022),
+            unreadMessages: 0,
+            lastReadMessageId: 'message-123',
+          );
+
+          // Dispatch event
+          client.addEvent(messageReadEvent);
+
+          // Wait for event to be processed
+          await Future.delayed(Duration.zero);
+
+          // Verify reconcileDelivery was called
+          verify(
+            () => client.channelDeliveryReporter.reconcileDelivery([channel]),
+          ).called(1);
+        },
+      );
+
+      test('should update read state on message delivered event', () async {
+        final currentUser = User(id: 'test-user');
+        final distantPast = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+        final currentRead = Read(
+          user: currentUser,
+          lastRead: distantPast,
+          unreadMessages: 5,
+        );
+
+        // Setup initial read state
+        channel.state?.updateChannelState(
+          channel.state!.channelState.copyWith(
+            read: [currentRead],
+          ),
+        );
+
+        // Verify initial state has no delivery info
+        final read = channel.state?.read.first;
+        expect(read?.user.id, 'test-user');
+        expect(read?.lastDeliveredAt, isNull);
+        expect(read?.lastDeliveredMessageId, isNull);
+
+        // Create message delivered event
+        final messageDeliveredEvent = Event(
+          cid: channel.cid,
+          type: EventType.messageDelivered,
+          user: currentUser,
+          lastDeliveredAt: DateTime(2022),
+          lastDeliveredMessageId: 'message-456',
+        );
+
+        // Dispatch event
+        client.addEvent(messageDeliveredEvent);
+
+        // Wait for event to be processed
+        await Future.delayed(Duration.zero);
+
+        // Verify delivery state is updated
+        final updatedRead = channel.state?.read.first;
+        expect(updatedRead?.user.id, 'test-user');
+        expect(updatedRead?.lastDeliveredAt, isNotNull);
+        expect(
+          updatedRead?.lastDeliveredAt?.isAtSameMomentAs(DateTime(2022)),
+          isTrue,
+        );
+        expect(updatedRead?.lastDeliveredMessageId, 'message-456');
+      });
+
+      test(
+        'should add a new read state if not exist on message delivered event',
+        () async {
+          final newUser = User(id: 'new-user');
+          final distantPast =
+              DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+
+          // Verify initial state
+          final read = channel.state?.read;
+          expect(read, isEmpty);
+
+          // Create message delivered event for new user
+          final messageDeliveredEvent = Event(
+            cid: channel.cid,
+            type: EventType.messageDelivered,
+            user: newUser,
+            lastDeliveredAt: DateTime(2022),
+            lastDeliveredMessageId: 'message-789',
+          );
+
+          // Dispatch event
+          client.addEvent(messageDeliveredEvent);
+
+          // Wait for event to be processed
+          await Future.delayed(Duration.zero);
+
+          // Verify read state was created with delivery info
+          final updated = channel.state?.read;
+          expect(updated?.length, 1);
+          final newRead = updated?.first;
+          expect(newRead?.user.id, 'new-user');
+          expect(newRead?.lastDeliveredAt, isNotNull);
+          expect(
+            newRead?.lastDeliveredAt?.isAtSameMomentAs(DateTime(2022)),
+            isTrue,
+          );
+          expect(newRead?.lastDeliveredMessageId, 'message-789');
+          // lastRead should default to distantPast
+          expect(
+            newRead?.lastRead.isAtSameMomentAs(distantPast),
+            isTrue,
+          );
+        },
+      );
+
+      test(
+        'should preserve read info on message delivered event',
+        () async {
+          final currentUser = User(id: 'test-user');
+          final currentRead = Read(
+            user: currentUser,
+            lastRead: DateTime(2020),
+            unreadMessages: 10,
+            lastReadMessageId: 'read-msg-123',
+          );
+
+          // Setup initial read state
+          channel.state?.updateChannelState(
+            channel.state!.channelState.copyWith(
+              read: [currentRead],
+            ),
+          );
+
+          // Verify initial state
+          final read = channel.state?.read.first;
+          expect(read?.lastRead.isAtSameMomentAs(DateTime(2020)), isTrue);
+          expect(read?.unreadMessages, 10);
+          expect(read?.lastReadMessageId, 'read-msg-123');
+
+          // Create message delivered event (doesn't include read info)
+          final messageDeliveredEvent = Event(
+            cid: channel.cid,
+            type: EventType.messageDelivered,
+            user: currentUser,
+            lastDeliveredAt: DateTime(2022),
+            lastDeliveredMessageId: 'delivered-msg-456',
+          );
+
+          // Dispatch event
+          client.addEvent(messageDeliveredEvent);
+
+          // Wait for event to be processed
+          await Future.delayed(Duration.zero);
+
+          // Verify delivery state is updated but read info is preserved
+          final updatedRead = channel.state?.read.first;
+          expect(updatedRead?.user.id, 'test-user');
+          expect(
+            updatedRead?.lastDeliveredAt?.isAtSameMomentAs(DateTime(2022)),
+            isTrue,
+          );
+          expect(updatedRead?.lastDeliveredMessageId, 'delivered-msg-456');
+          // Read info should be preserved
+          expect(
+            updatedRead?.lastRead.isAtSameMomentAs(DateTime(2020)),
+            isTrue,
+          );
+          expect(updatedRead?.unreadMessages, 10);
+          expect(updatedRead?.lastReadMessageId, 'read-msg-123');
+        },
+      );
+
+      test(
+        'should reconcile delivery when message delivered event is from current user',
+        () async {
+          final currentUser = client.state.currentUser;
+          final updatedUser = currentUser?.copyWith(id: 'current-user-id');
+
+          client.state.updateUser(updatedUser);
+          addTearDown(() => client.state.updateUser(currentUser));
+
+          when(
+            () => client.channelDeliveryReporter.reconcileDelivery([channel]),
+          ).thenAnswer((_) => Future.value());
+
+          // Create message delivered event from current user
+          final messageDeliveredEvent = Event(
+            cid: channel.cid,
+            type: EventType.messageDelivered,
+            user: currentUser,
+            lastDeliveredAt: DateTime(2022),
+            lastDeliveredMessageId: 'message-456',
+          );
+
+          // Dispatch event
+          client.addEvent(messageDeliveredEvent);
+
+          // Wait for event to be processed
+          await Future.delayed(Duration.zero);
+
+          // Verify reconcileDelivery was called
+          verify(
+            () => client.channelDeliveryReporter.reconcileDelivery([channel]),
+          ).called(1);
         },
       );
     });
@@ -4263,6 +5039,713 @@ void main() {
           expect(threadDraft, isNotNull);
           expect(threadDraft?.message.text, 'updated thread reply');
         },
+      );
+    });
+
+    group('Reminder events', () {
+      const channelId = 'test-channel-id';
+      const channelType = 'test-channel-type';
+      late Channel channel;
+
+      setUp(() {
+        final channelState = _generateChannelState(channelId, channelType);
+        channel = Channel.fromState(client, channelState);
+      });
+
+      tearDown(() {
+        channel.dispose();
+      });
+
+      test('should handle reminder.created event', () async {
+        const messageId = 'test-message-id';
+
+        // Setup initial state with a message without reminder
+        final message = Message(
+          id: messageId,
+          user: client.state.currentUser,
+          text: 'Test message',
+        );
+
+        channel.state?.updateMessage(message);
+
+        // Verify initial state - no reminder
+        final initialMessage = channel.state?.messages.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(initialMessage?.reminder, isNull);
+
+        // Create reminder
+        final reminder = MessageReminder(
+          messageId: messageId,
+          channelCid: channel.cid!,
+          userId: 'test-user-id',
+          remindAt: DateTime.now().add(const Duration(days: 30)),
+        );
+
+        // Create reminder.created event
+        final reminderCreatedEvent = Event(
+          cid: channel.cid,
+          type: EventType.reminderCreated,
+          reminder: reminder,
+        );
+
+        // Dispatch event
+        client.addEvent(reminderCreatedEvent);
+
+        // Wait for the event to be processed
+        await Future.delayed(Duration.zero);
+
+        // Verify message reminder was added
+        final updatedMessage = channel.state?.messages.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(updatedMessage?.reminder, isNotNull);
+        expect(updatedMessage?.reminder?.messageId, messageId);
+        expect(updatedMessage?.reminder?.remindAt, reminder.remindAt);
+      });
+
+      test('should handle reminder.updated event', () async {
+        const messageId = 'test-message-id';
+
+        // Setup initial state with a message with existing reminder
+        final remindAt = DateTime.now().add(const Duration(days: 30));
+        final initialReminder = MessageReminder(
+          messageId: messageId,
+          channelCid: channel.cid!,
+          userId: 'test-user-id',
+          remindAt: remindAt,
+        );
+
+        final message = Message(
+          id: messageId,
+          user: client.state.currentUser,
+          text: 'Test message',
+          reminder: initialReminder,
+        );
+
+        channel.state?.updateMessage(message);
+
+        // Verify initial state
+        final initialMessage = channel.state?.messages.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(initialMessage?.reminder, isNotNull);
+        expect(initialMessage?.reminder?.remindAt, remindAt);
+
+        // Create updated reminder
+        final updatedRemindAt = remindAt.add(const Duration(days: 15));
+        final updatedReminder = initialReminder.copyWith(
+          remindAt: updatedRemindAt,
+          updatedAt: DateTime.now(),
+        );
+
+        // Create reminder.updated event
+        final reminderUpdatedEvent = Event(
+          cid: channel.cid,
+          type: EventType.reminderUpdated,
+          reminder: updatedReminder,
+        );
+
+        // Dispatch event
+        client.addEvent(reminderUpdatedEvent);
+
+        // Wait for the event to be processed
+        await Future.delayed(Duration.zero);
+
+        // Verify message reminder was updated
+        final updatedMessage = channel.state?.messages.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(updatedMessage?.reminder, isNotNull);
+        expect(updatedMessage?.reminder?.messageId, messageId);
+        expect(updatedMessage?.reminder?.remindAt, updatedRemindAt);
+      });
+
+      test('should handle reminder.deleted event', () async {
+        const messageId = 'test-message-id';
+
+        // Setup initial state with a message with existing reminder
+        final remindAt = DateTime.now().add(const Duration(days: 30));
+        final initialReminder = MessageReminder(
+          messageId: messageId,
+          channelCid: channel.cid!,
+          userId: 'test-user-id',
+          remindAt: remindAt,
+        );
+
+        final message = Message(
+          id: messageId,
+          user: client.state.currentUser,
+          text: 'Test message',
+          reminder: initialReminder,
+        );
+
+        channel.state?.updateMessage(message);
+
+        // Verify initial state
+        final initialMessage = channel.state?.messages.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(initialMessage?.reminder, isNotNull);
+
+        // Create reminder.deleted event
+        final reminderDeletedEvent = Event(
+          cid: channel.cid,
+          type: EventType.reminderDeleted,
+          reminder: initialReminder,
+        );
+
+        // Dispatch event
+        client.addEvent(reminderDeletedEvent);
+
+        // Wait for the event to be processed
+        await Future.delayed(Duration.zero);
+
+        // Verify message reminder was removed
+        final updatedMessage = channel.state?.messages.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(updatedMessage?.reminder, isNull);
+      });
+
+      test('should handle reminder.created event for thread messages',
+          () async {
+        const messageId = 'test-message-id';
+        const parentId = 'test-parent-id';
+
+        // Setup initial state with a thread message without reminder
+        final threadMessage = Message(
+          id: messageId,
+          parentId: parentId,
+          user: client.state.currentUser,
+          text: 'Thread message',
+        );
+
+        channel.state?.updateMessage(threadMessage);
+
+        // Verify initial state - no reminder
+        final initialMessage = channel.state?.threads[parentId]?.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(initialMessage?.reminder, isNull);
+
+        // Create reminder
+        final remindAt = DateTime.now().add(const Duration(days: 30));
+        final reminder = MessageReminder(
+          messageId: messageId,
+          channelCid: channel.cid!,
+          userId: 'test-user-id',
+          remindAt: remindAt,
+        );
+
+        // Create reminder.created event
+        final reminderCreatedEvent = Event(
+          cid: channel.cid,
+          type: EventType.reminderCreated,
+          reminder: reminder,
+        );
+
+        // Dispatch event
+        client.addEvent(reminderCreatedEvent);
+
+        // Wait for the event to be processed
+        await Future.delayed(Duration.zero);
+
+        // Verify thread message reminder was added
+        final updatedMessage = channel.state?.threads[parentId]?.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(updatedMessage?.reminder, isNotNull);
+        expect(updatedMessage?.reminder?.messageId, messageId);
+        expect(updatedMessage?.reminder?.remindAt, reminder.remindAt);
+      });
+
+      test('should handle reminder.updated event for thread messages',
+          () async {
+        const messageId = 'test-message-id';
+        const parentId = 'test-parent-id';
+
+        // Setup initial state with a thread message with existing reminder
+        final remindAt = DateTime.now().add(const Duration(days: 30));
+        final initialReminder = MessageReminder(
+          messageId: messageId,
+          channelCid: channel.cid!,
+          userId: 'test-user-id',
+          remindAt: remindAt,
+        );
+
+        final threadMessage = Message(
+          id: messageId,
+          parentId: parentId,
+          user: client.state.currentUser,
+          text: 'Thread message',
+          reminder: initialReminder,
+        );
+
+        channel.state?.updateMessage(threadMessage);
+
+        // Verify initial state
+        final initialMessage = channel.state?.threads[parentId]?.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(initialMessage?.reminder, isNotNull);
+        expect(initialMessage?.reminder?.remindAt, remindAt);
+
+        // Create updated reminder
+        final updatedRemindAt = remindAt.add(const Duration(days: 15));
+        final updatedReminder = initialReminder.copyWith(
+          remindAt: updatedRemindAt,
+          updatedAt: DateTime.now(),
+        );
+
+        // Create reminder.updated event
+        final reminderUpdatedEvent = Event(
+          cid: channel.cid,
+          type: EventType.reminderUpdated,
+          reminder: updatedReminder,
+        );
+
+        // Dispatch event
+        client.addEvent(reminderUpdatedEvent);
+
+        // Wait for the event to be processed
+        await Future.delayed(Duration.zero);
+
+        // Verify thread message reminder was updated
+        final updatedMessage = channel.state?.threads[parentId]?.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(updatedMessage?.reminder, isNotNull);
+        expect(updatedMessage?.reminder?.messageId, messageId);
+        expect(updatedMessage?.reminder?.remindAt, updatedRemindAt);
+      });
+
+      test('should handle reminder.deleted event for thread messages',
+          () async {
+        const messageId = 'test-message-id';
+        const parentId = 'test-parent-id';
+
+        // Setup initial state with a thread message with existing reminder
+        final remindAt = DateTime.now().add(const Duration(days: 30));
+        final initialReminder = MessageReminder(
+          messageId: messageId,
+          channelCid: channel.cid!,
+          userId: 'test-user-id',
+          remindAt: remindAt,
+        );
+
+        final threadMessage = Message(
+          id: messageId,
+          parentId: parentId,
+          user: client.state.currentUser,
+          text: 'Thread message',
+          reminder: initialReminder,
+        );
+
+        channel.state?.updateMessage(threadMessage);
+
+        // Verify initial state
+        final initialMessage = channel.state?.threads[parentId]?.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(initialMessage?.reminder, isNotNull);
+
+        // Create reminder.deleted event
+        final reminderDeletedEvent = Event(
+          cid: channel.cid,
+          type: EventType.reminderDeleted,
+          reminder: initialReminder,
+        );
+
+        // Dispatch event
+        client.addEvent(reminderDeletedEvent);
+
+        // Wait for the event to be processed
+        await Future.delayed(Duration.zero);
+
+        // Verify thread message reminder was removed
+        final updatedMessage = channel.state?.threads[parentId]?.firstWhere(
+          (m) => m.id == messageId,
+        );
+        expect(updatedMessage?.reminder, isNull);
+      });
+    });
+
+    group('Channel push preference events', () {
+      const channelId = 'test-channel-id';
+      const channelType = 'test-channel-type';
+      late Channel channel;
+
+      setUp(() {
+        final channelState = _generateChannelState(channelId, channelType);
+        channel = Channel.fromState(client, channelState);
+      });
+
+      tearDown(() {
+        channel.dispose();
+      });
+
+      test('should handle channel.push_preference.updated event', () async {
+        // Verify initial state
+        expect(channel.state?.channelState.pushPreferences, isNull);
+
+        // Create channel push preference
+        final channelPushPreference = ChannelPushPreference(
+          chatLevel: ChatLevel.mentions,
+          disabledUntil: DateTime.now().add(const Duration(hours: 1)),
+        );
+
+        // Create channel.push_preference.updated event
+        final channelPushPreferenceUpdatedEvent = Event(
+          cid: channel.cid,
+          type: EventType.channelPushPreferenceUpdated,
+          channelPushPreference: channelPushPreference,
+        );
+
+        // Dispatch event
+        client.addEvent(channelPushPreferenceUpdatedEvent);
+
+        // Wait for the event to be processed
+        await Future.delayed(Duration.zero);
+
+        // Verify channel push preferences were updated
+        final updatedPreferences = channel.state?.channelState.pushPreferences;
+        expect(updatedPreferences, isNotNull);
+        expect(updatedPreferences?.chatLevel, ChatLevel.mentions);
+        expect(
+          updatedPreferences?.disabledUntil,
+          channelPushPreference.disabledUntil,
+        );
+      });
+
+      test('should update existing channel push preferences', () async {
+        // Set initial push preferences
+        const initialPushPreference = ChannelPushPreference(
+          chatLevel: ChatLevel.all,
+        );
+
+        channel.state?.updateChannelState(
+          channel.state!.channelState.copyWith(
+            pushPreferences: initialPushPreference,
+          ),
+        );
+
+        // Verify initial state
+        final pushPreferences = channel.state?.channelState.pushPreferences;
+        expect(pushPreferences?.chatLevel, ChatLevel.all);
+        expect(pushPreferences?.disabledUntil, isNull);
+
+        // Create updated channel push preference
+        final updatedPushPreference = ChannelPushPreference(
+          chatLevel: ChatLevel.none,
+          disabledUntil: DateTime.now().add(const Duration(hours: 2)),
+        );
+
+        // Create channel.push_preference.updated event
+        final channelPushPreferenceUpdatedEvent = Event(
+          cid: channel.cid,
+          type: EventType.channelPushPreferenceUpdated,
+          channelPushPreference: updatedPushPreference,
+        );
+
+        // Dispatch event
+        client.addEvent(channelPushPreferenceUpdatedEvent);
+
+        // Wait for the event to be processed
+        await Future.delayed(Duration.zero);
+
+        // Verify channel push preferences were updated
+        final updatedPreferences = channel.state?.channelState.pushPreferences;
+        expect(updatedPreferences?.chatLevel, ChatLevel.none);
+        expect(
+          updatedPreferences?.disabledUntil,
+          updatedPushPreference.disabledUntil,
+        );
+      });
+    });
+  });
+
+  group('ChannelReadHelper', () {
+    const channelId = 'test-channel-id';
+    const channelType = 'test-channel-type';
+    late final client = MockStreamChatClient();
+
+    // A date in the distant past (Unix epoch), useful for representing old dates
+    final distantPast = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+
+    setUpAll(() {
+      // detached loggers
+      when(() => client.detachedLogger(any())).thenAnswer((invocation) {
+        final name = invocation.positionalArguments.first;
+        return _createLogger(name);
+      });
+
+      final retryPolicy = RetryPolicy(
+        shouldRetry: (_, __, ___) => false,
+        delayFactor: Duration.zero,
+      );
+      when(() => client.retryPolicy).thenReturn(retryPolicy);
+
+      // fake clientState
+      final clientState = FakeClientState();
+      when(() => client.state).thenReturn(clientState);
+
+      // client logger
+      when(() => client.logger).thenReturn(_createLogger('mock-client-logger'));
+    });
+
+    test('userReadOf should return read for specific user', () {
+      final now = DateTime.now();
+      final user1 = User(id: 'user-1', name: 'User 1');
+      final user2 = User(id: 'user-2', name: 'User 2');
+
+      final reads = [
+        Read(user: user1, lastRead: now),
+        Read(user: user2, lastRead: now.add(const Duration(minutes: 1))),
+      ];
+
+      final channelState = _generateChannelState(channelId, channelType);
+      final channel = Channel.fromState(client, channelState);
+      addTearDown(channel.dispose);
+
+      channel.state!.updateChannelState(
+        ChannelState(channel: channelState.channel, read: reads),
+      );
+
+      final user1Read = channel.state!.userReadOf(userId: 'user-1');
+      expect(user1Read, isNotNull);
+      expect(user1Read!.user.id, 'user-1');
+      expect(user1Read.lastRead, now);
+
+      final user2Read = channel.state!.userReadOf(userId: 'user-2');
+      expect(user2Read, isNotNull);
+      expect(user2Read!.user.id, 'user-2');
+
+      final nonExistentRead = channel.state!.userReadOf(userId: 'user-3');
+      expect(nonExistentRead, isNull);
+    });
+
+    test('userReadOf should return null when userId is null', () {
+      final channelState = _generateChannelState(channelId, channelType);
+      final channel = Channel.fromState(client, channelState);
+      addTearDown(channel.dispose);
+
+      final read = channel.state!.userReadOf(userId: null);
+      expect(read, isNull);
+    });
+
+    test(
+      'userReadStreamOf should emit read updates for specific user',
+      () async {
+        final now = DateTime.now();
+        final user1 = User(id: 'user-1', name: 'User 1');
+
+        final channelState = _generateChannelState(channelId, channelType);
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        final readStream = channel.state!.userReadStreamOf(userId: 'user-1');
+
+        expectLater(
+          readStream,
+          emitsInOrder([
+            isNull, // initial state
+            isA<Read>().having((r) => r.user.id, 'userId', 'user-1'),
+          ]),
+        );
+
+        // Update with read
+        channel.state!.updateChannelState(
+          ChannelState(
+            channel: channelState.channel,
+            read: [Read(user: user1, lastRead: now)],
+          ),
+        );
+      },
+    );
+
+    test('readsOf should return reads that have marked message as read', () {
+      final now = DateTime.now();
+      final sender = User(id: 'sender-id', name: 'Sender');
+      final user1 = User(id: 'user-1', name: 'User 1');
+      final user2 = User(id: 'user-2', name: 'User 2');
+      final user3 = User(id: 'user-3', name: 'User 3');
+
+      final message = Message(
+        id: 'msg-1',
+        text: 'Test message',
+        user: sender,
+        createdAt: now,
+      );
+
+      final reads = [
+        // user1 has read the message
+        Read(user: user1, lastRead: now.add(const Duration(seconds: 1))),
+        // user2 has not read the message yet
+        Read(user: user2, lastRead: distantPast),
+        // user3 has read the message
+        Read(user: user3, lastRead: now.add(const Duration(seconds: 2))),
+        // sender should be excluded
+        Read(user: sender, lastRead: now.add(const Duration(seconds: 10))),
+      ];
+
+      final channelState = _generateChannelState(channelId, channelType);
+      final channel = Channel.fromState(client, channelState);
+      addTearDown(channel.dispose);
+
+      channel.state!.updateChannelState(
+        ChannelState(channel: channelState.channel, read: reads),
+      );
+
+      final messageReads = channel.state!.readsOf(message: message);
+      expect(messageReads.length, 2);
+      expect(messageReads.map((r) => r.user.id),
+          containsAll(['user-1', 'user-3']));
+      expect(messageReads.map((r) => r.user.id), isNot(contains('user-2')));
+      expect(messageReads.map((r) => r.user.id), isNot(contains('sender-id')));
+    });
+
+    test('readsOfStream should emit read updates for a message', () async {
+      final now = DateTime.now();
+      final sender = User(id: 'sender-id', name: 'Sender');
+      final user1 = User(id: 'user-1', name: 'User 1');
+
+      final message = Message(
+        id: 'msg-1',
+        text: 'Test message',
+        user: sender,
+        createdAt: now,
+      );
+
+      final channelState = _generateChannelState(channelId, channelType);
+      final channel = Channel.fromState(client, channelState);
+      addTearDown(channel.dispose);
+
+      final readsStream = channel.state!.readsOfStream(message: message);
+
+      expectLater(
+        readsStream,
+        emitsInOrder([
+          isEmpty, // initial state
+          hasLength(1), // after adding read
+        ]),
+      );
+
+      // Update with read
+      channel.state!.updateChannelState(
+        ChannelState(
+          channel: channelState.channel,
+          read: [
+            Read(user: user1, lastRead: now.add(const Duration(seconds: 1)))
+          ],
+        ),
+      );
+    });
+
+    test('deliveriesOf should return reads that have delivered the message',
+        () {
+      final now = DateTime.now();
+      final sender = User(id: 'sender-id', name: 'Sender');
+      final user1 = User(id: 'user-1', name: 'User 1');
+      final user2 = User(id: 'user-2', name: 'User 2');
+      final user3 = User(id: 'user-3', name: 'User 3');
+      final user4 = User(id: 'user-4', name: 'User 4');
+
+      final message = Message(
+        id: 'msg-1',
+        text: 'Test message',
+        user: sender,
+        createdAt: now,
+      );
+
+      final reads = [
+        // user1 has delivered the message
+        Read(
+          user: user1,
+          lastRead: distantPast,
+          lastDeliveredAt: now.add(const Duration(seconds: 1)),
+        ),
+        // user2 has not delivered the message yet (lastDeliveredAt is before message)
+        Read(
+          user: user2,
+          lastRead: distantPast,
+          lastDeliveredAt: distantPast,
+        ),
+        // user3 has no lastDeliveredAt
+        Read(
+          user: user3,
+          lastRead: distantPast,
+        ),
+        // user4 has read the message (implicitly delivered)
+        Read(
+          user: user4,
+          lastRead: now.add(const Duration(seconds: 1)),
+        ),
+        // sender should be excluded
+        Read(
+          user: sender,
+          lastRead: now.add(const Duration(seconds: 10)),
+          lastDeliveredAt: now.add(const Duration(seconds: 10)),
+        ),
+      ];
+
+      final channelState = _generateChannelState(channelId, channelType);
+      final channel = Channel.fromState(client, channelState);
+      addTearDown(channel.dispose);
+
+      channel.state!.updateChannelState(
+        ChannelState(channel: channelState.channel, read: reads),
+      );
+
+      final deliveries = channel.state!.deliveriesOf(message: message);
+      expect(deliveries.length, 2);
+      expect(
+          deliveries.map((r) => r.user.id), containsAll(['user-1', 'user-4']));
+      expect(deliveries.map((r) => r.user.id), isNot(contains('user-2')));
+      expect(deliveries.map((r) => r.user.id), isNot(contains('user-3')));
+      expect(deliveries.map((r) => r.user.id), isNot(contains('sender-id')));
+    });
+
+    test('deliveriesOfStream should emit delivery updates for a message',
+        () async {
+      final now = DateTime.now();
+      final sender = User(id: 'sender-id', name: 'Sender');
+      final user1 = User(id: 'user-1', name: 'User 1');
+
+      final message = Message(
+        id: 'msg-1',
+        text: 'Test message',
+        user: sender,
+        createdAt: now,
+      );
+
+      final channelState = _generateChannelState(channelId, channelType);
+      final channel = Channel.fromState(client, channelState);
+      addTearDown(channel.dispose);
+
+      final deliveriesStream =
+          channel.state!.deliveriesOfStream(message: message);
+
+      expectLater(
+        deliveriesStream,
+        emitsInOrder([
+          isEmpty, // initial state
+          hasLength(1), // after adding delivery
+        ]),
+      );
+
+      // Update with delivery
+      channel.state!.updateChannelState(
+        ChannelState(
+          channel: channelState.channel,
+          read: [
+            Read(
+              user: user1,
+              lastRead: distantPast,
+              lastDeliveredAt: now.add(const Duration(seconds: 1)),
+            ),
+          ],
+        ),
       );
     });
   });
@@ -4545,5 +6028,1026 @@ void main() {
       expect(channel.canDeleteAnyMessage, false);
       expect(channel.canUpdateChannel, false);
     });
+  });
+
+  group('Channel State Validation and Cooldown', () {
+    late final client = MockStreamChatClient();
+    const channelId = 'test-channel-id';
+    const channelType = 'test-channel-type';
+
+    setUpAll(() {
+      // detached loggers
+      when(() => client.detachedLogger(any())).thenAnswer((invocation) {
+        final name = invocation.positionalArguments.first;
+        return _createLogger(name);
+      });
+
+      final retryPolicy = RetryPolicy(
+        shouldRetry: (_, __, ___) => false,
+        delayFactor: Duration.zero,
+      );
+      when(() => client.retryPolicy).thenReturn(retryPolicy);
+
+      // fake clientState
+      final clientState = FakeClientState();
+      when(() => client.state).thenReturn(clientState);
+
+      // client logger
+      when(() => client.logger).thenReturn(_createLogger('mock-client-logger'));
+
+      // mock channel delivery reporter
+      when(
+        () => client.channelDeliveryReporter.submitForDelivery(any()),
+      ).thenAnswer((_) async {});
+    });
+
+    group('Non-initialized channel state validation', () {
+      test(
+        'should throw StateError when accessing cooldown on non-initialized channel',
+        () {
+          final channel = Channel(client, channelType, channelId);
+          expect(() => channel.cooldown, throwsA(isA<StateError>()));
+        },
+      );
+
+      test(
+        'should throw StateError when accessing getRemainingCooldown on non-initialized channel',
+        () {
+          final channel = Channel(client, channelType, channelId);
+          expect(channel.getRemainingCooldown, throwsA(isA<StateError>()));
+        },
+      );
+
+      test(
+        'should throw StateError when accessing cooldownStream on non-initialized channel',
+        () {
+          final channel = Channel(client, channelType, channelId);
+          expect(() => channel.cooldownStream, throwsA(isA<StateError>()));
+        },
+      );
+    });
+
+    group('Initialized channel cooldown functionality', () {
+      late Channel channel;
+
+      setUp(() {
+        final channelState = _generateChannelState(channelId, channelType);
+        channel = Channel.fromState(client, channelState);
+      });
+
+      tearDown(() => channel.dispose());
+
+      test(
+        'should return default cooldown value of 0 for initialized channel',
+        () => expect(channel.cooldown, equals(0)),
+      );
+
+      test('should return custom cooldown value when set in channel model', () {
+        final channelWithCooldown = ChannelModel(
+          id: channelId,
+          type: channelType,
+          cooldown: 30,
+        );
+
+        final stateWithCooldown = ChannelState(channel: channelWithCooldown);
+        final testChannel = Channel.fromState(client, stateWithCooldown);
+        addTearDown(testChannel.dispose);
+
+        expect(testChannel.cooldown, equals(30));
+      });
+
+      test('should return 0 remaining cooldown when no cooldown is set', () {
+        expect(channel.getRemainingCooldown(), equals(0));
+      });
+
+      test('should return cooldown stream with default value', () {
+        expectLater(channel.cooldownStream.take(1), emits(0));
+      });
+    });
+
+    group('Disposed channel state validation', () {
+      late Channel channel;
+
+      setUp(() {
+        final channelState = _generateChannelState(channelId, channelType);
+        channel = Channel.fromState(client, channelState);
+      });
+
+      test(
+        'should throw StateError when accessing cooldown after disposal',
+        () {
+          // First verify it works when initialized
+          expect(channel.cooldown, equals(0));
+
+          // Dispose the channel
+          channel.dispose();
+
+          // Now accessing cooldown should throw
+          expect(() => channel.cooldown, throwsA(isA<StateError>()));
+        },
+      );
+
+      test(
+        'should throw StateError when accessing getRemainingCooldown after disposal',
+        () {
+          // First verify it works when initialized
+          expect(channel.getRemainingCooldown(), equals(0));
+
+          // Dispose the channel
+          channel.dispose();
+
+          // Now accessing getRemainingCooldown should throw
+          expect(channel.getRemainingCooldown, throwsA(isA<StateError>()));
+        },
+      );
+
+      test(
+        'should throw StateError when accessing cooldownStream after disposal',
+        () {
+          // First verify it works when initialized
+          expectLater(channel.cooldownStream.take(1), emits(0));
+
+          // Dispose the channel
+          channel.dispose();
+
+          // Now accessing cooldownStream should throw
+          expect(() => channel.cooldownStream, throwsA(isA<StateError>()));
+        },
+      );
+
+      test(
+        'should handle race condition scenario - initialization then quick disposal',
+        () {
+          // This test simulates the race condition that was causing the production crash
+          final channelState = _generateChannelState(channelId, channelType);
+          final raceChannel = Channel.fromState(client, channelState);
+
+          // Verify it works initially
+          expect(raceChannel.cooldown, equals(0));
+
+          // Simulate quick disposal (like what happens with rapid navigation)
+          raceChannel.dispose();
+
+          // This should throw StateError instead of crashing with null check operator
+          expect(() => raceChannel.cooldown, throwsA(isA<StateError>()));
+
+          expect(raceChannel.getRemainingCooldown, throwsA(isA<StateError>()));
+        },
+      );
+    });
+
+    group('Channel message count events', () {
+      const channelId = 'test-channel-id';
+      const channelType = 'test-channel-type';
+      late Channel channel;
+
+      setUp(() {
+        final channelState = _generateChannelState(channelId, channelType);
+        channel = Channel.fromState(client, channelState);
+      });
+
+      tearDown(() {
+        channel.dispose();
+      });
+
+      test(
+        'should update channel messageCount when event contains channelMessageCount',
+        () async {
+          // Verify initial state - no messageCount
+          expect(channel.messageCount, isNull);
+
+          // Create event with channelMessageCount
+          final messageCountEvent = Event(
+            cid: channel.cid,
+            type: EventType.messageNew,
+            channelMessageCount: 42,
+          );
+
+          // Dispatch event
+          client.addEvent(messageCountEvent);
+
+          // Wait for the event to be processed
+          await Future.delayed(Duration.zero);
+
+          // Verify channel messageCount was updated
+          expect(channel.messageCount, equals(42));
+        },
+      );
+
+      test(
+        'should update channel messageCount from message.new and message.deleted events',
+        () async {
+          // Test with message.new event - count increases
+          final messageNewEvent = Event(
+            cid: channel.cid,
+            type: EventType.messageNew,
+            message: Message(
+              id: 'new-message-1',
+              text: 'Hello world!',
+              user: User(id: 'user-1'),
+            ),
+            channelMessageCount: 1,
+          );
+
+          client.addEvent(messageNewEvent);
+          await Future.delayed(Duration.zero);
+          expect(channel.messageCount, equals(1));
+
+          // Test with another message.new event - count increases
+          final messageNewEvent2 = Event(
+            cid: channel.cid,
+            type: EventType.messageNew,
+            message: Message(
+              id: 'new-message-2',
+              text: 'Second message',
+              user: User(id: 'user-2'),
+            ),
+            channelMessageCount: 2,
+          );
+
+          client.addEvent(messageNewEvent2);
+          await Future.delayed(Duration.zero);
+          expect(channel.messageCount, equals(2));
+
+          // Test with message.deleted event - count decreases
+          final messageDeletedEvent = Event(
+            cid: channel.cid,
+            type: EventType.messageDeleted,
+            message: Message(
+              id: 'new-message-1',
+              text: 'Hello world!',
+              user: User(id: 'user-1'),
+            ),
+            channelMessageCount: 1,
+          );
+
+          client.addEvent(messageDeletedEvent);
+          await Future.delayed(Duration.zero);
+          expect(channel.messageCount, equals(1));
+        },
+      );
+
+      test(
+        'should preserve other channel properties when updating messageCount',
+        () async {
+          // Set initial channel state with some properties
+          final initialChannel = channel.state?.channelState.channel?.copyWith(
+            extraData: {'name': 'Test Channel'},
+            memberCount: 5,
+            frozen: true,
+          );
+
+          if (initialChannel != null) {
+            channel.state?.updateChannelState(
+              channel.state!.channelState.copyWith(channel: initialChannel),
+            );
+          }
+
+          // Verify initial state
+          expect(channel.name, 'Test Channel');
+          expect(channel.memberCount, equals(5));
+          expect(channel.frozen, equals(true));
+          expect(channel.messageCount, isNull);
+
+          // Update messageCount via event
+          final messageCountEvent = Event(
+            cid: channel.cid,
+            type: EventType.messageNew,
+            channelMessageCount: 100,
+          );
+
+          client.addEvent(messageCountEvent);
+          await Future.delayed(Duration.zero);
+
+          // Verify messageCount was updated while preserving other properties
+          expect(channel.messageCount, equals(100));
+          expect(channel.name, 'Test Channel');
+          expect(channel.memberCount, equals(5));
+          expect(channel.frozen, equals(true));
+        },
+      );
+
+      test(
+        'should provide messageCountStream for reactive updates',
+        () async {
+          expectLater(
+            channel.messageCountStream.distinct(),
+            emitsInOrder([null, 1, 5, 10]),
+          );
+
+          // Update messageCount multiple times
+          final counts = [1, 5, 10];
+          for (final count in counts) {
+            final event = Event(
+              cid: channel.cid,
+              type: EventType.messageNew,
+              message: Message(
+                id: 'msg-$count',
+                text: 'Message $count',
+                user: User(id: 'user-1'),
+              ),
+              channelMessageCount: count,
+            );
+
+            client.addEvent(event);
+            await Future.delayed(Duration.zero);
+          }
+        },
+      );
+    });
+  });
+
+  group('Channel filterTags', () {
+    late final client = MockStreamChatClient();
+    const channelId = 'test-channel-id';
+    const channelType = 'test-channel-type';
+
+    setUpAll(() {
+      // detached loggers
+      when(() => client.detachedLogger(any())).thenAnswer((invocation) {
+        final name = invocation.positionalArguments.first;
+        return _createLogger(name);
+      });
+
+      final retryPolicy = RetryPolicy(
+        shouldRetry: (_, __, ___) => false,
+        delayFactor: Duration.zero,
+      );
+      when(() => client.retryPolicy).thenReturn(retryPolicy);
+
+      // fake clientState
+      final clientState = FakeClientState();
+      when(() => client.state).thenReturn(clientState);
+
+      // client logger
+      when(() => client.logger).thenReturn(_createLogger('mock-client-logger'));
+    });
+
+    test('should return filterTags from channel state', () {
+      final channelModel = ChannelModel(
+        id: channelId,
+        type: channelType,
+        filterTags: ['tag1', 'tag2'],
+      );
+
+      final channelState = ChannelState(channel: channelModel);
+      final testChannel = Channel.fromState(client, channelState);
+      addTearDown(testChannel.dispose);
+
+      expect(testChannel.filterTags, equals(['tag1', 'tag2']));
+    });
+
+    test('should update filterTags when channel state is updated', () {
+      final channelModel = ChannelModel(
+        id: channelId,
+        type: channelType,
+        filterTags: ['tag1', 'tag2'],
+      );
+
+      final channelState = ChannelState(channel: channelModel);
+      final testChannel = Channel.fromState(client, channelState);
+      addTearDown(testChannel.dispose);
+
+      expect(testChannel.filterTags, equals(['tag1', 'tag2']));
+
+      final updatedChannel = channelModel.copyWith(
+        filterTags: ['tag3', 'tag4', 'tag5'],
+      );
+
+      testChannel.state?.updateChannelState(
+        testChannel.state!.channelState.copyWith(channel: updatedChannel),
+      );
+
+      expect(testChannel.filterTags, equals(['tag3', 'tag4', 'tag5']));
+    });
+  });
+
+  group('Typing Indicator', () {
+    const channelId = 'test-channel-id';
+    const channelType = 'test-channel-type';
+    late final client = MockStreamChatClient();
+
+    setUpAll(() {
+      // Fallback values
+      registerFallbackValue(FakeMessage());
+      registerFallbackValue(FakeAttachmentFile());
+      registerFallbackValue(FakeEvent());
+
+      // detached loggers
+      when(() => client.detachedLogger(any())).thenAnswer((invocation) {
+        final name = invocation.positionalArguments.first;
+        return _createLogger(name);
+      });
+
+      final retryPolicy = RetryPolicy(
+        shouldRetry: (_, __, ___) => false,
+        delayFactor: Duration.zero,
+      );
+      when(() => client.retryPolicy).thenReturn(retryPolicy);
+
+      // fake clientState
+      final clientState = FakeClientState();
+      when(() => client.state).thenReturn(clientState);
+
+      // client logger
+      when(() => client.logger).thenReturn(_createLogger('mock-client-logger'));
+    });
+
+    test(
+      ".keystore should return if we don't have the capability",
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [], // no typingEvents capability
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        final typingEvent = Event(type: EventType.typingStart);
+
+        await expectLater(channel.keyStroke(), completes);
+
+        verifyNever(
+          () => client.sendEvent(
+            channelId,
+            channelType,
+            any(that: isSameEventAs(typingEvent)),
+          ),
+        );
+      },
+    );
+
+    test(
+      '.keystore should return when user privacy settings is disabled',
+      () async {
+        final currentUser = client.state.currentUser;
+        final updatedUser = currentUser?.copyWith(
+          privacySettings: const PrivacySettings(
+            typingIndicators: TypingIndicators(enabled: false),
+          ),
+        );
+
+        client.state.updateUser(updatedUser);
+        addTearDown(() => client.state.updateUser(currentUser));
+
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [ChannelCapability.typingEvents],
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        final typingEvent = Event(type: EventType.typingStart);
+
+        await expectLater(channel.keyStroke(), completes);
+
+        verifyNever(
+          () => client.sendEvent(
+            channelId,
+            channelType,
+            any(that: isSameEventAs(typingEvent)),
+          ),
+        );
+      },
+    );
+
+    test(
+      ".keystore should send 'typingStart' event if there is not already a typingEvent or the difference between the two is > 3 seconds",
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [ChannelCapability.typingEvents],
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        final startTypingEvent = Event(type: EventType.typingStart);
+        final stopTypingEvent = Event(type: EventType.typingStop);
+
+        when(
+          () => client.sendEvent(
+            channelId,
+            channelType,
+            any(that: isSameEventAs(startTypingEvent)),
+          ),
+        ).thenAnswer((_) async => EmptyResponse());
+
+        when(
+          () => client.sendEvent(
+            channelId,
+            channelType,
+            any(that: isSameEventAs(stopTypingEvent)),
+          ),
+        ).thenAnswer((_) async => EmptyResponse());
+
+        await expectLater(channel.keyStroke(), completes);
+
+        verify(
+          () => client.sendEvent(
+            channelId,
+            channelType,
+            any(that: isSameEventAs(startTypingEvent)),
+          ),
+        ).called(1);
+
+        verify(
+          () => client.sendEvent(
+            channelId,
+            channelType,
+            any(that: isSameEventAs(stopTypingEvent)),
+          ),
+        ).called(1);
+      },
+    );
+
+    test(
+      ".startTyping should return if we don't have the capability",
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [], // no typingEvents capability
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        final typingStartEvent = Event(type: EventType.typingStart);
+
+        await expectLater(channel.startTyping(), completes);
+
+        verifyNever(
+          () => client.sendEvent(
+            channelId,
+            channelType,
+            any(that: isSameEventAs(typingStartEvent)),
+          ),
+        );
+      },
+    );
+
+    test(
+      '.startTyping should return when user privacy settings is disabled',
+      () async {
+        final currentUser = client.state.currentUser;
+        final updatedUser = currentUser?.copyWith(
+          privacySettings: const PrivacySettings(
+            typingIndicators: TypingIndicators(enabled: false),
+          ),
+        );
+
+        client.state.updateUser(updatedUser);
+        addTearDown(() => client.state.updateUser(currentUser));
+
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [ChannelCapability.typingEvents],
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        final typingStartEvent = Event(type: EventType.typingStart);
+
+        await expectLater(channel.startTyping(), completes);
+
+        verifyNever(
+          () => client.sendEvent(
+            channelId,
+            channelType,
+            any(that: isSameEventAs(typingStartEvent)),
+          ),
+        );
+      },
+    );
+
+    test(".startTyping should send 'typingStart' successfully", () async {
+      final channelState = _generateChannelState(
+        channelId,
+        channelType,
+        ownCapabilities: [ChannelCapability.typingEvents],
+      );
+
+      final channel = Channel.fromState(client, channelState);
+      addTearDown(channel.dispose);
+
+      final typingStartEvent = Event(type: EventType.typingStart);
+
+      when(
+        () => client.sendEvent(
+          channelId,
+          channelType,
+          any(that: isSameEventAs(typingStartEvent)),
+        ),
+      ).thenAnswer((_) async => EmptyResponse());
+
+      await expectLater(channel.startTyping(), completes);
+
+      verify(
+        () => client.sendEvent(
+          channelId,
+          channelType,
+          any(that: isSameEventAs(typingStartEvent)),
+        ),
+      ).called(1);
+    });
+
+    test(".stopTyping should return if we don't have the capability", () async {
+      final channelState = _generateChannelState(
+        channelId,
+        channelType,
+        ownCapabilities: [], // no typingEvents capability
+      );
+
+      final channel = Channel.fromState(client, channelState);
+      addTearDown(channel.dispose);
+
+      final typingStopEvent = Event(type: EventType.typingStop);
+
+      await expectLater(channel.stopTyping(), completes);
+
+      verifyNever(
+        () => client.sendEvent(
+          channelId,
+          channelType,
+          any(that: isSameEventAs(typingStopEvent)),
+        ),
+      );
+    });
+
+    test(
+      '.stopTyping should return when user privacy settings is disabled',
+      () async {
+        final currentUser = client.state.currentUser;
+        final updatedUser = currentUser?.copyWith(
+          privacySettings: const PrivacySettings(
+            typingIndicators: TypingIndicators(enabled: false),
+          ),
+        );
+
+        client.state.updateUser(updatedUser);
+        addTearDown(() => client.state.updateUser(currentUser));
+
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [ChannelCapability.typingEvents],
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        final typingStopEvent = Event(type: EventType.typingStop);
+
+        await expectLater(channel.stopTyping(), completes);
+
+        verifyNever(
+          () => client.sendEvent(
+            channelId,
+            channelType,
+            any(that: isSameEventAs(typingStopEvent)),
+          ),
+        );
+      },
+    );
+
+    test(".stopTyping should send 'typingStop' successfully", () async {
+      final channelState = _generateChannelState(
+        channelId,
+        channelType,
+        ownCapabilities: [ChannelCapability.typingEvents],
+      );
+
+      final channel = Channel.fromState(client, channelState);
+      addTearDown(channel.dispose);
+
+      final typingStopEvent = Event(type: EventType.typingStop);
+
+      when(
+        () => client.sendEvent(
+          channelId,
+          channelType,
+          any(that: isSameEventAs(typingStopEvent)),
+        ),
+      ).thenAnswer((_) async => EmptyResponse());
+
+      await expectLater(channel.stopTyping(), completes);
+
+      verify(
+        () => client.sendEvent(
+          channelId,
+          channelType,
+          any(that: isSameEventAs(typingStopEvent)),
+        ),
+      ).called(1);
+    });
+  });
+
+  group('Read Receipts', () {
+    const channelId = 'test-channel-id';
+    const channelType = 'test-channel-type';
+    late final client = MockStreamChatClient();
+
+    setUpAll(() {
+      // detached loggers
+      when(() => client.detachedLogger(any())).thenAnswer((invocation) {
+        final name = invocation.positionalArguments.first;
+        return _createLogger(name);
+      });
+
+      final retryPolicy = RetryPolicy(
+        shouldRetry: (_, __, ___) => false,
+        delayFactor: Duration.zero,
+      );
+      when(() => client.retryPolicy).thenReturn(retryPolicy);
+
+      // fake clientState
+      final clientState = FakeClientState();
+      when(() => client.state).thenReturn(clientState);
+
+      // client logger
+      when(() => client.logger).thenReturn(_createLogger('mock-client-logger'));
+    });
+
+    test(
+      ".markRead should throw if we don't have the capability",
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [], // no readEvents capability
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        await expectLater(
+          channel.markRead(messageId: 'message-id-123'),
+          throwsA(isA<StreamChatError>()),
+        );
+      },
+    );
+
+    test(
+      '.markRead should succeed if we have the capability',
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [ChannelCapability.readEvents],
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        when(
+          () => client.markChannelRead(
+            channelId,
+            channelType,
+            messageId: 'message-id-123',
+          ),
+        ).thenAnswer((_) async => EmptyResponse());
+
+        await expectLater(
+          channel.markRead(messageId: 'message-id-123'),
+          completes,
+        );
+
+        verify(
+          () => client.markChannelRead(
+            channelId,
+            channelType,
+            messageId: 'message-id-123',
+          ),
+        ).called(1);
+      },
+    );
+
+    test(
+      ".markUnread should throw if we don't have the capability",
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [], // no readEvents capability
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        await expectLater(
+          channel.markUnread('message-id-123'),
+          throwsA(isA<StreamChatError>()),
+        );
+      },
+    );
+
+    test(
+      '.markUnread should succeed if we have the capability',
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [ChannelCapability.readEvents],
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        when(
+          () => client.markChannelUnread(
+            channelId,
+            channelType,
+            'message-id-123',
+          ),
+        ).thenAnswer((_) async => EmptyResponse());
+
+        await expectLater(
+          channel.markUnread('message-id-123'),
+          completes,
+        );
+
+        verify(
+          () => client.markChannelUnread(
+            channelId,
+            channelType,
+            'message-id-123',
+          ),
+        ).called(1);
+      },
+    );
+
+    test(
+      ".markUnreadByTimestamp should throw if we don't have the capability",
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [], // no readEvents capability
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        final timestamp = DateTime.parse('2024-01-01T00:00:00Z');
+
+        await expectLater(
+          channel.markUnreadByTimestamp(timestamp),
+          throwsA(isA<StreamChatError>()),
+        );
+      },
+    );
+
+    test(
+      '.markUnreadByTimestamp should succeed if we have the capability',
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [ChannelCapability.readEvents],
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        final timestamp = DateTime.parse('2024-01-01T00:00:00Z');
+
+        when(
+          () => client.markChannelUnreadByTimestamp(
+            channelId,
+            channelType,
+            timestamp,
+          ),
+        ).thenAnswer((_) async => EmptyResponse());
+
+        await expectLater(
+          channel.markUnreadByTimestamp(timestamp),
+          completes,
+        );
+
+        verify(
+          () => client.markChannelUnreadByTimestamp(
+            channelId,
+            channelType,
+            timestamp,
+          ),
+        ).called(1);
+      },
+    );
+
+    test(
+      ".markThreadRead should throw if we don't have the capability",
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [], // no readEvents capability
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        await expectLater(
+          channel.markThreadRead('thread-id-123'),
+          throwsA(isA<StreamChatError>()),
+        );
+      },
+    );
+
+    test(
+      '.markThreadRead should succeed if we have the capability',
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [ChannelCapability.readEvents],
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        when(
+          () => client.markThreadRead(
+            channelId,
+            channelType,
+            'thread-id-123',
+          ),
+        ).thenAnswer((_) async => EmptyResponse());
+
+        await expectLater(
+          channel.markThreadRead('thread-id-123'),
+          completes,
+        );
+
+        verify(
+          () => client.markThreadRead(
+            channelId,
+            channelType,
+            'thread-id-123',
+          ),
+        ).called(1);
+      },
+    );
+
+    test(
+      ".markThreadUnread should throw if we don't have the capability",
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [], // no readEvents capability
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        await expectLater(
+          channel.markThreadUnread('thread-id-123'),
+          throwsA(isA<StreamChatError>()),
+        );
+      },
+    );
+
+    test(
+      '.markThreadUnread should succeed if we have the capability',
+      () async {
+        final channelState = _generateChannelState(
+          channelId,
+          channelType,
+          ownCapabilities: [ChannelCapability.readEvents],
+        );
+
+        final channel = Channel.fromState(client, channelState);
+        addTearDown(channel.dispose);
+
+        when(
+          () => client.markThreadUnread(
+            channelId,
+            channelType,
+            'thread-id-123',
+          ),
+        ).thenAnswer((_) async => EmptyResponse());
+
+        await expectLater(
+          channel.markThreadUnread('thread-id-123'),
+          completes,
+        );
+
+        verify(
+          () => client.markThreadUnread(
+            channelId,
+            channelType,
+            'thread-id-123',
+          ),
+        ).called(1);
+      },
+    );
   });
 }

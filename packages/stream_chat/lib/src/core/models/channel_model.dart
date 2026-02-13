@@ -31,6 +31,8 @@ class ChannelModel {
     bool? disabled,
     bool? hidden,
     DateTime? truncatedAt,
+    this.messageCount,
+    this.filterTags,
   })  : assert(
           (cid != null && cid.contains(':')) || (id != null && type != null),
           'provide either a cid or an id and type',
@@ -151,6 +153,19 @@ class ChannelModel {
     return null;
   }
 
+  /// The total number of messages in the channel.
+  ///
+  /// Note: This field is only populated if the `count_messages` option is
+  /// enabled for your app.
+  @JsonKey(includeToJson: false)
+  final int? messageCount;
+
+  /// List of filter tags applied to the channel.
+  ///
+  /// This is generally used for querying filtered channels based on tags.
+  @JsonKey(includeToJson: false)
+  final List<String>? filterTags;
+
   /// Known top level fields.
   /// Useful for [Serializer] methods.
   static const topLevelFields = [
@@ -169,6 +184,8 @@ class ChannelModel {
     'members',
     'team',
     'cooldown',
+    'message_count',
+    'filter_tags',
   ];
 
   /// Serialize to json
@@ -197,6 +214,8 @@ class ChannelModel {
     bool? disabled,
     bool? hidden,
     DateTime? truncatedAt,
+    int? messageCount,
+    List<String>? filterTags,
   }) =>
       ChannelModel(
         id: id ?? this.id,
@@ -223,6 +242,8 @@ class ChannelModel {
                 // ignore: cast_nullable_to_non_nullable
                 : DateTime.parse(extraData?['truncated_at'] as String)) ??
             this.truncatedAt,
+        messageCount: messageCount ?? this.messageCount,
+        filterTags: filterTags ?? this.filterTags,
       );
 
   /// Returns a new [ChannelModel] that is a combination of this channelModel
@@ -249,6 +270,8 @@ class ChannelModel {
       disabled: other.disabled,
       hidden: other.hidden,
       truncatedAt: other.truncatedAt,
+      messageCount: other.messageCount,
+      filterTags: other.filterTags,
     );
   }
 }
@@ -308,6 +331,7 @@ extension type const ChannelCapability(String capability) implements String {
   static const searchMessages = ChannelCapability('search-messages');
 
   /// Ability to send typing events.
+  @Deprecated('Use typingEvents instead')
   static const sendTypingEvents = ChannelCapability('send-typing-events');
 
   /// Ability to upload message attachments.
@@ -344,6 +368,9 @@ extension type const ChannelCapability(String capability) implements String {
 
   /// Ability to receive read events.
   static const readEvents = ChannelCapability('read-events');
+
+  /// Ability to receive delivery events.
+  static const deliveryEvents = ChannelCapability('delivery-events');
 
   /// Ability to receive connect events.
   static const connectEvents = ChannelCapability('connect-events');

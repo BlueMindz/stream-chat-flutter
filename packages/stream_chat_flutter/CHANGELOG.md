@@ -1,3 +1,132 @@
+## 9.23.0
+
+🐞 Fixed
+
+- Fixed `StreamChannelAvatar` crashing with `RangeError` when user/channel name is empty.
+- Fixed audio tone bleeding into recorded voice message when playing custom feedback sound on recording start.
+- Fixed poll dialog AppBar back button color not being themeable. [[#2484]](https://github.com/GetStream/stream-chat-flutter/issues/2484)
+
+## 9.22.0
+
+✅ Added
+
+- Added haptic and system sound feedback for voice recording interactions. Feedback can be
+  customized by extending `AudioRecorderFeedback` or using `AudioRecorderFeedbackWrapper` with
+  custom callbacks. [[#2463]](https://github.com/GetStream/stream-chat-flutter/issues/2463)
+- Added support for deleting options while creating a poll in
+  `StreamPollCreator`. [[#2453]](https://github.com/GetStream/stream-chat-flutter/issues/2453)
+
+🐞 Fixed
+
+- Fixed focus randomly shifting to poll title while editing option text in poll
+  creator. [[#2464]](https://github.com/GetStream/stream-chat-flutter/issues/2464)
+
+## 9.21.0
+
+🐞 Fixed
+
+- Fixed StreamGallery not respecting the safe area for fullscreen
+  media. [[#2454]](https://github.com/GetStream/stream-chat-flutter/issues/2454)
+
+## 9.20.0
+
+✅ Added
+
+- Added delivered status to `SendingIndicator` (double grey check for delivered, double accentPrimary check for read).
+- Added `isMessageDelivered` parameter to `SendingIndicator` widget.
+- Added `MessagePreviewFormatter` interface and `StreamMessagePreviewFormatter` implementation for
+  customizing message preview text formatting in channel lists and draft messages.
+- Added `messagePreviewFormatter` property to `StreamChatConfigurationData` for global customization
+  of message preview formatting.
+- Added formatter properties to theme data classes for customizing date/timestamp
+  formatting. [[#2312]](https://github.com/GetStream/stream-chat-flutter/issues/2312) [[#2406]](https://github.com/GetStream/stream-chat-flutter/issues/2406)
+
+🐞 Fixed
+
+- Fixed mistakenly passing the hyperlink text to the `onLinkTap` callback instead of the actual `href`.
+- Fixed high memory usage when displaying multiple image
+  attachments. [[#2228]](https://github.com/GetStream/stream-chat-flutter/issues/2228)
+
+## 9.19.0
+
+✅ Added
+
+- Added `StreamMessageListView.floatingDateDividerBuilder` in order to specifically customize the
+  floating date divider.
+- Added spacing to typing indicator.
+
+## 9.18.0
+
+🐞 Fixed
+
+- Fixed `StreamMessageListView` not marking thread messages as read when scrolled to the bottom of the list.
+- Fixed `StreamMessageInput` not validating draft messages before creating/updating them.
+
+## 9.17.0
+
+✅ Added
+
+- Added `messageBackgroundGradient` property to `StreamMessageThemeData` for gradient message
+  backgrounds.
+
+🐞 Fixed
+
+- Fixed `.replaceMentions` not escaping special characters in the username.
+- Fixed videos not being saved to gallery correctly on mobile
+  platforms. [[#2357]](https://github.com/GetStream/stream-chat-flutter/issues/2357)
+- Fixed unread indicator button using hardcoded white color instead of theme color
+  `colorTheme.barsBg`. [[#2366]](https://github.com/GetStream/stream-chat-flutter/issues/2366)
+- Fixed `GradientAvatars` for users with same-length IDs would have identical
+  colors. [[#2369]](https://github.com/GetStream/stream-chat-flutter/issues/2369)
+
+## 9.16.0
+
+🐞 Fixed
+
+- Fixed context menu being truncated and scrollable on web when there was enough space to display it
+  fully. [[#2317]](https://github.com/GetStream/stream-chat-flutter/issues/2317)
+- Fixed `StreamMessageInput` cooldown resume error if channel state is not yet initialized.
+  [[#2338]](https://github.com/GetStream/stream-chat-flutter/issues/2338)
+
+✅ Added
+
+- Added `padding` and `textInputMargin` to `StreamMessageInput` to allow fine-tuning the layout. 
+
+## 9.15.0
+
+✅ Added
+
+- Added `bottom` and `bottomOpacity` to the `StreamChannelHeader` widget.
+- Added `StreamChat.maybeOf()` method for safe context access in async operations.
+
+🐞 Fixed
+
+- Fixed `StreamMessageInput` crashes with "Null check operator used on a null value" when async
+  operations continue after widget unmounting.
+
+## 9.14.0
+
+🐞 Fixed
+
+- Fixed `StreamMessageInput` tries to expand to full height when used in a unconstrained environment.
+- Fixed `StreamCommandAutocompleteOptions` to style the command name with `textHighEmphasis` style.
+
+## 9.13.0
+
+🐞 Fixed
+
+- Fixed `FloatingDateDivider` not showing the correct date when the latest message was too big and
+  exceeded the viewport main axis size.
+- Fixed `ScrollToBottom` button always showing when the latest message was too big and exceeded the
+  viewport main axis size.
+
+## 9.12.0
+
+✅ Added
+
+- Added support for `MessageReminder` feature, which allows users to bookmark or set reminders
+  for specific messages in a channel.
+
 ## 9.11.0
 
 🐞 Fixed

@@ -48,8 +48,8 @@ jobs:
           echo "Selected platform: $platform"
           
           # Set outputs only if they should be true
-          [[ "$platform" == "ios" || "$platform" == "both" ]] && echo "run_ios=true" >> $GITHUB_OUTPUT
-          [[ "$platform" == "android" || "$platform" == "both" ]] && echo "run_android=true" >> $GITHUB_OUTPUT
+          [[ "$platform" == "ios" || "$platform" == "both" ]] && echo "run_ios=true" >> $GITHUB_OUTPUT || true
+          [[ "$platform" == "android" || "$platform" == "both" ]] && echo "run_android=true" >> $GITHUB_OUTPUT || true
 
   android:
     needs: determine_platforms
@@ -62,7 +62,7 @@ jobs:
           ssh-private-key: ${{ secrets.BOT_SSH_PRIVATE_KEY }}
 
       - name: "Git Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -91,7 +91,8 @@ jobs:
   ios:
     needs: determine_platforms
     if: ${{ needs.determine_platforms.outputs.run_ios == 'true' }}
-    runs-on: macos-15 # Testflight requires macOS 15 or later
+    runs-on: macos-15 # Requires xcode 15 or later
+
     steps:
       - name: Connect Bot
         uses: webfactory/ssh-agent@v0.9.1
@@ -99,7 +100,7 @@ jobs:
           ssh-private-key: ${{ secrets.BOT_SSH_PRIVATE_KEY }}
 
       - name: "Git Checkout"
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
         

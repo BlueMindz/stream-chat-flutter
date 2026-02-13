@@ -62,6 +62,7 @@ class StreamPollCreatorThemeData with Diagnosticable {
     this.appBarTitleStyle,
     this.appBarElevation,
     this.appBarBackgroundColor,
+    this.appBarForegroundColor,
     this.questionTextFieldFillColor,
     this.questionHeaderStyle,
     this.questionTextFieldStyle,
@@ -76,6 +77,8 @@ class StreamPollCreatorThemeData with Diagnosticable {
     this.switchListTileTitleStyle,
     this.switchListTileErrorStyle,
     this.switchListTileBorderRadius,
+    this.actionDialogTitleStyle,
+    this.actionDialogContentStyle,
   });
 
   /// The background color of the poll creator.
@@ -89,6 +92,9 @@ class StreamPollCreatorThemeData with Diagnosticable {
 
   /// The background color of the appBar.
   final Color? appBarBackgroundColor;
+
+  /// The foreground color of the appBar (icon and text color).
+  final Color? appBarForegroundColor;
 
   /// The fill color of the question text field.
   final Color? questionTextFieldFillColor;
@@ -133,12 +139,19 @@ class StreamPollCreatorThemeData with Diagnosticable {
   /// The border radius of the switch list tile.
   final BorderRadius? switchListTileBorderRadius;
 
+  /// The text style of the action dialog title.
+  final TextStyle? actionDialogTitleStyle;
+
+  /// The text style of the action dialog content.
+  final TextStyle? actionDialogContentStyle;
+
   /// Copies this [StreamPollCreatorThemeData] with some new values.
   StreamPollCreatorThemeData copyWith({
     Color? backgroundColor,
     TextStyle? appBarTitleStyle,
     double? appBarElevation,
     Color? appBarBackgroundColor,
+    Color? appBarForegroundColor,
     Color? questionTextFieldFillColor,
     TextStyle? questionHeaderStyle,
     TextStyle? questionTextFieldStyle,
@@ -153,6 +166,8 @@ class StreamPollCreatorThemeData with Diagnosticable {
     TextStyle? switchListTileTitleStyle,
     TextStyle? switchListTileErrorStyle,
     BorderRadius? switchListTileBorderRadius,
+    TextStyle? actionDialogTitleStyle,
+    TextStyle? actionDialogContentStyle,
   }) {
     return StreamPollCreatorThemeData(
       backgroundColor: backgroundColor ?? this.backgroundColor,
@@ -160,6 +175,8 @@ class StreamPollCreatorThemeData with Diagnosticable {
       appBarElevation: appBarElevation ?? this.appBarElevation,
       appBarBackgroundColor:
           appBarBackgroundColor ?? this.appBarBackgroundColor,
+      appBarForegroundColor:
+          appBarForegroundColor ?? this.appBarForegroundColor,
       questionTextFieldFillColor:
           questionTextFieldFillColor ?? this.questionTextFieldFillColor,
       questionHeaderStyle: questionHeaderStyle ?? this.questionHeaderStyle,
@@ -186,6 +203,10 @@ class StreamPollCreatorThemeData with Diagnosticable {
           switchListTileErrorStyle ?? this.switchListTileErrorStyle,
       switchListTileBorderRadius:
           switchListTileBorderRadius ?? this.switchListTileBorderRadius,
+      actionDialogTitleStyle:
+          actionDialogTitleStyle ?? this.actionDialogTitleStyle,
+      actionDialogContentStyle:
+          actionDialogContentStyle ?? this.actionDialogContentStyle,
     );
   }
 
@@ -198,6 +219,8 @@ class StreamPollCreatorThemeData with Diagnosticable {
       appBarElevation: other.appBarElevation ?? appBarElevation,
       appBarBackgroundColor:
           other.appBarBackgroundColor ?? appBarBackgroundColor,
+      appBarForegroundColor:
+          other.appBarForegroundColor ?? appBarForegroundColor,
       questionTextFieldFillColor:
           other.questionTextFieldFillColor ?? questionTextFieldFillColor,
       questionHeaderStyle: other.questionHeaderStyle ?? questionHeaderStyle,
@@ -224,6 +247,10 @@ class StreamPollCreatorThemeData with Diagnosticable {
           other.switchListTileErrorStyle ?? switchListTileErrorStyle,
       switchListTileBorderRadius:
           other.switchListTileBorderRadius ?? switchListTileBorderRadius,
+      actionDialogTitleStyle:
+          other.actionDialogTitleStyle ?? actionDialogTitleStyle,
+      actionDialogContentStyle:
+          other.actionDialogContentStyle ?? actionDialogContentStyle,
     );
   }
 
@@ -240,6 +267,8 @@ class StreamPollCreatorThemeData with Diagnosticable {
       appBarElevation: lerpDouble(a.appBarElevation, b.appBarElevation, t),
       appBarBackgroundColor:
           Color.lerp(a.appBarBackgroundColor, b.appBarBackgroundColor, t),
+      appBarForegroundColor:
+          Color.lerp(a.appBarForegroundColor, b.appBarForegroundColor, t),
       questionTextFieldFillColor: Color.lerp(
           a.questionTextFieldFillColor, b.questionTextFieldFillColor, t),
       questionHeaderStyle:
@@ -268,6 +297,10 @@ class StreamPollCreatorThemeData with Diagnosticable {
           a.switchListTileErrorStyle, b.switchListTileErrorStyle, t),
       switchListTileBorderRadius: BorderRadius.lerp(
           a.switchListTileBorderRadius, b.switchListTileBorderRadius, t),
+      actionDialogTitleStyle:
+          TextStyle.lerp(a.actionDialogTitleStyle, b.actionDialogTitleStyle, t),
+      actionDialogContentStyle: TextStyle.lerp(
+          a.actionDialogContentStyle, b.actionDialogContentStyle, t),
     );
   }
 
@@ -279,6 +312,7 @@ class StreamPollCreatorThemeData with Diagnosticable {
           other.appBarTitleStyle == appBarTitleStyle &&
           other.appBarElevation == appBarElevation &&
           other.appBarBackgroundColor == appBarBackgroundColor &&
+          other.appBarForegroundColor == appBarForegroundColor &&
           other.questionTextFieldFillColor == questionTextFieldFillColor &&
           other.questionHeaderStyle == questionHeaderStyle &&
           other.questionTextFieldStyle == questionTextFieldStyle &&
@@ -293,7 +327,9 @@ class StreamPollCreatorThemeData with Diagnosticable {
           other.switchListTileFillColor == switchListTileFillColor &&
           other.switchListTileTitleStyle == switchListTileTitleStyle &&
           other.switchListTileErrorStyle == switchListTileErrorStyle &&
-          other.switchListTileBorderRadius == switchListTileBorderRadius;
+          other.switchListTileBorderRadius == switchListTileBorderRadius &&
+          other.actionDialogTitleStyle == actionDialogTitleStyle &&
+          other.actionDialogContentStyle == actionDialogContentStyle;
 
   @override
   int get hashCode =>
@@ -301,6 +337,7 @@ class StreamPollCreatorThemeData with Diagnosticable {
       appBarTitleStyle.hashCode ^
       appBarElevation.hashCode ^
       appBarBackgroundColor.hashCode ^
+      appBarForegroundColor.hashCode ^
       questionTextFieldFillColor.hashCode ^
       questionHeaderStyle.hashCode ^
       questionTextFieldStyle.hashCode ^
@@ -314,5 +351,7 @@ class StreamPollCreatorThemeData with Diagnosticable {
       switchListTileFillColor.hashCode ^
       switchListTileTitleStyle.hashCode ^
       switchListTileErrorStyle.hashCode ^
-      switchListTileBorderRadius.hashCode;
+      switchListTileBorderRadius.hashCode ^
+      actionDialogTitleStyle.hashCode ^
+      actionDialogContentStyle.hashCode;
 }

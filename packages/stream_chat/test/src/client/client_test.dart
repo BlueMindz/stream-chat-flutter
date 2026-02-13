@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_redundant_argument_values
+
 import 'package:mocktail/mocktail.dart';
 import 'package:stream_chat/src/core/http/token.dart';
 import 'package:stream_chat/stream_chat.dart';
@@ -146,21 +148,6 @@ void main() {
           await client.openConnection();
         } catch (e) {
           expect(e, isA<AssertionError>());
-        }
-      });
-
-      test('should throw if connection is already in progress', () async {
-        expect(client.state.currentUser, isNull);
-        try {
-          await client.connectAnonymousUser();
-          await client.openConnection();
-        } catch (e) {
-          expect(e, isA<StreamChatError>());
-          final err = e as StreamChatError;
-          expect(
-            err.message.contains('Connection already in progress for'),
-            isTrue,
-          );
         }
       });
 
@@ -499,7 +486,6 @@ void main() {
   group('Client with connected user with persistence', () {
     const apiKey = 'test-api-key';
     late final api = FakeChatApi();
-    late final ws = FakeWebSocket();
     late final persistence = MockPersistenceClient();
 
     final user = User(id: 'test-user-id');
@@ -518,6 +504,7 @@ void main() {
       when(() => persistence.updateLastSyncAt(any()))
           .thenAnswer((_) => Future.value());
       when(persistence.getLastSyncAt).thenAnswer((_) async => null);
+      final ws = FakeWebSocket();
       client = StreamChatClient(apiKey, chatApi: api, ws: ws)
         ..chatPersistenceClient = persistence;
       await client.connectUser(user, token);
@@ -526,8 +513,8 @@ void main() {
       expect(client.wsConnectionStatus, ConnectionStatus.connected);
     });
 
-    tearDown(() {
-      client.dispose();
+    tearDown(() async {
+      await client.dispose();
     });
 
     group('`.sync`', () {
@@ -621,7 +608,7 @@ void main() {
           final persistentChannelStates = List.generate(
             3,
             (index) => ChannelState(
-              channel: ChannelModel(cid: 'p-test-type-$index:p-test-id-$index'),
+              channel: ChannelModel(cid: 'test-type-$index:test-id-$index'),
             ),
           );
 
@@ -651,18 +638,19 @@ void main() {
             (_) async => QueryChannelsResponse()..channels = channelStates,
           );
 
-          when(() => persistence.getChannelThreads(any()))
-              .thenAnswer((_) async => {});
-          when(() => persistence.updateChannelThreads(any(), any()))
-              .thenAnswer((_) async => {});
-          when(() => persistence.getChannelStateByCid(any(),
-              messagePagination: any(named: 'messagePagination'),
-              pinnedMessagePagination:
-                  any(named: 'pinnedMessagePagination'))).thenAnswer(
-            (invocation) async => ChannelState(
-              channel: ChannelModel(cid: invocation.positionalArguments.first),
-            ),
+          when(() => persistence.getChannelThreads(any())).thenAnswer(
+            (_) async => <String, List<Message>>{
+              for (final channelState in channelStates)
+                channelState.channel!.cid: [
+                  Message(id: 'test-message-id', text: 'Test message')
+                ],
+            },
           );
+
+          when(() => persistence.updateChannelState(any()))
+              .thenAnswer((_) async {});
+          when(() => persistence.updateChannelThreads(any(), any()))
+              .thenAnswer((_) async {});
           when(() => persistence.updateChannelQueries(any(), any(),
                   clearQueryCache: any(named: 'clearQueryCache')))
               .thenAnswer((_) => Future.value());
@@ -679,7 +667,7 @@ void main() {
 
           // Hack as `teardown` gets called even
           // before our stream starts emitting data
-          await delay(300);
+          await delay(1050);
 
           verify(() => persistence.getChannelStates(
                 filter: any(named: 'filter'),
@@ -699,14 +687,11 @@ void main() {
               )).called(1);
 
           verify(() => persistence.getChannelThreads(any()))
-              .called((persistentChannelStates + channelStates).length);
+              .called(channelStates.length);
+          verify(() => persistence.updateChannelState(any()))
+              .called(channelStates.length);
           verify(() => persistence.updateChannelThreads(any(), any()))
-              .called((persistentChannelStates + channelStates).length);
-          verify(
-            () => persistence.getChannelStateByCid(any(),
-                messagePagination: any(named: 'messagePagination'),
-                pinnedMessagePagination: any(named: 'pinnedMessagePagination')),
-          ).called((persistentChannelStates + channelStates).length);
+              .called(channelStates.length);
           verify(() => persistence.updateChannelQueries(any(), any(),
               clearQueryCache: any(named: 'clearQueryCache'))).called(1);
         },
@@ -718,7 +703,7 @@ void main() {
           final persistentChannelStates = List.generate(
             3,
             (index) => ChannelState(
-              channel: ChannelModel(cid: 'p-test-type-$index:p-test-id-$index'),
+              channel: ChannelModel(cid: 'test-type-$index:test-id-$index'),
             ),
           );
 
@@ -739,18 +724,19 @@ void main() {
                 paginationParams: any(named: 'paginationParams'),
               )).thenThrow(StreamChatNetworkError(ChatErrorCode.inputError));
 
-          when(() => persistence.getChannelThreads(any()))
+          when(() => persistence.getChannelThreads(any())).thenAnswer(
+            (_) async => <String, List<Message>>{
+              for (final channelState in persistentChannelStates)
+                channelState.channel!.cid: [
+                  Message(id: 'test-message-id', text: 'Test message')
+                ],
+            },
+          );
+
+          when(() => persistence.updateChannelState(any()))
               .thenAnswer((_) async => {});
           when(() => persistence.updateChannelThreads(any(), any()))
               .thenAnswer((_) async => {});
-          when(() => persistence.getChannelStateByCid(any(),
-              messagePagination: any(named: 'messagePagination'),
-              pinnedMessagePagination:
-                  any(named: 'pinnedMessagePagination'))).thenAnswer(
-            (invocation) async => ChannelState(
-              channel: ChannelModel(cid: invocation.positionalArguments.first),
-            ),
-          );
 
           expectLater(
             client.queryChannels(),
@@ -762,7 +748,7 @@ void main() {
 
           // Hack as `teardown` gets called even
           // before our stream starts emitting data
-          await delay(300);
+          await delay(1050);
 
           verify(() => persistence.getChannelStates(
                 filter: any(named: 'filter'),
@@ -783,13 +769,10 @@ void main() {
 
           verify(() => persistence.getChannelThreads(any()))
               .called(persistentChannelStates.length);
+          verify(() => persistence.updateChannelState(any()))
+              .called(persistentChannelStates.length);
           verify(() => persistence.updateChannelThreads(any(), any()))
               .called(persistentChannelStates.length);
-          verify(
-            () => persistence.getChannelStateByCid(any(),
-                messagePagination: any(named: 'messagePagination'),
-                pinnedMessagePagination: any(named: 'pinnedMessagePagination')),
-          ).called(persistentChannelStates.length);
         },
       );
     });
@@ -815,7 +798,6 @@ void main() {
     const apiKey = 'test-api-key';
     const userId = 'test-user-id';
     late final api = FakeChatApi();
-    late final ws = FakeWebSocket();
 
     final user = User(id: userId);
     final token = Token.development(user.id).rawValue;
@@ -832,6 +814,7 @@ void main() {
     });
 
     setUp(() async {
+      final ws = FakeWebSocket();
       client = StreamChatClient(apiKey, chatApi: api, ws: ws);
       await client.connectUser(user, token);
       await delay(300);
@@ -839,8 +822,8 @@ void main() {
       expect(client.wsConnectionStatus, ConnectionStatus.connected);
     });
 
-    tearDown(() {
-      client.dispose();
+    tearDown(() async {
+      await client.dispose();
     });
 
     group('`.sync`', () {
@@ -1255,6 +1238,88 @@ void main() {
 
       verify(() => api.device.removeDevice(deviceId)).called(1);
       verifyNoMoreInteractions(api.device);
+    });
+
+    test('`.setPushPreferences`', () async {
+      const pushPreferenceInput = PushPreferenceInput(
+        chatLevel: ChatLevel.mentions,
+      );
+
+      const channelCid = 'messaging:123';
+      const channelPreferenceInput = PushPreferenceInput.channel(
+        channelCid: channelCid,
+        chatLevel: ChatLevel.mentions,
+      );
+
+      const preferences = [pushPreferenceInput, channelPreferenceInput];
+
+      final currentUser = client.state.currentUser;
+      when(() => api.device.setPushPreferences(preferences)).thenAnswer(
+        (_) async => UpsertPushPreferencesResponse()
+          ..userPreferences = {
+            '${currentUser?.id}': PushPreference(
+              chatLevel: pushPreferenceInput.chatLevel,
+            ),
+          }
+          ..userChannelPreferences = {
+            '${currentUser?.id}': {
+              channelCid: ChannelPushPreference(
+                chatLevel: channelPreferenceInput.chatLevel,
+              ),
+            },
+          },
+      );
+
+      expect(
+        client.eventStream,
+        emitsInOrder([
+          isA<Event>().having(
+            (e) => e.type,
+            'push_preference.updated event',
+            EventType.pushPreferenceUpdated,
+          ),
+          isA<Event>().having(
+            (e) => e.type,
+            'channel.push_preference.updated event',
+            EventType.channelPushPreferenceUpdated,
+          ),
+        ]),
+      );
+
+      final res = await client.setPushPreferences(preferences);
+      expect(res, isNotNull);
+
+      verify(() => api.device.setPushPreferences(preferences)).called(1);
+      verifyNoMoreInteractions(api.device);
+    });
+
+    test('should handle push_preference.updated event', () async {
+      final pushPreference = PushPreference(
+        chatLevel: ChatLevel.mentions,
+        callLevel: CallLevel.all,
+        disabledUntil: DateTime.now().add(const Duration(hours: 1)),
+      );
+
+      final event = Event(
+        type: EventType.pushPreferenceUpdated,
+        pushPreference: pushPreference,
+      );
+
+      // Initially null
+      expect(client.state.currentUser?.pushPreferences, isNull);
+
+      // Trigger the event
+      client.handleEvent(event);
+
+      // Wait for the event to get processed
+      await Future.delayed(Duration.zero);
+
+      // Should update currentUser.pushPreferences
+      final pushPreferences = client.state.currentUser?.pushPreferences;
+      expect(pushPreferences, isNotNull);
+      expect(pushPreferences?.chatLevel, ChatLevel.mentions);
+      expect(pushPreferences?.callLevel, CallLevel.all);
+      expect(pushPreferences?.disabledUntil, pushPreference.disabledUntil);
     });
 
     test('`.devToken`', () async {
@@ -1850,6 +1915,50 @@ void main() {
       verifyNoMoreInteractions(api.channel);
     });
 
+    test('`.addChannelMembers` with hideHistoryBefore', () async {
+      const channelType = 'test-channel-type';
+      const channelId = 'test-channel-id';
+      const channelCid = '$channelType:$channelId';
+
+      final members = List.generate(
+        3,
+        (index) => Member(userId: 'test-user-id-$index'),
+      );
+
+      final memberIds = members.map((e) => e.userId!).toList(growable: false);
+      final hideHistoryBefore = DateTime.parse('2024-01-01T00:00:00Z');
+
+      when(() => api.channel.addMembers(
+            channelId,
+            channelType,
+            memberIds,
+            hideHistoryBefore: hideHistoryBefore,
+          )).thenAnswer((_) async => AddMembersResponse()
+        ..channel = ChannelModel(cid: channelCid)
+        ..members = members);
+
+      final res = await client.addChannelMembers(
+        channelId,
+        channelType,
+        memberIds,
+        hideHistoryBefore: hideHistoryBefore,
+      );
+
+      expect(res, isNotNull);
+      expect(res.channel.cid, channelCid);
+      expect(res.members.length, memberIds.length);
+
+      verify(
+        () => api.channel.addMembers(
+          channelId,
+          channelType,
+          memberIds,
+          hideHistoryBefore: hideHistoryBefore,
+        ),
+      ).called(1);
+      verifyNoMoreInteractions(api.channel);
+    });
+
     test('`.removeChannelMembers`', () async {
       const channelType = 'test-channel-type';
       const channelId = 'test-channel-id';
@@ -1987,6 +2096,33 @@ void main() {
 
       verify(() => api.channel.markUnread(channelId, channelType, messageId))
           .called(1);
+      verifyNoMoreInteractions(api.channel);
+    });
+
+    test('`.markChannelUnreadByTimestamp`', () async {
+      const channelType = 'test-channel-type';
+      const channelId = 'test-channel-id';
+      final timestamp = DateTime.parse('2024-01-01T00:00:00Z');
+
+      when(() => api.channel.markUnreadByTimestamp(
+            channelId,
+            channelType,
+            timestamp,
+          )).thenAnswer((_) async => EmptyResponse());
+
+      final res = await client.markChannelUnreadByTimestamp(
+        channelId,
+        channelType,
+        timestamp,
+      );
+
+      expect(res, isNotNull);
+
+      verify(() => api.channel.markUnreadByTimestamp(
+            channelId,
+            channelType,
+            timestamp,
+          )).called(1);
       verifyNoMoreInteractions(api.channel);
     });
 
@@ -2243,7 +2379,7 @@ void main() {
 
     test('`.queryPolls`', () async {
       final filter = Filter.in_('id', const ['test-poll-id']);
-      final sort = [const SortOption<Poll>('created_at')];
+      final sort = [const SortOption<Poll>.desc('created_at')];
       const pagination = PaginationParams(limit: 20);
 
       final polls = List.generate(
@@ -2285,7 +2421,7 @@ void main() {
     test('`.queryPollVotes`', () async {
       const pollId = 'test-poll-id';
       final filter = Filter.in_('id', const ['test-vote-id']);
-      final sort = [const SortOption<PollVote>('created_at')];
+      final sort = [const SortOption<PollVote>.desc('created_at')];
       const pagination = PaginationParams(limit: 20);
 
       final votes = List.generate(
@@ -2631,6 +2767,100 @@ void main() {
       );
     });
 
+    test('`.getUnreadCount`', () async {
+      when(() => api.user.getUnreadCount()).thenAnswer(
+        (_) async => GetUnreadCountResponse()
+          ..totalUnreadCount = 42
+          ..totalUnreadThreadsCount = 8
+          ..channelType = []
+          ..channels = [
+            UnreadCountsChannel(
+              channelId: 'messaging:test-channel-1',
+              unreadCount: 10,
+              lastRead: DateTime.now(),
+            ),
+            UnreadCountsChannel(
+              channelId: 'messaging:test-channel-2',
+              unreadCount: 15,
+              lastRead: DateTime.now(),
+            ),
+          ]
+          ..threads = [
+            UnreadCountsThread(
+              unreadCount: 3,
+              lastRead: DateTime.now(),
+              lastReadMessageId: 'message-1',
+              parentMessageId: 'parent-message-1',
+            ),
+            UnreadCountsThread(
+              unreadCount: 5,
+              lastRead: DateTime.now(),
+              lastReadMessageId: 'message-2',
+              parentMessageId: 'parent-message-2',
+            ),
+          ],
+      );
+
+      final res = await client.getUnreadCount();
+
+      expect(res, isNotNull);
+      expect(res.totalUnreadCount, 42);
+      expect(res.totalUnreadThreadsCount, 8);
+
+      verify(() => api.user.getUnreadCount()).called(1);
+      verifyNoMoreInteractions(api.user);
+    });
+
+    test(
+      '`.getUnreadCount` should also update user unread count as a side effect',
+      () async {
+        when(() => api.user.getUnreadCount()).thenAnswer(
+          (_) async => GetUnreadCountResponse()
+            ..totalUnreadCount = 25
+            ..totalUnreadThreadsCount = 2
+            ..channelType = []
+            ..channels = [
+              UnreadCountsChannel(
+                channelId: 'messaging:test-channel-1',
+                unreadCount: 10,
+                lastRead: DateTime.now(),
+              ),
+              UnreadCountsChannel(
+                channelId: 'messaging:test-channel-2',
+                unreadCount: 15,
+                lastRead: DateTime.now(),
+              ),
+            ]
+            ..threads = [
+              UnreadCountsThread(
+                unreadCount: 3,
+                lastRead: DateTime.now(),
+                lastReadMessageId: 'message-1',
+                parentMessageId: 'parent-message-1',
+              ),
+              UnreadCountsThread(
+                unreadCount: 5,
+                lastRead: DateTime.now(),
+                lastReadMessageId: 'message-2',
+                parentMessageId: 'parent-message-2',
+              ),
+            ],
+        );
+
+        client.getUnreadCount().ignore();
+
+        // Wait for the local side effect event to be processed
+        await Future.delayed(Duration.zero);
+
+        expect(client.state.currentUser?.totalUnreadCount, 25);
+        expect(client.state.currentUser?.unreadChannels, 2); // channels.length
+        expect(client.state.currentUser?.unreadThreads, 2); // threads.length
+
+        verify(() => api.user.getUnreadCount()).called(1);
+        verifyNoMoreInteractions(api.user);
+      },
+    );
+
     test('`.shadowBan`', () async {
       const userId = 'test-user-id';
 
@@ -2755,6 +2985,28 @@ void main() {
       expect(res, isNotNull);
 
       verify(() => api.channel.markAllRead()).called(1);
+      verifyNoMoreInteractions(api.channel);
+    });
+
+    test('`.markChannelsDelivered`', () async {
+      final deliveries = [
+        const MessageDelivery(
+          channelCid: 'messaging:test-channel-1',
+          messageId: 'test-message-id-1',
+        ),
+        const MessageDelivery(
+          channelCid: 'messaging:test-channel-2',
+          messageId: 'test-message-id-2',
+        ),
+      ];
+
+      when(() => api.channel.markChannelsDelivered(deliveries))
+          .thenAnswer((_) async => EmptyResponse());
+
+      final res = await client.markChannelsDelivered(deliveries);
+      expect(res, isNotNull);
+
+      verify(() => api.channel.markChannelsDelivered(deliveries)).called(1);
       verifyNoMoreInteractions(api.channel);
     });
 
@@ -3396,7 +3648,6 @@ void main() {
   group('PersistenceConnectionTests', () {
     const apiKey = 'test-api-key';
     late final api = FakeChatApi();
-    late final ws = FakeWebSocket();
 
     final user = User(id: 'test-user-id');
     final token = Token.development(user.id).rawValue;
@@ -3404,14 +3655,15 @@ void main() {
     late StreamChatClient client;
 
     setUp(() async {
+      final ws = FakeWebSocket();
       client = StreamChatClient(apiKey, chatApi: api, ws: ws);
       expect(client.persistenceEnabled, isFalse);
     });
 
-    tearDown(() {
+    tearDown(() async {
       client.chatPersistenceClient = null;
       expect(client.persistenceEnabled, isFalse);
-      client.dispose();
+      await client.dispose();
     });
 
     test('openPersistenceConnection connects the client to the user', () async {
@@ -3511,5 +3763,69 @@ void main() {
         );
       },
     );
+
+    group('Sync Method Tests', () {
+      test(
+        'should retrieve data from persistence client and sync successfully',
+        () async {
+          final cids = ['channel1', 'channel2'];
+          final lastSyncAt = DateTime.now().subtract(const Duration(hours: 1));
+          final fakeClient = FakePersistenceClient(
+            channelCids: cids,
+            lastSyncAt: lastSyncAt,
+          );
+
+          client.chatPersistenceClient = fakeClient;
+          when(() => api.general.sync(cids, lastSyncAt)).thenAnswer(
+            (_) async => SyncResponse()..events = [],
+          );
+
+          await client.sync();
+
+          verify(() => api.general.sync(cids, lastSyncAt)).called(1);
+
+          final newLastSyncAt = await fakeClient.getLastSyncAt();
+          expect(newLastSyncAt?.isAfter(lastSyncAt), isTrue);
+        },
+      );
+
+      test('should set lastSyncAt on first sync when null', () async {
+        final fakeClient = FakePersistenceClient(
+          channelCids: ['channel1'],
+          lastSyncAt: null,
+        );
+
+        client.chatPersistenceClient = fakeClient;
+
+        await client.sync();
+
+        expectLater(fakeClient.getLastSyncAt(), completion(isNotNull));
+        verifyNever(() => api.general.sync(any(), any()));
+      });
+
+      test('should flush persistence client on 400 error', () async {
+        final cids = ['channel1'];
+        final lastSyncAt = DateTime.now().subtract(const Duration(hours: 1));
+        final fakeClient = FakePersistenceClient(
+          channelCids: cids,
+          lastSyncAt: lastSyncAt,
+        );
+
+        client.chatPersistenceClient = fakeClient;
+        when(() => api.general.sync(cids, lastSyncAt)).thenThrow(
+          StreamChatNetworkError.raw(
+            code: 4,
+            statusCode: 400,
+            message: 'Too many events',
+          ),
+        );
+
+        await client.sync();
+
+        expect(await fakeClient.getChannelCids(), isEmpty); // Should be flushed
+
+        verify(() => api.general.sync(cids, lastSyncAt)).called(1);
+      });
+    });
   });
 }

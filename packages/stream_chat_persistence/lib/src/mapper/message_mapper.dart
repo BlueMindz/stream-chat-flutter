@@ -45,6 +45,7 @@ extension MessageEntityX on MessageEntity {
         showInChannel: showInChannel,
         text: messageText,
         user: user,
+        channelRole: channelRole,
         pinned: pinned,
         pinnedAt: pinnedAt,
         pinExpires: pinExpires,
@@ -81,6 +82,7 @@ extension MessageX on Message {
         localUpdatedAt: localUpdatedAt,
         extraData: extraData,
         userId: user?.id,
+        channelRole: channelRole,
         remoteDeletedAt: remoteDeletedAt,
         localDeletedAt: localDeletedAt,
         messageTextUpdatedAt: messageTextUpdatedAt,
@@ -91,6 +93,5 @@ extension MessageX on Message {
         pinnedByUserId: pinnedBy?.id,
         i18n: i18n,
         restrictedVisibility: restrictedVisibility,
-        draftMessageId: draft?.message.id,
       );
 }

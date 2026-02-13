@@ -33,6 +33,9 @@ class TestPersistenceClient extends ChatPersistenceClient {
   Future<void> deleteMembersByCids(List<String> cids) => Future.value();
 
   @override
+  Future<void> deleteDraftMessagesByCids(List<String> cids) => Future.value();
+
+  @override
   Future<void> deleteMessageByCids(List<String> cids) => Future.value();
 
   @override
@@ -63,6 +66,9 @@ class TestPersistenceClient extends ChatPersistenceClient {
 
   @override
   Future<void> disconnect({bool flush = false}) => throw UnimplementedError();
+
+  @override
+  Future<void> flush() => throw UnimplementedError();
 
   @override
   Future<ChannelModel?> getChannelByCid(String cid) async =>
@@ -248,7 +254,7 @@ void main() {
     });
 
     test('updateChannelState', () async {
-      final channelState = ChannelState();
+      const channelState = ChannelState();
       persistenceClient.updateChannelState(channelState);
     });
 

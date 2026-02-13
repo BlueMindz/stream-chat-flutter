@@ -1,3 +1,67 @@
+## 9.23.0
+
+- Updated `stream_chat` dependency to [`9.23.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.22.0
+
+✅ Added
+
+- Added support for `ChannelModel.filterTags` field.
+
+## 9.21.0
+
+- Updated `stream_chat` dependency to [`9.21.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.20.0
+
+✅ Added
+
+- Added support for `Read.lastDeliveredAt` and `Read.lastDeliveredMessageId` fields to track message
+  delivery receipts.
+
+## 9.19.0
+
+- Updated `stream_chat` dependency to [`9.19.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.18.0
+
+✅ Added
+
+- Added support for `Message.channelRole` field.
+- Added support for `client.flush()` method to clear database.
+- Added support for `Channel.messageCount` field.
+
+## 9.17.0
+
+- Updated `stream_chat` dependency to [`9.17.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.16.0
+
+- Updated `stream_chat` dependency to [`9.16.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.15.0
+
+🐞 Fixed
+
+- Fixed draft message retrieval logic where channel drafts were incorrectly attached to all messages
+  instead of only thread drafts being attached to their respective parent messages.
+
+✅ Added
+
+- Added support for `User.avgResponseTime` field.
+
+## 9.14.0
+
+- Updated `stream_chat` dependency to [`9.14.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.13.0
+
+- Updated `stream_chat` dependency to [`9.13.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 9.12.0
+
+- Updated `stream_chat` dependency to [`9.12.0`](https://pub.dev/packages/stream_chat/changelog).
+
 ## 9.11.0
 
 - Added support for `Message.reactionGroups` field.

@@ -95,6 +95,7 @@ class StreamMessageListView extends StatefulWidget {
     this.threadBuilder,
     this.onThreadTap,
     this.dateDividerBuilder,
+    this.floatingDateDividerBuilder,
     // we need to use ClampingScrollPhysics to avoid the list view to bounce
     // when we are at the either end of the list view and try to use 'animateTo'
     // to animate in the same direction.
@@ -240,6 +241,12 @@ class StreamMessageListView extends StatefulWidget {
 
   /// Builder used to render date dividers
   final Widget Function(DateTime)? dateDividerBuilder;
+
+  /// Builder used to render floating date divider that stays on top while scrolling
+  /// the message list.
+  ///
+  /// If null, It will fall back to [dateDividerBuilder] if provided.
+  final Widget Function(DateTime)? floatingDateDividerBuilder;
 
   /// Index of an item to initially align within the viewport.
   final int? initialScrollIndex;
@@ -417,6 +424,9 @@ class _StreamMessageListViewState extends State<StreamMessageListView> {
     if (newStreamChannel != streamChannel) {
       streamChannel = newStreamChannel;
 
+      debouncedMarkRead.cancel();
+      debouncedMarkThreadRead.cancel();
+
       _messageNewListener?.cancel();
       _userReadListener?.cancel();
 
@@ -462,20 +472,13 @@ class _StreamMessageListViewState extends State<StreamMessageListView> {
           _firstUnreadMessage = streamChannel?.getFirstUnreadMessage();
         }),
       );
-
-      if (_isThreadConversation) {
-        streamChannel!.getReplies(widget.parentMessage!.id);
-      }
     }
   }
 
   @override
   void dispose() {
-    if (!_upToDate) {
-      streamChannel!.reloadChannel();
-    }
-    debouncedMarkRead?.cancel();
-    debouncedMarkThreadRead?.cancel();
+    debouncedMarkRead.cancel();
+    debouncedMarkThreadRead.cancel();
     _messageNewListener?.cancel();
     _userReadListener?.cancel();
     _itemPositionListener.itemPositions
@@ -856,8 +859,10 @@ class _StreamMessageListViewState extends State<StreamMessageListView> {
               reverse: widget.reverse,
               itemPositionListener: _itemPositionListener.itemPositions,
               messages: messages,
-              dateDividerBuilder: widget.dateDividerBuilder,
-              isThreadConversation: _isThreadConversation,
+              dateDividerBuilder: switch (widget.floatingDateDividerBuilder) {
+                final builder? => builder,
+                _ => widget.dateDividerBuilder,
+              },
             ),
           ),
         if (widget.showScrollToBottom)
@@ -962,29 +967,23 @@ class _StreamMessageListViewState extends State<StreamMessageListView> {
     }
   }
 
-  late final debouncedMarkRead = switch (streamChannel) {
-    final streamChannel? => debounce(
-        streamChannel.channel.markRead,
-        const Duration(seconds: 1),
-      ),
-    _ => null,
-  };
+  late final debouncedMarkRead = debounce(
+    ([String? id]) => streamChannel?.channel.markRead(messageId: id),
+    const Duration(seconds: 1),
+  );
 
-  late final debouncedMarkThreadRead = switch (streamChannel) {
-    final streamChannel? => debounce(
-        streamChannel.channel.markThreadRead,
-        const Duration(seconds: 1),
-      ),
-    _ => null,
-  };
+  late final debouncedMarkThreadRead = debounce(
+    (String parentId) => streamChannel?.channel.markThreadRead(parentId),
+    const Duration(seconds: 1),
+  );
 
   Future<void> _markMessagesAsRead() async {
-    // Mark regular messages as read.
-    debouncedMarkRead?.call();
-
-    // Mark thread messages as read.
     if (widget.parentMessage case final parent?) {
-      debouncedMarkThreadRead?.call([parent.id]);
+      // If we are in a thread, mark the thread as read.
+      debouncedMarkThreadRead.call([parent.id]);
+    } else {
+      // Otherwise, mark the channel as read.
+      debouncedMarkRead.call();
     }
   }
 
@@ -1452,13 +1451,19 @@ class _StreamMessageListViewState extends State<StreamMessageListView> {
     final itemPositions = _itemPositionListener.itemPositions.value.toList();
     if (itemPositions.isEmpty) return;
 
-    final isLastItemFullyVisible = isElementAtIndexVisible(
-      itemPositions,
-      fullyVisible: true,
-      // Index of the last item in the list view is 2 as 1 is the progress
-      // indicator and 0 is the footer.
-      index: 2,
+    // Index of the last item in the list view is 2 as 1 is the progress
+    // indicator and 0 is the footer.
+    const lastItemIndex = 2;
+    final lastItemPosition = itemPositions.firstWhereOrNull(
+      (position) => position.index == lastItemIndex,
     );
+
+    var isLastItemFullyVisible = false;
+    if (lastItemPosition != null) {
+      // We consider the last item fully visible if its leading edge (reversed)
+      // is greater than or equal to 0.
+      isLastItemFullyVisible = lastItemPosition.itemLeadingEdge >= 0;
+    }
 
     if (mounted) _showScrollToBottom.value = !isLastItemFullyVisible;
     if (isLastItemFullyVisible) return _handleLastItemFullyVisible();
@@ -1475,22 +1480,41 @@ class _StreamMessageListViewState extends State<StreamMessageListView> {
       null => true, // Allows setting the initial value.
     };
 
-    // If the channel is upToDate and the last fully visible message has
-    // been changed, we need to update the value and mark the messages as read.
-    if (_upToDate && lastFullyVisibleMessageChanged) {
+    // If the last fully visible message has been changed, we need to update the
+    // value and maybe mark messages as read if needed.
+    if (lastFullyVisibleMessageChanged) {
       _lastFullyVisibleMessage = newLastFullyVisibleMessage;
 
-      if (streamChannel?.channel case final channel?) {
-        final hasUnread = (channel.state?.unreadCount ?? 0) > 0;
-        final allowMarkRead = channel.config?.readEvents == true;
-        final canMarkReadAtBottom = widget.markReadWhenAtTheBottom;
-
-        // Mark messages as read if it's allowed.
-        if (hasUnread && allowMarkRead && canMarkReadAtBottom) {
-          return _markMessagesAsRead().ignore();
-        }
+      // Mark messages as read if needed.
+      if (widget.markReadWhenAtTheBottom) {
+        _maybeMarkMessagesAsRead().ignore();
       }
     }
+  }
+
+  // Marks messages as read if the conditions are met.
+  //
+  // The conditions are:
+  // 1. The channel is up to date or we are in a thread conversation.
+  // 2. There are unread messages or we are in a thread conversation.
+  //
+  // If any of the conditions are not met, the function returns early.
+  // Otherwise, it calls the _markMessagesAsRead function to mark the messages
+  // as read.
+  Future<void> _maybeMarkMessagesAsRead() async {
+    final channel = streamChannel?.channel;
+    if (channel == null) return;
+
+    final isInThread = widget.parentMessage != null;
+
+    final isUpToDate = channel.state?.isUpToDate ?? false;
+    if (!isInThread && !isUpToDate) return;
+
+    final hasUnread = (channel.state?.unreadCount ?? 0) > 0;
+    if (!isInThread && !hasUnread) return;
+
+    // Mark messages as read if it's allowed.
+    return _markMessagesAsRead();
   }
 
   void _getOnThreadTap() {

@@ -1,3 +1,140 @@
+## 9.23.0
+
+- Minor bug fixes and improvements
+
+## 9.22.0
+
+✅ Added
+
+- Added support for `filterTags` in channels.
+- Added support for `Channel.markUnreadByTimestamp` and `Client.markChannelUnreadByTimestamp`
+  methods to mark all messages after a given timestamp as unread.
+- Added support for `hideHistoryBefore` in `Channel.addMembers` and `Client.addChannelMembers` to
+  specify a timestamp before which channel history should be hidden for newly added members. When
+  provided, it takes precedence over the `hideHistory` boolean flag.
+
+## 9.21.0
+
+🐞 Fixed
+
+- Fixed user's ID from being inadvertently used as their display name during the WebSocket
+  connection process. [[#2447]](https://github.com/GetStream/stream-chat-flutter/issues/2447)
+
+## 9.20.0
+
+✅ Added
+
+- Added support for user-level privacy settings via `OwnUser.privacySettings`.
+- Added `invisible` field to `User` and `OwnUser` models.
+- Added message delivery receipts support with `lastDeliveredAt` and `lastDeliveredMessageId` fields
+  in `Read` model.
+- Added `Client.markChannelsDelivered` method to submit delivery receipts.
+- Added `deliveriesOf` and `readsOf` helper methods to `ReadIterableExtension` for querying read and
+  delivery statuses.
+- Added channel capability getters: `Channel.canUseDeliveryReceipts`, `Channel.canUseReadReceipts`,
+  `Channel.canUseTypingEvents`.
+
+⚠️ Deprecated
+
+- Deprecated `Channel.canSendTypingEvents` in favor of `Channel.canUseTypingEvents`.
+
+🔄 Changed
+
+- Typing and read receipts now respect both channel capabilities and user privacy settings.
+- `markRead`, `markUnread`, `markThreadRead`, and `markThreadUnread` methods now throw
+  `StreamChatError` when channel lacks required capabilities.
+
+## 9.19.0
+
+- Minor bug fixes and improvements
+
+## 9.18.0
+
+🐞 Fixed
+
+- Improved sync reliability and error handling with enhanced `lastSyncAt` initialization, 400
+  error recovery, and automatic flushing of stale persistence data after 30 days of inactivity.
+
+✅ Added
+
+- Added support for `Message.channelRole` field to provide access to the sender's channel role.
+- Added support for `Channel.messageCount` field.
+- Added support for Pending Messages. Pending messages can be accessed via
+  `ChannelState.pendingMessages` or `ChannelState.pendingMessagesStream`.
+
+🐞 Fixed
+
+- Fixed thread messages increasing the unread count in the main channel.
+- Fixed `ChannelState.memberCount`, `ChannelState.config` and `ChannelState.extraData` getting reset
+  on first load.
+
+## 9.17.0
+
+🐞 Fixed
+
+- Fixed `currentUser.pushPreferences` not updating immediately after calling `setPushPreferences`.
+- Fixed `Channel.sendMessage` to prevent sending empty messages when all attachments are cancelled
+  during upload.
+- Fixed `toDraftMessage` to only include successfully uploaded attachments in draft messages.
+
+## 9.16.0
+
+🐞 Fixed
+
+- Fixed `Channel` methods to throw proper `StateError` exceptions instead of relying on assertions
+  for state validation.
+- Fixed `OwnUser` specific fields getting lost when creating a new `OwnUser` instance from
+  an `User` instance.
+- Fixed `Client.currentUser` specific fields getting reset on `user.updated` events.
+
+✅ Added
+
+- Added support for `Client.setPushPreferences` which allows setting PushPreferences for the
+  current user or for a specific channel.
+
+## 9.15.0
+
+✅ Added
+
+- Added `avgResponseTime` field to the `User` model to track average response time in seconds.
+- Added support for `skipPush` while updating a channel message, which allows you to update a
+  message without sending a push notification.
+
+🐞 Fixed
+
+- Fixed `WebSocket` race condition where reconnection could access null user during disconnect.
+- Fixed draft message persistence issues where removed drafts were not properly deleted from the
+  database.
+
+## 9.14.0
+
+🐞 Fixed
+
+- Fixed cached messages are cleared from channels with unread messages when accessed
+  offline. [[#2083]](https://github.com/GetStream/stream-chat-flutter/issues/2083)
+- Fixed RetryQueue skipping messages due to premature removal from the
+  queue. [[#2308]](https://github.com/GetStream/stream-chat-flutter/pull/2308)
+
+✅ Added
+
+- Added support for `client.getUnreadCount()`, which returns the unread count information for the
+  current user.
+
+🔄 Changed
+
+- Deprecated `SortOption.new` constructor in favor of `SortOption.desc` and `SortOption.asc`.
+
+## 9.13.0
+
+- Bug fixes and improvements
+
+## 9.12.0
+
+✅ Added
+
+- Added support for `MessageReminder` feature, which allows users to bookmark or set reminders
+  for specific messages in a channel.
+
 ## 9.11.0
 
 ✅ Added

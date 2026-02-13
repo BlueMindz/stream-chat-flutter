@@ -124,6 +124,7 @@ class StreamMessageInput extends StatefulWidget {
     this.hideSendAsDm = false,
     this.enableVoiceRecording = false,
     this.sendVoiceRecordingAutomatically = false,
+    this.voiceRecordingFeedback = const AudioRecorderFeedback(),
     Widget? idleSendIcon,
     @Deprecated("Use 'idleSendIcon' instead") Widget? idleSendButton,
     Widget? activeSendIcon,
@@ -166,6 +167,8 @@ class StreamMessageInput extends StatefulWidget {
     bool useNativeAttachmentPickerOnMobile = false,
     this.contextMenuBuilder,
     this.pollConfig,
+    this.padding = const EdgeInsets.all(8),
+    this.textInputMargin,
   })  : assert(
           idleSendIcon == null || idleSendButton == null,
           'idleSendIcon and idleSendButton cannot be used together',
@@ -241,6 +244,36 @@ class StreamMessageInput extends StatefulWidget {
   ///
   /// Defaults to false.
   final bool sendVoiceRecordingAutomatically;
+
+  /// The feedback handler for voice recording interactions.
+  ///
+  /// Defaults to [AudioRecorderFeedback] with feedback enabled.
+  ///
+  /// To disable feedback:
+  /// ```dart
+  /// StreamMessageInput(
+  ///   voiceRecordingFeedback: const AudioRecorderFeedback.disabled(),
+  /// )
+  /// ```
+  ///
+  /// To customize feedback, extend [AudioRecorderFeedback] and override
+  /// the desired methods:
+  /// ```dart
+  /// class CustomFeedback extends AudioRecorderFeedback {
+  ///   @override
+  ///   Future<void> onRecordStart(BuildContext context) async {
+  ///     // Haptic feedback
+  ///     await HapticFeedback.heavyImpact();
+  ///     // Or system sound
+  ///     // await SystemSound.play(SystemSoundType.click);
+  ///   }
+  /// }
+  ///
+  /// StreamMessageInput(
+  ///   voiceRecordingFeedback: CustomFeedback(),
+  /// )
+  /// ```
+  final AudioRecorderFeedback voiceRecordingFeedback;
 
   /// The text controller of the TextField.
   final StreamMessageInputController? messageInputController;
@@ -429,6 +462,18 @@ class StreamMessageInput extends StatefulWidget {
   /// If not provided, the default configuration is used.
   final PollConfig? pollConfig;
 
+  /// Padding for the message input.
+  ///
+  /// Defaults to `EdgeInsets.all(8)`.
+  final EdgeInsets padding;
+
+  /// Margin for the message input. Allows overriding the default computed
+  /// margin.
+  ///
+  /// Defaults to null, and margin is applied based on action and send button
+  /// locations.
+  final EdgeInsets? textInputMargin;
+
   static String? _defaultHintGetter(
     BuildContext context,
     HintType type,
@@ -454,11 +499,11 @@ class StreamMessageInput extends StatefulWidget {
   }
 
   static bool _defaultValidator(Message message) {
-    // The message is valid if it has text or attachments.
-    if (message.attachments.isNotEmpty) return true;
-    if (message.text?.trim() case final text? when text.isNotEmpty) return true;
+    final hasText = message.text?.trim().isNotEmpty == true;
+    final hasAttachments = message.attachments.isNotEmpty;
+    final hasPoll = message.pollId != null;
 
-    return false;
+    return hasText || hasAttachments || hasPoll;
   }
 
   static bool _defaultSendMessageKeyPredicate(
@@ -562,7 +607,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
     final config = StreamChatConfiguration.of(context);
 
     // Resumes the cooldown if the channel has currently an active cooldown.
-    if (!_isEditing) {
+    if (!_isEditing && channel.state != null) {
       _effectiveController.startCooldown(channel.getRemainingCooldown());
     }
 
@@ -668,7 +713,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
         ),
         child: SimpleSafeArea(
           enabled: widget.enableSafeArea ?? _messageInputTheme.enableSafeArea,
-          child: Center(child: messageInput),
+          child: Center(heightFactor: 1, child: messageInput),
         ),
       ),
     );
@@ -738,7 +783,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
     return StreamMessageValueListenableBuilder(
       valueListenable: controller,
       builder: (context, value, _) => Padding(
-        padding: const EdgeInsets.all(8),
+        padding: widget.padding,
         child: Column(
           spacing: 8,
           mainAxisSize: MainAxisSize.min,
@@ -829,6 +874,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
                 flex: isAudioRecordingFlowActive ? 1 : 0,
                 child: StreamAudioRecorderButton(
                   recordState: state,
+                  feedback: widget.voiceRecordingFeedback,
                   onRecordStart: _audioRecorderController.startRecord,
                   onRecordCancel: _audioRecorderController.cancelRecord,
                   onRecordStop: _audioRecorderController.stopRecord,
@@ -841,7 +887,6 @@ class StreamMessageInputState extends State<StreamMessageInput>
                     );
                   },
                   onRecordFinish: () async {
-                    //isVoiceRecordingConfirmationRequiredEnabled
                     // Finish the recording session and add the audio to the
                     // message input controller.
                     final audio = await _audioRecorderController.finishRecord();
@@ -951,39 +996,36 @@ class StreamMessageInputState extends State<StreamMessageInput>
         defaultButton;
   }
 
-  Future<void> _sendPoll(Poll poll) {
-    final streamChannel = StreamChannel.of(context);
-    final channel = streamChannel.channel;
-
+  Future<void> _sendPoll(Poll poll, Channel channel) {
     return channel.sendPoll(poll);
   }
 
-  Future<void> _updatePoll(Poll poll) {
-    final streamChannel = StreamChannel.of(context);
-    final channel = streamChannel.channel;
-
+  Future<void> _updatePoll(Poll poll, Channel channel) {
     return channel.updatePoll(poll);
   }
 
-  Future<void> _deletePoll(Poll poll) {
-    final streamChannel = StreamChannel.of(context);
-    final channel = streamChannel.channel;
-
+  Future<void> _deletePoll(Poll poll, Channel channel) {
     return channel.deletePoll(poll);
   }
 
-  Future<void> _createOrUpdatePoll(Poll? old, Poll? current) async {
+  Future<void> _createOrUpdatePoll(
+    Poll? old,
+    Poll? current,
+  ) async {
+    final channel = StreamChannel.maybeOf(context)?.channel;
+    if (channel == null) return;
+
     // If both are null or the same, return
     if ((old == null && current == null) || old == current) return;
 
     // If old is null, i.e., there was no poll before, create the poll.
-    if (old == null) return _sendPoll(current!);
+    if (old == null) return _sendPoll(current!, channel);
 
     // If current is null, i.e., the poll is removed, delete the poll.
-    if (current == null) return _deletePoll(old);
+    if (current == null) return _deletePoll(old, channel);
 
     // Otherwise, update the poll.
-    return _updatePoll(current);
+    return _updatePoll(current, channel);
   }
 
   /// Handle the platform-specific logic for selecting files.
@@ -1001,7 +1043,10 @@ class StreamMessageInputState extends State<StreamMessageInput>
       ..removeWhere((it) {
         if (it != AttachmentPickerType.poll) return false;
         if (_effectiveController.message.parentId != null) return true;
-        final channel = StreamChannel.of(context).channel;
+
+        final channel = StreamChannel.maybeOf(context)?.channel;
+        if (channel == null) return true;
+
         if (channel.config?.polls == true && channel.canSendPoll) return false;
 
         return true;
@@ -1054,7 +1099,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
       },
       onDragExited: (details) {},
       child: Container(
-        margin: margin,
+        margin: widget.textInputMargin ?? margin,
         clipBehavior: Clip.hardEdge,
         decoration: BoxDecoration(
           borderRadius: _messageInputTheme.borderRadius,
@@ -1216,12 +1261,13 @@ class StreamMessageInputState extends State<StreamMessageInput>
 
   late final _onChangedDebounced = debounce(
     () {
-      var value = _effectiveController.text;
       if (!mounted) return;
-      value = value.trim();
 
-      final channel = StreamChannel.of(context).channel;
-      if (value.isNotEmpty && channel.canSendTypingEvents) {
+      final channel = StreamChannel.maybeOf(context)?.channel;
+      if (channel == null) return;
+
+      final value = _effectiveController.text.trim();
+      if (value.isNotEmpty && channel.canUseTypingEvents) {
         // Notify the server that the user started typing.
         channel.keyStroke(_effectiveController.message.parentId).onError(
           (error, stackTrace) {
@@ -1241,7 +1287,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
 
       setState(() => _actionsShrunk = value.isNotEmpty && actionsLength > 1);
 
-      _checkContainsUrl(value, context);
+      _checkContainsUrl(value, channel);
     },
     const Duration(milliseconds: 350),
     leading: true,
@@ -1270,7 +1316,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
     caseSensitive: false,
   );
 
-  void _checkContainsUrl(String value, BuildContext context) async {
+  void _checkContainsUrl(String value, Channel channel) async {
     // Cancel the previous operation if it's still running
     _enrichUrlOperation?.cancel();
 
@@ -1287,10 +1333,8 @@ class StreamMessageInputState extends State<StreamMessageInput>
     }).toList();
 
     // Reset the og attachment if the text doesn't contain any url
-    if (matchedUrls.isEmpty ||
-        !StreamChannel.of(context).channel.canSendLinks) {
-      _effectiveController.clearOGAttachment();
-      return;
+    if (matchedUrls.isEmpty || !channel.canSendLinks) {
+      return _effectiveController.clearOGAttachment();
     }
 
     final firstMatchedUrl = matchedUrls.first.group(0)!;
@@ -1300,7 +1344,8 @@ class StreamMessageInputState extends State<StreamMessageInput>
       return;
     }
 
-    final client = StreamChat.of(context).client;
+    final client = StreamChat.maybeOf(context)?.client;
+    if (client == null) return;
 
     _enrichUrlOperation = CancelableOperation.fromFuture(
       _enrichUrl(firstMatchedUrl, client),
@@ -1325,7 +1370,6 @@ class StreamMessageInputState extends State<StreamMessageInput>
   ) async {
     var response = _ogAttachmentCache[url];
     if (response == null) {
-      final client = StreamChat.of(context).client;
       try {
         response = await client.enrichUrl(url);
         _ogAttachmentCache[url] = response;
@@ -1468,7 +1512,9 @@ class StreamMessageInputState extends State<StreamMessageInput>
     if (_effectiveController.isSlowModeActive) return;
     if (!widget.validator(_effectiveController.message)) return;
 
-    final streamChannel = StreamChannel.of(context);
+    final streamChannel = StreamChannel.maybeOf(context);
+    if (streamChannel == null) return;
+
     final channel = streamChannel.channel;
     var message = _effectiveController.value;
 
@@ -1489,7 +1535,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
       return;
     }
 
-    _maybeDeleteDraftMessage(message);
+    _maybeDeleteDraftMessage(message, channel);
     widget.onQuotedMessageCleared?.call();
     _effectiveController.reset();
 
@@ -1510,7 +1556,7 @@ class StreamMessageInputState extends State<StreamMessageInput>
       await WidgetsBinding.instance.endOfFrame;
     }
 
-    await _sendOrUpdateMessage(message: message);
+    await _sendOrUpdateMessage(message: message, channel: channel);
 
     if (mounted) {
       if (widget.shouldKeepFocusAfterMessage ?? !_commandEnabled) {
@@ -1523,10 +1569,9 @@ class StreamMessageInputState extends State<StreamMessageInput>
 
   Future<void> _sendOrUpdateMessage({
     required Message message,
+    required Channel channel,
   }) async {
     try {
-      final channel = StreamChannel.of(context).channel;
-
       // Note: edited messages which are bounced back with an error needs to be
       // sent as new messages as the backend doesn't store them.
       final resp = await switch (_isEditing && !message.isBouncedWithError) {
@@ -1567,19 +1612,21 @@ class StreamMessageInputState extends State<StreamMessageInput>
   }
 
   void _maybeUpdateOrDeleteDraftMessage() {
+    final channel = StreamChannel.maybeOf(context)?.channel;
+    if (channel == null) return;
+
     final message = _effectiveController.message;
     final isMessageValid = widget.validator.call(message);
 
     // If the message is valid, we need to create or update it as a draft
     // message for the channel or thread.
-    if (isMessageValid) return _maybeUpdateDraftMessage(message);
+    if (isMessageValid) return _maybeUpdateDraftMessage(message, channel);
 
     // Otherwise, we need to delete the draft message.
-    return _maybeDeleteDraftMessage(message);
+    return _maybeDeleteDraftMessage(message, channel);
   }
 
-  void _maybeUpdateDraftMessage(Message message) {
-    final channel = StreamChannel.of(context).channel;
+  void _maybeUpdateDraftMessage(Message message, Channel channel) {
     final draft = switch (message.parentId) {
       final parentId? => channel.state?.threadDraft(parentId),
       null => channel.state?.draft,
@@ -1587,14 +1634,17 @@ class StreamMessageInputState extends State<StreamMessageInput>
 
     final draftMessage = message.toDraftMessage();
 
+    // If the draft message is not valid, we don't need to update it.
+    final isDraftValid = widget.validator.call(draftMessage.toMessage());
+    if (!isDraftValid) return;
+
     // If the draft message didn't change, we don't need to update it.
     if (draft?.message == draftMessage) return;
 
     return channel.createDraft(draftMessage).ignore();
   }
 
-  void _maybeDeleteDraftMessage(Message message) {
-    final channel = StreamChannel.of(context).channel;
+  void _maybeDeleteDraftMessage(Message message, Channel channel) {
     final draft = switch (message.parentId) {
       final parentId? => channel.state?.threadDraft(parentId),
       null => channel.state?.draft,

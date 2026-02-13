@@ -94,9 +94,7 @@ class Channel {
         _type = channelState.channel!.type,
         _cid = channelState.channel!.cid,
         _extraData = channelState.channel!.extraData {
-    state = ChannelClientState(this, channelState);
-    _initializedCompleter.complete(true);
-    _client.logger.info('New Channel instance initialized');
+    _initState(channelState); // Initialize the state immediately.
   }
 
   /// This client state
@@ -416,6 +414,32 @@ class Channel {
     return state!.channelStateStream.map((cs) => cs.channel?.memberCount);
   }
 
+  /// Channel message count.
+  ///
+  /// Note: This field is only populated if the `count_messages` option is
+  /// enabled for your app.
+  int? get messageCount {
+    _checkInitialized();
+    return state!._channelState.channel?.messageCount;
+  }
+
+  /// Channel message count as a stream.
+  ///
+  /// Note: This field is only populated if the `count_messages` option is
+  /// enabled for your app.
+  Stream<int?> get messageCountStream {
+    _checkInitialized();
+    return state!.channelStateStream.map((cs) => cs.channel?.messageCount);
+  }
+
+  /// List of filter tags applied to this channel.
+  ///
+  /// Generally used for filtering channels while querying.
+  List<String>? get filterTags {
+    _checkInitialized();
+    return state!._channelState.channel?.filterTags;
+  }
+
   /// Channel id.
   String? get id => state?._channelState.channel?.id ?? _id;
 
@@ -716,6 +740,15 @@ class Channel {
         message = await attachmentsUploadCompleter.future;
       }
 
+      // Validate the final message before sending it to the server.
+      if (MessageRules.canUpload(message) != true) {
+        client.logger.warning('Message is not valid for sending, removing it');
+
+        // Remove the message from state as it is invalid.
+        state!.deleteMessage(message, hardDelete: true);
+        throw const StreamChatError('Message is not valid for sending');
+      }
+
       // Wait for the previous sendMessage call to finish. Otherwise, the order
       // of messages will not be maintained.
       final response = await _sendMessageLock.synchronized(
@@ -758,6 +791,7 @@ class Channel {
   /// before actually updating the message.
   Future<UpdateMessageResponse> updateMessage(
     Message message, {
+    bool skipPush = false,
     bool skipEnrichUrl = false,
   }) async {
     _checkInitialized();
@@ -803,6 +837,7 @@ class Channel {
       final response = await _updateMessageLock.synchronized(
         () => _client.updateMessage(
           message,
+          skipPush: skipPush,
           skipEnrichUrl: skipEnrichUrl,
         ),
       );
@@ -1292,6 +1327,44 @@ class Channel {
     );
   }
 
+  /// Create a reminder for the given [messageId].
+  ///
+  /// Optionally, provide a [remindAt] date to set when the reminder should
+  /// be triggered. If not provided, the reminder will be created as a
+  /// bookmark type instead.
+  Future<CreateReminderResponse> createReminder(
+    String messageId, {
+    DateTime? remindAt,
+  }) {
+    _checkInitialized();
+    return _client.createReminder(
+      messageId,
+      remindAt: remindAt,
+    );
+  }
+
+  /// Update an existing reminder with the given [reminderId].
+  ///
+  /// Optionally, provide a [remindAt] date to set when the reminder should
+  /// be triggered. If not provided, the reminder will be updated as a
+  /// bookmark type instead.
+  Future<UpdateReminderResponse> updateReminder(
+    String messageId, {
+    DateTime? remindAt,
+  }) {
+    _checkInitialized();
+    return _client.updateReminder(
+      messageId,
+      remindAt: remindAt,
+    );
+  }
+
+  /// Remove the reminder for the given [messageId].
+  Future<EmptyResponse> deleteReminder(String messageId) {
+    _checkInitialized();
+    return _client.deleteReminder(messageId);
+  }
+
   /// Send a reaction to this channel.
   ///
   /// Set [enforceUnique] to true to remove the existing user reaction.
@@ -1510,6 +1583,7 @@ class Channel {
     List<String> memberIds, {
     Message? message,
     bool hideHistory = false,
+    DateTime? hideHistoryBefore,
   }) async {
     _checkInitialized();
     return _client.addChannelMembers(
@@ -1518,6 +1592,7 @@ class Channel {
       memberIds,
       message: message,
       hideHistory: hideHistory,
+      hideHistoryBefore: hideHistoryBefore,
     );
   }
 
@@ -1565,39 +1640,83 @@ class Channel {
   /// read from a particular message onwards.
   Future<EmptyResponse> markRead({String? messageId}) async {
     _checkInitialized();
+
+    if (!canUseReadReceipts) {
+      throw const StreamChatError(
+        'Cannot mark as read: Channel does not support read events. '
+        'Enable read_events in your channel type configuration.',
+      );
+    }
+
     return _client.markChannelRead(id!, type, messageId: messageId);
   }
 
-  /// Mark message as unread.
+  /// Marks the channel as unread by a given [messageId].
   ///
-  /// You have to provide a [messageId] from which you want the channel
-  /// to be marked as unread.
+  /// All messages from the provided message onwards will be marked as unread.
   Future<EmptyResponse> markUnread(String messageId) async {
     _checkInitialized();
+
+    if (!canUseReadReceipts) {
+      throw const StreamChatError(
+        'Cannot mark as unread: Channel does not support read events. '
+        'Enable read_events in your channel type configuration.',
+      );
+    }
+
     return _client.markChannelUnread(id!, type, messageId);
   }
 
-  /// Mark the thread with [threadId] in the channel as read.
-  Future<EmptyResponse> markThreadRead(String threadId) {
+  /// Marks the channel as unread by a given [timestamp].
+  ///
+  /// All messages after the provided timestamp will be marked as unread.
+  Future<EmptyResponse> markUnreadByTimestamp(DateTime timestamp) async {
     _checkInitialized();
-    return client.markThreadRead(id!, type, threadId);
+
+    if (!canUseReadReceipts) {
+      throw const StreamChatError(
+        'Cannot mark as unread: Channel does not support read events. '
+        'Enable read_events in your channel type configuration.',
+      );
+    }
+
+    return _client.markChannelUnreadByTimestamp(id!, type, timestamp);
+  }
+
+  /// Mark the thread with [threadId] in the channel as read.
+  Future<EmptyResponse> markThreadRead(String threadId) async {
+    _checkInitialized();
+
+    if (!canUseReadReceipts) {
+      throw const StreamChatError(
+        'Cannot mark thread as read: Channel does not support read events. '
+        'Enable read_events in your channel type configuration.',
+      );
+    }
+
+    return _client.markThreadRead(id!, type, threadId);
   }
 
   /// Mark the thread with [threadId] in the channel as unread.
-  Future<EmptyResponse> markThreadUnread(String threadId) {
+  Future<EmptyResponse> markThreadUnread(String threadId) async {
     _checkInitialized();
-    return client.markThreadUnread(id!, type, threadId);
+
+    if (!canUseReadReceipts) {
+      throw const StreamChatError(
+        'Cannot mark thread as unread: Channel does not support read events. '
+        'Enable read_events in your channel type configuration.',
+      );
+    }
+
+    return _client.markThreadUnread(id!, type, threadId);
   }
 
   void _initState(ChannelState channelState) {
     state = ChannelClientState(this, channelState);
+    _initializedCompleter.safeComplete(true);
 
-    if (cid != null) {
-      client.state.addChannels({cid!: this});
-    }
-    if (!_initializedCompleter.isCompleted) {
-      _initializedCompleter.complete(true);
-    }
+    if (cid case final cid?) client.state.addChannels({cid: this});
+    _client.logger.info('Channel ${channelState.channel?.cid} initialized');
   }
 
   /// Loads the initial channel state and watches for changes.
@@ -1631,22 +1750,40 @@ class Channel {
     PaginationParams? options,
     bool preferOffline = false,
   }) async {
-    final cachedReplies = await _client.chatPersistenceClient?.getReplies(
-      parentId,
-      options: options,
-    );
-    if (cachedReplies != null && cachedReplies.isNotEmpty) {
-      state?.updateThreadInfo(parentId, cachedReplies);
-      if (preferOffline) {
-        return QueryRepliesResponse()..messages = cachedReplies;
+    QueryRepliesResponse? response;
+
+    // If we prefer offline, we first try to get the replies from the
+    // offline storage.
+    if (preferOffline) {
+      if (_client.chatPersistenceClient case final persistenceClient?) {
+        final cachedReplies = await persistenceClient.getReplies(
+          parentId,
+          options: options,
+        );
+
+        // If the cached replies are not empty, we can use them.
+        if (cachedReplies.isNotEmpty) {
+          response = QueryRepliesResponse()..messages = cachedReplies;
+        }
       }
     }
-    final repliesResponse = await _client.getReplies(
-      parentId,
-      options: options,
-    );
-    state?.updateThreadInfo(parentId, repliesResponse.messages);
-    return repliesResponse;
+
+    // If we still don't have the replies, we try to get them from the API.
+    response ??= await _client.getReplies(parentId, options: options);
+
+    // Before updating the state, we check if we are querying around a
+    // reply, If we are, we have to clear the state to avoid potential
+    // gaps in the message sequence.
+    final isQueryingAround = switch (options) {
+      PaginationParams(idAround: _?) => true,
+      PaginationParams(createdAtAround: _?) => true,
+      _ => false,
+    };
+
+    if (isQueryingAround) state?.clearThread(parentId);
+    state?.updateThreadInfo(parentId, response.messages);
+
+    return response;
   }
 
   /// List the reactions for a message in the channel.
@@ -1738,8 +1875,25 @@ class Channel {
       if (this.state == null) {
         _initState(channelState);
       } else {
-        // Otherwise, update the channel state.
+        // Otherwise, we update the existing state with the new channel state.
+        //
+        // But, before updating the state, we check if we are querying around a
+        // message, If we are, we have to truncate the state to avoid potential
+        // gaps in the message sequence.
+        final isQueryingAround = switch (messagesPagination) {
+          PaginationParams(idAround: _?) => true,
+          PaginationParams(createdAtAround: _?) => true,
+          _ => false,
+        };
+
+        if (isQueryingAround) this.state?.truncate();
         this.state?.updateChannelState(channelState);
+      }
+
+      // Submit for delivery reporting only when fetching the latest messages.
+      // This happens when no pagination params are provided (initial query).
+      if (messagesPagination == null) {
+        _client.channelDeliveryReporter.submitForDelivery([this]);
       }
 
       return channelState;
@@ -1757,9 +1911,7 @@ class Channel {
       }
 
       // Otherwise, we will just rethrow the error.
-      if (!_initializedCompleter.isCompleted) {
-        _initializedCompleter.completeError(e, stk);
-      }
+      _initializedCompleter.safeCompleteError(e, stk);
 
       rethrow;
     }
@@ -1961,12 +2113,21 @@ class Channel {
     onStopTyping: stopTyping,
   );
 
+  // Whether sending typing events is allowed in the channel and by the user
+  // privacy settings.
+  bool get _canSendTypingEvents {
+    final currentUser = client.state.currentUser;
+    if (currentUser == null) return false;
+
+    return canUseTypingEvents && currentUser.isTypingIndicatorsEnabled;
+  }
+
   /// Sends the [Event.typingStart] event and schedules a timer to invoke the
   /// [Event.typingStop] event.
   ///
   /// This is meant to be called every time the user presses a key.
   Future<void> keyStroke([String? parentId]) async {
-    if (config?.typingEvents == false) return;
+    if (!_canSendTypingEvents) return;
 
     client.logger.info('KeyStroke received');
     return _keyStrokeHandler(parentId);
@@ -1974,7 +2135,7 @@ class Channel {
 
   /// Sends the [EventType.typingStart] event.
   Future<void> startTyping([String? parentId]) async {
-    if (config?.typingEvents == false) return;
+    if (!_canSendTypingEvents) return;
 
     client.logger.info('start typing');
     await sendEvent(Event(
@@ -1985,7 +2146,7 @@ class Channel {
 
   /// Sends the [EventType.typingStop] event.
   Future<void> stopTyping([String? parentId]) async {
-    if (config?.typingEvents == false) return;
+    if (!_canSendTypingEvents) return;
 
     client.logger.info('stop typing');
     await sendEvent(Event(
@@ -1998,15 +2159,18 @@ class Channel {
   void dispose() {
     client.state.removeChannel('$cid');
     state?.dispose();
+    state = null;
     _muteExpirationTimer?.cancel();
     _keyStrokeHandler.cancel();
   }
 
   void _checkInitialized() {
-    assert(
-      _initializedCompleter.isCompleted,
-      "Channel $cid hasn't been initialized yet. Make sure to call .watch()"
-      ' or to instantiate the client using [Channel.fromState]',
+    if (_initializedCompleter.isCompleted && state != null) return;
+
+    throw StateError(
+      "Channel $cid hasn't been initialized yet or has been disposed. "
+      'Make sure to call .watch() or instantiate the client using '
+      '[Channel.fromState]',
     );
   }
 }
@@ -2017,23 +2181,19 @@ class ChannelClientState {
   ChannelClientState(
     this._channel,
     ChannelState channelState,
-  ) : _debouncedUpdatePersistenceChannelState = debounce(
-          (ChannelState state) {
-            final persistenceClient = _channel._client.chatPersistenceClient;
-            return persistenceClient?.updateChannelState(state);
-          },
-          const Duration(seconds: 1),
-        ) {
+  ) {
     _retryQueue = RetryQueue(
       channel: _channel,
-      logger: _channel.client.detachedLogger(
-        '⟳ (${generateHash([_channel.cid])})',
+      logger: _client.detachedLogger(
+        '🔄 (${generateHash([_channel.cid])})',
       ),
     );
 
-    _checkExpiredAttachmentMessages(channelState);
-
     _channelStateController = BehaviorSubject.seeded(channelState);
+    // Update the persistence storage with the seeded channel state.
+    _debouncedUpdatePersistenceChannelState.call([channelState]);
+
+    _checkExpiredAttachmentMessages(channelState);
 
     _listenTypingEvents();
 
@@ -2079,6 +2239,8 @@ class ChannelClientState {
 
     _listenChannelUpdated();
 
+    _listenChannelMessageCount();
+
     _listenMemberAdded();
 
     _listenMemberRemoved();
@@ -2093,27 +2255,31 @@ class ChannelClientState {
 
     _listenUserStopWatching();
 
+    /* Start of reminder events */
+
+    _listenReminderCreated();
+
+    _listenReminderUpdated();
+
+    _listenReminderDeleted();
+
+    /* End of reminder events */
+
     _startCleaningStaleTypingEvents();
 
     _startCleaningStalePinnedMessages();
 
-    _channel._client.chatPersistenceClient
-        ?.getChannelThreads(_channel.cid!)
-        .then((threads) {
-      _threads = threads;
-    }).then((_) {
-      _channel._client.chatPersistenceClient
-          ?.getChannelStateByCid(_channel.cid!)
-          .then((state) {
-        // Replacing the persistence state members with the latest
-        // `channelState.members` as they may have changes over the time.
-        updateChannelState(state.copyWith(members: channelState.members));
-        retryFailedMessages();
-      });
-    });
+    _listenChannelPushPreferenceUpdated();
+
+    final persistenceClient = _client.chatPersistenceClient;
+    persistenceClient?.getChannelThreads(_channel.cid!).then((threads) {
+      // Load all the threads for the channel from the offline storage.
+      if (threads.isNotEmpty) _threads = threads;
+    }).then((_) => retryFailedMessages());
   }
 
   final Channel _channel;
+  StreamChatClient get _client => _channel._client;
   final _subscriptions = CompositeSubscription();
 
   void _checkExpiredAttachmentMessages(ChannelState channelState) async {
@@ -2147,7 +2313,7 @@ class ChannelClientState {
 
     if (expiredAttachmentMessagesId != null &&
         expiredAttachmentMessagesId.isNotEmpty) {
-      await _channel._initializedCompleter.future;
+      await _channel.initialized;
       _updatedMessagesIds.addAll(expiredAttachmentMessagesId);
       _channel.getMessagesById(expiredAttachmentMessagesId);
     }
@@ -2245,13 +2411,29 @@ class ChannelClientState {
     }));
   }
 
+  void _listenChannelMessageCount() {
+    _subscriptions.add(_channel.on().listen(
+      (Event e) {
+        final messageCount = e.channelMessageCount;
+        if (messageCount == null) return;
+
+        updateChannelState(
+          channelState.copyWith(
+            channel: channelState.channel?.copyWith(
+              messageCount: messageCount,
+            ),
+          ),
+        );
+      },
+    ));
+  }
+
   void _listenChannelTruncated() {
     _subscriptions.add(_channel
         .on(EventType.channelTruncated, EventType.notificationChannelTruncated)
         .listen((event) async {
       final channel = event.channel!;
-      await _channel._client.chatPersistenceClient
-          ?.deleteMessageByCid(channel.cid);
+      await _client.chatPersistenceClient?.deleteMessageByCid(channel.cid);
       truncate();
       if (event.message != null) {
         updateMessage(event.message!);
@@ -2430,7 +2612,7 @@ class ChannelClientState {
         eventPollVote.id!: eventPollVote,
       };
 
-      final currentUserId = _channel.client.state.currentUser?.id;
+      final currentUserId = _client.state.currentUser?.id;
       final ownVotesAndAnswers = <String, PollVote>{
         for (final vote in oldPoll?.ownVotesAndAnswers ?? []) vote.id: vote,
         if (eventPollVote.userId == currentUserId)
@@ -2458,7 +2640,7 @@ class ChannelClientState {
       final oldPoll = pollMessage.poll;
 
       final latestAnswers = oldPoll?.latestAnswers ?? eventPoll.latestAnswers;
-      final currentUserId = _channel.client.state.currentUser?.id;
+      final currentUserId = _client.state.currentUser?.id;
       final ownVotesAndAnswers = <String, PollVote>{
         for (final vote in oldPoll?.ownVotesAndAnswers ?? []) vote.id: vote,
         if (eventPollVote.userId == currentUserId)
@@ -2539,7 +2721,7 @@ class ChannelClientState {
       final oldPoll = pollMessage.poll;
 
       final latestAnswers = oldPoll?.latestAnswers ?? eventPoll.latestAnswers;
-      final currentUserId = _channel.client.state.currentUser?.id;
+      final currentUserId = _client.state.currentUser?.id;
       final ownVotesAndAnswers = <String, PollVote>{
         for (final vote in oldPoll?.ownVotesAndAnswers ?? []) vote.id: vote,
         if (eventPollVote.userId == currentUserId)
@@ -2576,6 +2758,65 @@ class ChannelClientState {
         return deleteDraft(draft);
       }),
     );
+  }
+
+  void _listenReminderCreated() {
+    _subscriptions.add(
+      _channel.on(EventType.reminderCreated).listen((event) {
+        final reminder = event.reminder;
+        if (reminder == null) return;
+
+        updateReminder(reminder);
+      }),
+    );
+  }
+
+  void _listenReminderUpdated() {
+    _subscriptions.add(
+      _channel.on(EventType.reminderUpdated).listen((event) {
+        final reminder = event.reminder;
+        if (reminder == null) return;
+
+        updateReminder(reminder);
+      }),
+    );
+  }
+
+  void _listenReminderDeleted() {
+    _subscriptions.add(
+      _channel.on(EventType.reminderDeleted).listen((event) {
+        final reminder = event.reminder;
+        if (reminder == null) return;
+
+        deleteReminder(reminder);
+      }),
+    );
+  }
+
+  /// Updates the [reminder] of the message if it exists.
+  void updateReminder(MessageReminder reminder) {
+    final messageId = reminder.messageId;
+    // TODO: Improve once we have support for parentId in reminders.
+    for (final message in [...messages, ...threads.values.flattened]) {
+      if (message.id == messageId) {
+        return updateMessage(
+          message.copyWith(reminder: reminder),
+        );
+      }
+    }
+  }
+
+  /// Deletes the [reminder] of the message if it exists.
+  void deleteReminder(MessageReminder reminder) {
+    final messageId = reminder.messageId;
+    // TODO: Improve once we have support for parentId in reminders.
+    for (final message in [...messages, ...threads.values.flattened]) {
+      if (message.id == messageId) {
+        return updateMessage(
+          message.copyWith(reminder: null),
+        );
+      }
+    }
   }
 
   void _listenReactionDeleted() {
@@ -2653,8 +2894,8 @@ class ChannelClientState {
       if (message == null) return;
 
       final isThreadMessage = message.parentId != null;
-      final isShownInChannel = message.showInChannel == true;
-      final isThreadOnlyMessage = isThreadMessage && !isShownInChannel;
+      final isNotShownInChannel = message.showInChannel != true;
+      final isThreadOnlyMessage = isThreadMessage && isNotShownInChannel;
 
       // Only add the message if the channel is upToDate or if the message is
       // a thread-only message.
@@ -2663,28 +2904,12 @@ class ChannelClientState {
       }
 
       // Otherwise, check if we can count the message as unread.
-      if (_countMessageAsUnread(message)) unreadCount += 1;
+      if (MessageRules.canCountAsUnread(message, _channel)) {
+        unreadCount += 1; // Increment unread count
+      }
+
+      _client.channelDeliveryReporter.submitForDelivery([_channel]);
     }));
-  }
-
-  // Logic taken from the backend SDK
-  // https://github.com/GetStream/chat/blob/9245c2b3f7e679267d57ee510c60e93de051cb8e/types/channel.go#L1136-L1150
-  bool _shouldUpdateChannelLastMessageAt(Message message) {
-    if (message.isError) return false;
-    if (message.shadowed) return false;
-    if (message.isEphemeral) return false;
-
-    final config = channelState.channel?.config;
-    if (message.isSystem && config?.skipLastMsgUpdateForSystemMsgs == true) {
-      return false;
-    }
-
-    final currentUserId = _channel._client.state.currentUser?.id;
-    if (currentUserId case final userId? when message.isNotVisibleTo(userId)) {
-      return false;
-    }
-
-    return true;
   }
 
   /// Updates the [read] in the state if it exists. Adds it otherwise.
@@ -2725,7 +2950,7 @@ class ChannelClientState {
   /// Deletes the [draft] from the state if it exists.
   void deleteDraft(Draft draft) async {
     // Delete the draft from the persistence client.
-    await _channel._client.chatPersistenceClient?.deleteDraftMessageByCid(
+    await _client.chatPersistenceClient?.deleteDraftMessageByCid(
       draft.channelCid,
       parentId: draft.parentId,
     );
@@ -2802,7 +3027,7 @@ class ChannelClientState {
       // Calculate the new last message at time.
       var lastMessageAt = _channelState.channel?.lastMessageAt;
       lastMessageAt ??= message.createdAt;
-      if (_shouldUpdateChannelLastMessageAt(message)) {
+      if (MessageRules.canUpdateChannelLastMessageAt(message, _channel)) {
         lastMessageAt = [lastMessageAt, message.createdAt].max;
       }
 
@@ -2858,7 +3083,7 @@ class ChannelClientState {
 
   /// Remove a [message] from this [channelState].
   void removeMessage(Message message) async {
-    await _channel._client.chatPersistenceClient?.deleteMessageById(message.id);
+    await _client.chatPersistenceClient?.deleteMessageById(message.id);
 
     final parentId = message.parentId;
     // i.e. it's a thread message, Remove it
@@ -2906,25 +3131,52 @@ class ChannelClientState {
   }
 
   void _listenReadEvents() {
-    if (_channelState.channel?.config.readEvents == false) return;
-
     _subscriptions
       ..add(
-        _channel
-            .on(
-          EventType.messageRead,
-          EventType.notificationMarkRead,
-        )
-            .listen(
+        _channel.on(EventType.messageRead).listen(
           (event) {
             final user = event.user;
             if (user == null) return;
 
+            final currentRead = userReadOf(userId: user.id);
+
             final updatedRead = Read(
               user: user,
               lastRead: event.createdAt,
+              unreadMessages: 0, // Reset unread count
+              lastReadMessageId: event.lastReadMessageId,
+              // Preserve delivery info as it's not part of the read event.
+              lastDeliveredAt: currentRead?.lastDeliveredAt,
+              lastDeliveredMessageId: currentRead?.lastDeliveredMessageId,
+            );
+
+            updateRead([updatedRead]);
+
+            // If the read event is from the current user, reconcile the
+            // channel delivery status with the updated read state.
+            final currentUser = _client.state.currentUser;
+            if (event.isFromUser(userId: currentUser?.id)) {
+              _client.channelDeliveryReporter.reconcileDelivery([_channel]);
+            }
+          },
+        ),
+      )
+      ..add(
+        _channel.on(EventType.notificationMarkUnread).listen(
+          (event) {
+            final user = event.user;
+            if (user == null) return;
+
+            final currentRead = userReadOf(userId: user.id);
+
+            final updatedRead = Read(
+              user: user,
+              lastRead: event.lastReadAt!,
               unreadMessages: event.unreadMessages,
               lastReadMessageId: event.lastReadMessageId,
+              // Preserve delivery info as it's not part of the read event.
+              lastDeliveredAt: currentRead?.lastDeliveredAt,
+              lastDeliveredMessageId: currentRead?.lastDeliveredMessageId,
             );
 
             return updateRead([updatedRead]);
@@ -2932,19 +3184,32 @@ class ChannelClientState {
         ),
       )
       ..add(
-        _channel.on(EventType.notificationMarkUnread).listen(
-          (Event event) {
+        _channel.on(EventType.messageDelivered).listen(
+          (event) {
             final user = event.user;
             if (user == null) return;
 
+            final currentRead = userReadOf(userId: user.id);
+            final never = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
+
             final updatedRead = Read(
               user: user,
-              lastRead: event.lastReadAt!,
-              unreadMessages: event.unreadMessages,
-              lastReadMessageId: event.lastReadMessageId,
+              lastDeliveredAt: event.lastDeliveredAt,
+              lastDeliveredMessageId: event.lastDeliveredMessageId,
+              // Preserve read info as it's not part of the delivery event.
+              lastRead: currentRead?.lastRead ?? never,
+              unreadMessages: currentRead?.unreadMessages,
+              lastReadMessageId: currentRead?.lastReadMessageId,
             );
 
-            return updateRead([updatedRead]);
+            updateRead([updatedRead]);
+
+            // If the delivered event is from the current user, reconcile
+            // the channel delivery with the updated read state.
+            final currentUser = _client.state.currentUser;
+            if (event.isFromUser(userId: currentUser?.id)) {
+              _client.channelDeliveryReporter.reconcileDelivery([_channel]);
+            }
           },
         ),
       );
@@ -2967,26 +3232,33 @@ class ChannelClientState {
       .map((cs) => cs.pinnedMessages ?? <Message>[])
       .distinct(const ListEquality().equals);
 
-  /// Get channel last message.
-  Message? get lastMessage =>
-      _channelState.messages != null && _channelState.messages!.isNotEmpty
-          ? _channelState.messages!.last
-          : null;
+  /// Channel pending message list.
+  List<Message> get pendingMessages =>
+      _channelState.pendingMessages ?? <Message>[];
+
+  /// Channel pending message list as a stream.
+  Stream<List<Message>> get pendingMessagesStream => channelStateStream
+      .map((cs) => cs.pendingMessages ?? <Message>[])
+      .distinct(const ListEquality().equals);
 
   /// Get channel last message.
-  Stream<Message?> get lastMessageStream =>
-      messagesStream.map((event) => event.isNotEmpty ? event.last : null);
+  Message? get lastMessage => messages.lastOrNull;
+
+  /// Get channel last message as a stream.
+  Stream<Message?> get lastMessageStream {
+    return messagesStream.map((messages) => messages.lastOrNull);
+  }
 
   /// Channel members list.
   List<Member> get members => (_channelState.members ?? <Member>[])
-      .map((e) => e.copyWith(user: _channel.client.state.users[e.user!.id]))
+      .map((e) => e.copyWith(user: _client.state.users[e.user!.id]))
       .toList();
 
   /// Channel members list as a stream.
   Stream<List<Member>> get membersStream => CombineLatestStream.combine2<
           List<Member?>?, Map<String?, User?>, List<Member>>(
         channelStateStream.map((cs) => cs.members),
-        _channel.client.state.usersStream,
+        _client.state.usersStream,
         (members, users) =>
             [...?members?.map((e) => e!.copyWith(user: users[e.user!.id]))],
       ).distinct(const ListEquality().equals);
@@ -3000,14 +3272,14 @@ class ChannelClientState {
 
   /// Channel watchers list.
   List<User> get watchers => (_channelState.watchers ?? <User>[])
-      .map((e) => _channel.client.state.users[e.id] ?? e)
+      .map((e) => _client.state.users[e.id] ?? e)
       .toList();
 
   /// Channel watchers list as a stream.
   Stream<List<User>> get watchersStream => CombineLatestStream.combine2<
           List<User>?, Map<String?, User?>, List<User>>(
         channelStateStream.map((cs) => cs.watchers),
-        _channel.client.state.usersStream,
+        _client.state.usersStream,
         (watchers, users) => [...?watchers?.map((e) => users[e.id] ?? e)],
       ).distinct(const ListEquality().equals);
 
@@ -3021,7 +3293,7 @@ class ChannelClientState {
 
   /// Channel member for the current user.
   Member? get currentUserMember => members.firstWhereOrNull(
-        (m) => m.user?.id == _channel.client.state.currentUser?.id,
+        (m) => m.user?.id == _client.state.currentUser?.id,
       );
 
   /// Channel role for the current user
@@ -3031,29 +3303,33 @@ class ChannelClientState {
   List<Read> get read => _channelState.read ?? <Read>[];
 
   /// Channel read list as a stream.
-  Stream<List<Read>> get readStream =>
-      channelStateStream.map((cs) => cs.read ?? <Read>[]);
-
-  bool _isCurrentUserRead(Read read) =>
-      read.user.id == _channel._client.state.currentUser!.id;
+  Stream<List<Read>> get readStream {
+    return channelStateStream.map((cs) => cs.read ?? <Read>[]);
+  }
 
   /// Channel read for the logged in user.
-  Read? get currentUserRead => read.firstWhereOrNull(_isCurrentUserRead);
+  Read? get currentUserRead {
+    final currentUser = _client.state.currentUser;
+    return userReadOf(userId: currentUser?.id);
+  }
 
   /// Channel read for the logged in user as a stream.
-  Stream<Read?> get currentUserReadStream =>
-      readStream.map((read) => read.firstWhereOrNull(_isCurrentUserRead));
+  Stream<Read?> get currentUserReadStream {
+    final currentUser = _client.state.currentUserStream;
+    return currentUser.switchMap((it) => userReadStreamOf(userId: it?.id));
+  }
 
   /// Unread count getter as a stream.
-  Stream<int> get unreadCountStream =>
-      currentUserReadStream.map((read) => read?.unreadMessages ?? 0);
+  Stream<int> get unreadCountStream {
+    return currentUserReadStream.map((read) => read?.unreadMessages ?? 0);
+  }
 
   /// Unread count getter.
   int get unreadCount => currentUserRead?.unreadMessages ?? 0;
 
   /// Setter for unread count.
   set unreadCount(int count) {
-    final currentUser = _channel.client.state.currentUser;
+    final currentUser = _client.state.currentUser;
     if (currentUser == null) return;
 
     var existingUserRead = currentUserRead;
@@ -3068,62 +3344,22 @@ class ChannelClientState {
     return updateRead([existingUserRead.copyWith(unreadMessages: count)]);
   }
 
-  bool _countMessageAsUnread(Message message) {
-    // Don't count if the channel doesn't allow read events.
-    if (!_channel.canReceiveReadEvents) return false;
-
-    // Don't count if the channel is muted.
-    if (_channel.isMuted) return false;
-
-    // Don't count if the message is silent or shadowed or ephemeral.
-    if (message.silent) return false;
-    if (message.shadowed) return false;
-    if (message.isEphemeral) return false;
-
-    // Don't count thread replies which are not shown in the channel as unread.
-    if (message.parentId != null && message.showInChannel == false) {
-      return false;
-    }
-
-    // Don't count if the message doesn't have a user.
-    final messageUser = message.user;
-    if (messageUser == null) return false;
-
-    // Don't count if the current user is not set.
-    final currentUser = _channel.client.state.currentUser;
-    if (currentUser == null) return false;
-
-    // Don't count user's own messages as unread.
-    if (messageUser.id == currentUser.id) return false;
-
-    // Don't count restricted messages as unread.
-    if (message.isNotVisibleTo(currentUser.id)) return false;
-
-    // Don't count messages from muted users as unread.
-    final isMuted = currentUser.mutes.any((it) => it.user.id == messageUser.id);
-    if (isMuted) return false;
-
-    // If we've passed all checks, count the message as unread.
-    return true;
-  }
-
   /// Counts the number of unread messages mentioning the current user.
   ///
   /// **NOTE**: The method relies on the [Channel.messages] list and doesn't do
   /// any API call. Therefore, the count might be not reliable as it relies on
   /// the local data.
   int countUnreadMentions() {
-    final lastRead = currentUserRead?.lastRead;
-    final userId = _channel.client.state.currentUser?.id;
+    final currentUserId = _client.state.currentUser?.id;
 
     var count = 0;
     for (final message in messages) {
-      if (_countMessageAsUnread(message) &&
-          (lastRead == null || message.createdAt.isAfter(lastRead)) &&
-          message.mentionedUsers.any((user) => user.id == userId) == true) {
-        count++;
-      }
+      if (!MessageRules.canCountAsUnread(message, _channel)) continue;
+      if (!message.mentionedUsers.any((it) => it.id == currentUserId)) continue;
+
+      count++;
     }
+
     return count;
   }
 
@@ -3179,6 +3415,8 @@ class ChannelClientState {
       read: newReads,
       draft: updatedState.draft,
       pinnedMessages: updatedState.pinnedMessages,
+      pendingMessages: updatedState.pendingMessages,
+      pushPreferences: updatedState.pushPreferences,
     );
   }
 
@@ -3195,12 +3433,29 @@ class ChannelClientState {
   ChannelState get channelState => _channelStateController.value;
   late BehaviorSubject<ChannelState> _channelStateController;
 
-  final Debounce _debouncedUpdatePersistenceChannelState;
+  late final _debouncedUpdatePersistenceChannelState = debounce(
+    (ChannelState state) {
+      final persistenceClient = _client.chatPersistenceClient;
+      return persistenceClient?.updateChannelState(state);
+    },
+    const Duration(seconds: 1),
+  );
 
   set _channelState(ChannelState v) {
     _channelStateController.safeAdd(v);
     _debouncedUpdatePersistenceChannelState.call([v]);
   }
+
+  late final _debouncedUpdatePersistenceChannelThreads = debounce(
+    (Map<String, List<Message>> threads) async {
+      final channelCid = _channel.cid;
+      if (channelCid == null) return;
+
+      final persistenceClient = _client.chatPersistenceClient;
+      return persistenceClient?.updateChannelThreads(channelCid, threads);
+    },
+    const Duration(seconds: 1),
+  );
 
   /// The channel threads related to this channel.
   Map<String, List<Message>> get threads => {..._threadsController.value};
@@ -3210,10 +3465,17 @@ class ChannelClientState {
   final _threadsController = BehaviorSubject.seeded(<String, List<Message>>{});
   set _threads(Map<String, List<Message>> threads) {
     _threadsController.safeAdd(threads);
-    _channel.client.chatPersistenceClient?.updateChannelThreads(
-      _channel.cid!,
-      threads,
-    );
+    _debouncedUpdatePersistenceChannelThreads.call([threads]);
+  }
+
+  /// Clears all the replies in the thread identified by [parentId].
+  void clearThread(String parentId) {
+    final updatedThreads = {
+      ...threads,
+      parentId: <Message>[],
+    };
+
+    _threads = updatedThreads;
   }
 
   /// Update threads with updated information about messages.
@@ -3257,21 +3519,18 @@ class ChannelClientState {
   final _typingEventsController = BehaviorSubject.seeded(<User, Event>{});
 
   void _listenTypingEvents() {
-    if (_channelState.channel?.config.typingEvents == false) return;
-
-    final currentUser = _channel.client.state.currentUser;
-    if (currentUser == null) return;
-
     _subscriptions
       ..add(
         _channel.on(EventType.typingStart).listen(
           (event) {
             final user = event.user;
-            if (user != null && user.id != currentUser.id) {
-              final events = {...typingEvents};
-              events[user] = event;
-              _typingEventsController.safeAdd(events);
-            }
+            if (user == null) return;
+
+            final currentUser = _client.state.currentUser;
+            if (event.isFromUser(userId: currentUser?.id)) return;
+
+            final events = {...typingEvents, user: event};
+            _typingEventsController.safeAdd(events);
           },
         ),
       )
@@ -3279,10 +3538,13 @@ class ChannelClientState {
         _channel.on(EventType.typingStop).listen(
           (event) {
             final user = event.user;
-            if (user != null && user.id != currentUser.id) {
-              final events = {...typingEvents}..remove(user);
-              _typingEventsController.safeAdd(events);
-            }
+            if (user == null) return;
+
+            final currentUser = _client.state.currentUser;
+            if (event.isFromUser(userId: currentUser?.id)) return;
+
+            final events = {...typingEvents}..remove(user);
+            _typingEventsController.safeAdd(events);
           },
         ),
       );
@@ -3294,8 +3556,6 @@ class ChannelClientState {
   // the sender due to technical difficulties. e.g. process death, loss of
   // Internet connection or custom implementation.
   void _startCleaningStaleTypingEvents() {
-    if (_channelState.channel?.config.typingEvents == false) return;
-
     _staleTypingEventsCleanerTimer = Timer.periodic(
       const Duration(seconds: 1),
       (_) {
@@ -3303,7 +3563,7 @@ class ChannelClientState {
         typingEvents.forEach((user, event) {
           if (now.difference(event.createdAt).inSeconds >
               incomingTypingStartEventTimeout) {
-            _channel.client.handleEvent(
+            _client.handleEvent(
               Event(
                 type: EventType.typingStop,
                 user: user,
@@ -3345,8 +3605,27 @@ class ChannelClientState {
     );
   }
 
+  // Listens to channel push preference update events and updates the state
+  void _listenChannelPushPreferenceUpdated() {
+    _subscriptions.add(
+      _channel.on(EventType.channelPushPreferenceUpdated).listen(
+        (event) {
+          final pushPreferences = event.channelPushPreference;
+          if (pushPreferences == null) return;
+
+          updateChannelState(
+            channelState.copyWith(
+              pushPreferences: pushPreferences,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   /// Call this method to dispose this object.
   void dispose() {
+    _debouncedUpdatePersistenceChannelThreads.cancel();
     _debouncedUpdatePersistenceChannelState.cancel();
     _retryQueue.dispose();
     _subscriptions.cancel();
@@ -3362,6 +3641,57 @@ class ChannelClientState {
 bool _pinIsValid(Message message) {
   final now = DateTime.now();
   return message.pinExpires!.isAfter(now);
+}
+
+/// Extension methods for reading related operations on a ChannelClientState.
+extension ChannelReadHelper on ChannelClientState {
+  /// Get the [Read] object for a specific user identified by [userId].
+  Read? userReadOf({String? userId}) => read.userReadOf(userId: userId);
+
+  /// Stream of [Read] object for a specific user identified by [userId].
+  Stream<Read?> userReadStreamOf({String? userId}) {
+    return readStream.map((read) => read.userReadOf(userId: userId));
+  }
+
+  /// Returns the list of [Read]s that have marked the given [msg] as read.
+  ///
+  /// The [Read] is considered to have read the message if:
+  /// - The read user is not the sender of the message.
+  /// - The read's lastRead is after or equal to the message's createdAt.
+  List<Read> readsOf({required Message message}) {
+    return read.readsOf(message: message);
+  }
+
+  /// Stream of list of [Read]s that have marked the given [msg] as read.
+  ///
+  /// The [Read] is considered to have read the message if:
+  /// - The read user is not the sender of the message.
+  /// - The read's lastRead is after or equal to the message's createdAt.
+  Stream<List<Read>> readsOfStream({required Message message}) {
+    return readStream.map((read) => read.readsOf(message: message));
+  }
+
+  /// Returns the list of [Read]s that have marked the given [message] as
+  /// delivered.
+  ///
+  /// The [Read] is considered to have delivered the message if:
+  /// - The read user is not the sender of the message.
+  /// - The read contains a non-null lastDeliveredAt.
+  /// - The read's lastDeliveredAt is after or equal to the message's createdAt.
+  List<Read> deliveriesOf({required Message message}) {
+    return read.deliveriesOf(message: message);
+  }
+
+  /// Stream of list of [Read]s that have marked the given [message] as
+  /// delivered.
+  ///
+  /// The [Read] is considered to have delivered the message if:
+  /// - The read user is not the sender of the message.
+  /// - The read contains a non-null lastDeliveredAt.
+  /// - The read's lastDeliveredAt is after or equal to the message's createdAt.
+  Stream<List<Read>> deliveriesOfStream({required Message message}) {
+    return readStream.map((read) => read.deliveriesOf(message: message));
+  }
 }
 
 /// Extension methods for checking channel capabilities on a Channel instance.
@@ -3452,7 +3782,9 @@ extension ChannelCapabilityCheck on Channel {
   }
 
   /// True, if the current user can send typing events.
+  @Deprecated('Use canUseTypingEvents instead')
   bool get canSendTypingEvents {
+    if (canUseTypingEvents) return true;
     return ownCapabilities.contains(ChannelCapability.sendTypingEvents);
   }
 
@@ -3507,7 +3839,11 @@ extension ChannelCapabilityCheck on Channel {
   }
 
   /// True, if the current user has read events capability.
-  bool get canReceiveReadEvents {
+  @Deprecated('Use canUseReadReceipts instead')
+  bool get canReceiveReadEvents => canUseReadReceipts;
+
+  /// True, if the current user has read events capability.
+  bool get canUseReadReceipts {
     return ownCapabilities.contains(ChannelCapability.readEvents);
   }
 
@@ -3545,5 +3881,10 @@ extension ChannelCapabilityCheck on Channel {
   /// True, if the current user can query poll votes.
   bool get canQueryPollVotes {
     return ownCapabilities.contains(ChannelCapability.queryPollVotes);
+  }
+
+  /// True, if the current user has delivery events capability.
+  bool get canUseDeliveryReceipts {
+    return ownCapabilities.contains(ChannelCapability.deliveryEvents);
   }
 }

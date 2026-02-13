@@ -1,3 +1,52 @@
+## 9.23.0
+
+- Fixed Italian translation for `unreadMessagesSeparatorText` (was incorrectly showing French text "Nouveaux messages" instead of Italian "Nuovi messaggi").
+
+## 9.22.0
+
+- Added translations for new `deletePollOptionLabel` label.
+- Added translations for new `deletePollOptionQuestion` text.
+
+## 9.21.0
+
+- Updated `stream_chat_flutter` dependency to [`9.21.0`](https://pub.dev/packages/stream_chat_flutter/changelog).
+
+## 9.20.0
+
+- Updated `stream_chat_flutter` dependency to [`9.20.0`](https://pub.dev/packages/stream_chat_flutter/changelog).
+
+## 9.19.0
+
+- Updated `stream_chat_flutter` dependency to [`9.19.0`](https://pub.dev/packages/stream_chat_flutter/changelog).
+
+## 9.18.0
+
+- Updated `stream_chat_flutter` dependency to [`9.18.0`](https://pub.dev/packages/stream_chat_flutter/changelog).
+
+## 9.17.0
+
+- Updated `stream_chat_flutter` dependency to [`9.17.0`](https://pub.dev/packages/stream_chat_flutter/changelog).
+
+## 9.16.0
+
+- Updated `stream_chat_flutter` dependency to [`9.16.0`](https://pub.dev/packages/stream_chat_flutter/changelog).
+
+## 9.15.0
+
+- Updated `stream_chat_flutter` dependency to [`9.15.0`](https://pub.dev/packages/stream_chat_flutter/changelog).
+
+## 9.14.0
+
+- Updated `stream_chat_flutter` dependency to [`9.14.0`](https://pub.dev/packages/stream_chat_flutter/changelog).
+
+## 9.13.0
+
+- Updated `stream_chat_flutter` dependency to [`9.13.0`](https://pub.dev/packages/stream_chat_flutter/changelog).
+
+## 9.12.0
+
+- Updated `stream_chat_flutter` dependency to [`9.12.0`](https://pub.dev/packages/stream_chat_flutter/changelog).
+
 ## 9.11.0
 
 - Updated `stream_chat_flutter` dependency to [`9.11.0`](https://pub.dev/packages/stream_chat_flutter/changelog).

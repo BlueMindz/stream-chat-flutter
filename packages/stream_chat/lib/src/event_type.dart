@@ -158,4 +158,26 @@ class EventType {
 
   /// Event sent when a draft message is deleted.
   static const String draftDeleted = 'draft.deleted';
+
+  /// Event sent when a message reminder is created.
+  static const String reminderCreated = 'reminder.created';
+
+  /// Event sent when a message reminder is updated.
+  static const String reminderUpdated = 'reminder.updated';
+
+  /// Event sent when a message reminder is deleted.
+  static const String reminderDeleted = 'reminder.deleted';
+
+  /// Event sent when a message reminder is due.
+  static const String notificationReminderDue = 'notification.reminder_due';
+
+  /// Local event sent when push notification preference is updated.
+  static const String pushPreferenceUpdated = 'push_preference.updated';
+
+  /// Local event sent when channel push notification preference is updated.
+  static const String channelPushPreferenceUpdated =
+      'channel.push_preference.updated';
+
+  /// Event sent when a message is marked as delivered.
+  static const String messageDelivered = 'message.delivered';
 }

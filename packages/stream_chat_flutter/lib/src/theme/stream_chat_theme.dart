@@ -345,6 +345,7 @@ class StreamChatThemeData {
       pollCreatorTheme: StreamPollCreatorThemeData(
         backgroundColor: colorTheme.appBg,
         appBarBackgroundColor: colorTheme.barsBg,
+        appBarForegroundColor: colorTheme.textHighEmphasis,
         appBarElevation: 1,
         appBarTitleStyle: textTheme.headlineBold.copyWith(
           color: colorTheme.textHighEmphasis,
@@ -379,6 +380,12 @@ class StreamChatThemeData {
           color: colorTheme.accentError,
         ),
         switchListTileBorderRadius: BorderRadius.circular(12),
+        actionDialogTitleStyle: textTheme.headlineBold.copyWith(
+          color: colorTheme.textHighEmphasis,
+        ),
+        actionDialogContentStyle: textTheme.body.copyWith(
+          color: colorTheme.textHighEmphasis,
+        ),
       ),
       pollInteractorTheme: StreamPollInteractorThemeData(
         pollTitleStyle: textTheme.headlineBold.copyWith(
@@ -422,6 +429,7 @@ class StreamChatThemeData {
         backgroundColor: colorTheme.appBg,
         appBarElevation: 1,
         appBarBackgroundColor: colorTheme.barsBg,
+        appBarForegroundColor: colorTheme.textHighEmphasis,
         appBarTitleTextStyle: textTheme.headlineBold.copyWith(
           color: colorTheme.textHighEmphasis,
         ),
@@ -461,6 +469,7 @@ class StreamChatThemeData {
         backgroundColor: colorTheme.appBg,
         appBarElevation: 1,
         appBarBackgroundColor: colorTheme.barsBg,
+        appBarForegroundColor: colorTheme.textHighEmphasis,
         appBarTitleTextStyle: textTheme.headlineBold.copyWith(
           color: colorTheme.textHighEmphasis,
         ),
@@ -480,6 +489,7 @@ class StreamChatThemeData {
         backgroundColor: colorTheme.appBg,
         appBarElevation: 1,
         appBarBackgroundColor: colorTheme.barsBg,
+        appBarForegroundColor: colorTheme.textHighEmphasis,
         appBarTitleTextStyle: textTheme.headlineBold.copyWith(
           color: colorTheme.textHighEmphasis,
         ),
@@ -502,6 +512,7 @@ class StreamChatThemeData {
         backgroundColor: colorTheme.appBg,
         appBarElevation: 1,
         appBarBackgroundColor: colorTheme.barsBg,
+        appBarForegroundColor: colorTheme.textHighEmphasis,
         appBarTitleTextStyle: textTheme.headlineBold.copyWith(
           color: colorTheme.textHighEmphasis,
         ),

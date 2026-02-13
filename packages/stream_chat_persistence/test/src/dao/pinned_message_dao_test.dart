@@ -31,6 +31,7 @@ void main() {
         id: 'testMessageId$cid$index',
         type: 'testType',
         user: users[index],
+        channelRole: 'channel_member',
         createdAt: DateTime.now(),
         shadowed: math.Random().nextBool(),
         replyCount: index,
@@ -52,6 +53,7 @@ void main() {
         id: 'testQuotedMessageId$cid$index',
         type: 'testType',
         user: users[index],
+        channelRole: 'channel_member',
         createdAt: DateTime.now(),
         shadowed: math.Random().nextBool(),
         replyCount: index,
@@ -70,6 +72,7 @@ void main() {
         id: 'testThreadMessageId$cid$index',
         type: 'testType',
         user: users[index],
+        channelRole: 'channel_member',
         parentId:
             mapAllThreadToFirstMessage ? messages[0].id : messages[index].id,
         createdAt: DateTime.now(),
@@ -353,11 +356,11 @@ void main() {
     const cid = 'test:Cid';
     const limit = 15;
     const lessThan = 'testMessageId${cid}25';
-    const greaterThanOrEqual = 'testMessageId${cid}5';
+    const greaterThan = 'testMessageId${cid}5';
     const pagination = PaginationParams(
       limit: limit,
       lessThan: lessThan,
-      greaterThanOrEqual: greaterThanOrEqual,
+      greaterThan: greaterThan,
     );
 
     // Should be empty initially
@@ -377,7 +380,7 @@ void main() {
       messagePagination: pagination,
     );
     expect(fetchedMessages.length, limit);
-    expect(fetchedMessages.first.id, greaterThanOrEqual);
+    expect(fetchedMessages.first.id, greaterThan);
     expect(fetchedMessages.last.id != lessThan, true);
   });
 

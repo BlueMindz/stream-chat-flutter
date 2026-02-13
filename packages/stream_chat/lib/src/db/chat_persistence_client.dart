@@ -34,6 +34,9 @@ abstract class ChatPersistenceClient {
   /// If [flush] is true, the data will also be deleted
   Future<void> disconnect({bool flush = false});
 
+  /// Clears all the data stored in the persistence client.
+  Future<void> flush();
+
   /// Get stored replies by messageId
   Future<List<Message>> getReplies(
     String parentId, {
@@ -240,12 +243,19 @@ abstract class ChatPersistenceClient {
   /// Deletes all the members by channel [cids]
   Future<void> deleteMembersByCids(List<String> cids);
 
+  /// Deletes all the draft messages by channel [cids]
+  Future<void> deleteDraftMessagesByCids(List<String> cids);
+
   /// Updates the channel [cid] threads data along with reactions and users.
   Future<void> updateChannelThreads(
     String cid,
     Map<String, List<Message>> threads,
   ) async {
+    if (threads.isEmpty) return;
+
+    // Flattening the messages from threads
     final messages = threads.values.expand((it) => it).toList();
+    if (messages.isEmpty) return;
 
     // Removing old reactions before saving the new
     final oldReactions = messages.map((it) => it.id).toList();
@@ -254,12 +264,17 @@ abstract class ChatPersistenceClient {
     // Adding new reactions and users data
     final reactions = messages.expand(_expandReactions).toList();
     final users = messages.map((it) => it.user).withNullifyer.toList();
+    await updateUsers(users);
 
-    await Future.wait([
-      updateMessages(cid, messages),
-      updateReactions(reactions),
-      updateUsers(users),
-    ]);
+    final channel = await getChannelByCid(cid);
+    if (channel == null) {
+      // If the channel does not yet exist, we create a new one otherwise
+      // the db will throw an error due to foreign key constraint.
+      await updateChannels([ChannelModel(cid: cid)]);
+    }
+
+    await updateMessages(cid, messages);
+    await updateReactions(reactions);
   }
 
   /// Update the channel state data using [channelState]
@@ -268,6 +283,8 @@ abstract class ChatPersistenceClient {
 
   /// Update list of channel states
   Future<void> updateChannelStates(List<ChannelState> channelStates) async {
+    if (channelStates.isEmpty) return;
+
     final reactionsToDelete = <String>[];
     final pinnedReactionsToDelete = <String>[];
     final membersToDelete = <String>[];
@@ -277,7 +294,6 @@ abstract class ChatPersistenceClient {
     final channelWithPinnedMessages = <String, List<Message>?>{};
     final channelWithReads = <String, List<Read>?>{};
     final channelWithMembers = <String, List<Member>?>{};
-    final drafts = <Draft>[];
 
     final users = <User>[];
     final reactions = <Reaction>[];
@@ -286,6 +302,9 @@ abstract class ChatPersistenceClient {
     final polls = <Poll>[];
     final pollVotes = <PollVote>[];
     final pollVotesToDelete = <String>[];
+
+    final drafts = <Draft>[];
+    final draftsToDeleteCids = <String>[];
 
     for (final state in channelStates) {
       final channel = state.channel;
@@ -311,6 +330,7 @@ abstract class ChatPersistenceClient {
       membersToDelete.add(cid);
       reactionsToDelete.addAll(messages?.map((it) => it.id) ?? []);
       pinnedReactionsToDelete.addAll(pinnedMessages?.map((it) => it.id) ?? []);
+      draftsToDeleteCids.add(cid);
 
       // preparing addition data
       channelWithReads[cid] = reads;
@@ -356,6 +376,7 @@ abstract class ChatPersistenceClient {
       deleteReactionsByMessageId(reactionsToDelete),
       deletePinnedMessageReactionsByMessageId(pinnedReactionsToDelete),
       deletePollVotesByPollIds(pollVotesToDelete),
+      deleteDraftMessagesByCids(draftsToDeleteCids),
     ]);
 
     // Updating first as does not depend on any other table.

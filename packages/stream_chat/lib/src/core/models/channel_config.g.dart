@@ -33,6 +33,9 @@ ChannelConfig _$ChannelConfigFromJson(Map<String, dynamic> json) =>
       urlEnrichment: json['url_enrichment'] as bool? ?? false,
       skipLastMsgUpdateForSystemMsgs:
           json['skip_last_msg_update_for_system_msgs'] as bool? ?? false,
+      userMessageReminders: json['user_message_reminders'] as bool? ?? false,
+      markMessagesPending: json['mark_messages_pending'] as bool? ?? false,
+      deliveryEvents: json['delivery_events'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$ChannelConfigToJson(ChannelConfig instance) =>
@@ -55,4 +58,7 @@ Map<String, dynamic> _$ChannelConfigToJson(ChannelConfig instance) =>
       'url_enrichment': instance.urlEnrichment,
       'skip_last_msg_update_for_system_msgs':
           instance.skipLastMsgUpdateForSystemMsgs,
+      'user_message_reminders': instance.userMessageReminders,
+      'mark_messages_pending': instance.markMessagesPending,
+      'delivery_events': instance.deliveryEvents,
     };

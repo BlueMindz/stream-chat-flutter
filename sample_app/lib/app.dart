@@ -265,6 +265,12 @@ StreamChatClient buildStreamChatClient(String apiKey) {
     apiKey,
     logLevel: logLevel,
     logHandlerFunction: _sampleAppLogHandler,
+    retryPolicy: RetryPolicy(
+      maxRetryAttempts: 3,
+      shouldRetry: (client, attempt, error) {
+        return error is StreamChatNetworkError && error.isRetriable;
+      },
+    ),
     //baseURL: 'http://<local-ip>:3030',
     //baseWsUrl: 'ws://<local-ip>:8800',
   )..chatPersistenceClient = chatPersistentClient;
@@ -429,6 +435,7 @@ class _StreamChatSampleAppState extends State<StreamChatSampleApp>
     super.dispose();
     userIdSubscription?.cancel();
     firebaseSubscriptions.cancelAll();
+    _initNotifier.initData?.client.dispose();
   }
 
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey();

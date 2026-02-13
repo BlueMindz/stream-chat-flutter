@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter/src/theme/avatar_theme.dart';
+import 'package:stream_chat_flutter/src/utils/date_formatter.dart';
 
 /// {@template message_theme_data}
 /// Class for getting message theme
@@ -17,12 +18,14 @@ class StreamMessageThemeData with Diagnosticable {
     this.messageLinksStyle,
     this.messageDeletedStyle,
     this.messageBackgroundColor,
+    this.messageBackgroundGradient,
     this.messageBorderColor,
     this.reactionsBackgroundColor,
     this.reactionsBorderColor,
     this.reactionsMaskColor,
     this.avatarTheme,
     this.createdAtStyle,
+    this.createdAtFormatter,
     this.urlAttachmentBackgroundColor,
     this.urlAttachmentHostStyle,
     this.urlAttachmentTitleStyle,
@@ -43,6 +46,21 @@ class StreamMessageThemeData with Diagnosticable {
   /// Text style for created at text
   final TextStyle? createdAtStyle;
 
+  /// Formatter for the created at timestamp.
+  ///
+  /// If null, uses the default date formatting.
+  ///
+  /// Example:
+  /// ```dart
+  /// StreamMessageThemeData(
+  ///   createdAtStyle: TextStyle(...),
+  ///   createdAtFormatter: (context, date) {
+  ///     return Jiffy.parseFromDateTime(date).jm; // "2:30 PM"
+  ///   },
+  /// )
+  /// ```
+  final DateFormatter? createdAtFormatter;
+
   /// Text style for the text on a deleted message
   /// If not set [messageTextStyle] is used with [FontStyle.italic] and
   /// [createdAtStyle.color].
@@ -53,6 +71,11 @@ class StreamMessageThemeData with Diagnosticable {
 
   /// Color for messageBackgroundColor
   final Color? messageBackgroundColor;
+
+  /// Gradient for message background.
+  ///
+  /// Note: If this is set, it will override [messageBackgroundColor].
+  final Gradient? messageBackgroundGradient;
 
   /// Color for message border color
   final Color? messageBorderColor;
@@ -94,8 +117,10 @@ class StreamMessageThemeData with Diagnosticable {
     TextStyle? messageLinksStyle,
     TextStyle? messageDeletedStyle,
     TextStyle? createdAtStyle,
+    DateFormatter? createdAtFormatter,
     TextStyle? repliesStyle,
     Color? messageBackgroundColor,
+    Gradient? messageBackgroundGradient,
     Color? messageBorderColor,
     StreamAvatarThemeData? avatarTheme,
     Color? reactionsBackgroundColor,
@@ -113,9 +138,12 @@ class StreamMessageThemeData with Diagnosticable {
       messageAuthorStyle: messageAuthorStyle ?? this.messageAuthorStyle,
       messageLinksStyle: messageLinksStyle ?? this.messageLinksStyle,
       createdAtStyle: createdAtStyle ?? this.createdAtStyle,
+      createdAtFormatter: createdAtFormatter ?? this.createdAtFormatter,
       messageDeletedStyle: messageDeletedStyle ?? this.messageDeletedStyle,
       messageBackgroundColor:
           messageBackgroundColor ?? this.messageBackgroundColor,
+      messageBackgroundGradient:
+          messageBackgroundGradient ?? this.messageBackgroundGradient,
       messageBorderColor: messageBorderColor ?? this.messageBorderColor,
       avatarTheme: avatarTheme ?? this.avatarTheme,
       repliesStyle: repliesStyle ?? this.repliesStyle,
@@ -150,10 +178,13 @@ class StreamMessageThemeData with Diagnosticable {
       messageAuthorStyle:
           TextStyle.lerp(a.messageAuthorStyle, b.messageAuthorStyle, t),
       createdAtStyle: TextStyle.lerp(a.createdAtStyle, b.createdAtStyle, t),
+      createdAtFormatter: t < 0.5 ? a.createdAtFormatter : b.createdAtFormatter,
       messageDeletedStyle:
           TextStyle.lerp(a.messageDeletedStyle, b.messageDeletedStyle, t),
       messageBackgroundColor:
           Color.lerp(a.messageBackgroundColor, b.messageBackgroundColor, t),
+      messageBackgroundGradient:
+          t < 0.5 ? a.messageBackgroundGradient : b.messageBackgroundGradient,
       messageBorderColor:
           Color.lerp(a.messageBorderColor, b.messageBorderColor, t),
       messageLinksStyle:
@@ -212,12 +243,14 @@ class StreamMessageThemeData with Diagnosticable {
           other.messageLinksStyle,
       createdAtStyle:
           createdAtStyle?.merge(other.createdAtStyle) ?? other.createdAtStyle,
+      createdAtFormatter: other.createdAtFormatter ?? createdAtFormatter,
       messageDeletedStyle:
           messageDeletedStyle?.merge(other.messageDeletedStyle) ??
               other.messageDeletedStyle,
       repliesStyle:
           repliesStyle?.merge(other.repliesStyle) ?? other.repliesStyle,
       messageBackgroundColor: other.messageBackgroundColor,
+      messageBackgroundGradient: other.messageBackgroundGradient,
       messageBorderColor: other.messageBorderColor,
       avatarTheme: avatarTheme?.merge(other.avatarTheme) ?? other.avatarTheme,
       reactionsBackgroundColor: other.reactionsBackgroundColor,
@@ -241,9 +274,11 @@ class StreamMessageThemeData with Diagnosticable {
           messageAuthorStyle == other.messageAuthorStyle &&
           messageLinksStyle == other.messageLinksStyle &&
           createdAtStyle == other.createdAtStyle &&
+          createdAtFormatter == other.createdAtFormatter &&
           messageDeletedStyle == other.messageDeletedStyle &&
           repliesStyle == other.repliesStyle &&
           messageBackgroundColor == other.messageBackgroundColor &&
+          messageBackgroundGradient == other.messageBackgroundGradient &&
           messageBorderColor == other.messageBorderColor &&
           reactionsBackgroundColor == other.reactionsBackgroundColor &&
           reactionsBorderColor == other.reactionsBorderColor &&
@@ -262,9 +297,11 @@ class StreamMessageThemeData with Diagnosticable {
       messageAuthorStyle.hashCode ^
       messageLinksStyle.hashCode ^
       createdAtStyle.hashCode ^
+      createdAtFormatter.hashCode ^
       messageDeletedStyle.hashCode ^
       repliesStyle.hashCode ^
       messageBackgroundColor.hashCode ^
+      messageBackgroundGradient.hashCode ^
       messageBorderColor.hashCode ^
       reactionsBackgroundColor.hashCode ^
       reactionsBorderColor.hashCode ^
@@ -285,9 +322,12 @@ class StreamMessageThemeData with Diagnosticable {
       ..add(DiagnosticsProperty('messageAuthorStyle', messageAuthorStyle))
       ..add(DiagnosticsProperty('messageLinksStyle', messageLinksStyle))
       ..add(DiagnosticsProperty('createdAtStyle', createdAtStyle))
+      ..add(DiagnosticsProperty('createdAtFormatter', createdAtFormatter))
       ..add(DiagnosticsProperty('messageDeletedStyle', messageDeletedStyle))
       ..add(DiagnosticsProperty('repliesStyle', repliesStyle))
       ..add(ColorProperty('messageBackgroundColor', messageBackgroundColor))
+      ..add(DiagnosticsProperty(
+          'messageBackgroundGradient', messageBackgroundGradient))
       ..add(ColorProperty('messageBorderColor', messageBorderColor))
       ..add(DiagnosticsProperty('avatarTheme', avatarTheme))
       ..add(ColorProperty('reactionsBackgroundColor', reactionsBackgroundColor))

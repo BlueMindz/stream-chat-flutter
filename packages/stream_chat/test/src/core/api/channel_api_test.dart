@@ -122,7 +122,7 @@ void main() {
     const channelType = 'test-channel-type';
 
     final filter = Filter.in_('cid', const ['test-cid']);
-    const sort = [SortOption<ChannelState>('test-field')];
+    const sort = [SortOption<ChannelState>.desc('test-field')];
     const memberLimit = 33;
     const messageLimit = 33;
 
@@ -409,6 +409,85 @@ void main() {
     verifyNoMoreInteractions(client);
   });
 
+  test('addMembers with hideHistoryBefore', () async {
+    const channelId = 'test-channel-id';
+    const channelType = 'test-channel-type';
+    const memberIds = ['test-member-id-1', 'test-member-id-2'];
+    final channelModel = ChannelModel(id: channelId, type: channelType);
+    final message = Message(id: 'test-message-id', text: 'members-added');
+    final hideHistoryBefore = DateTime.parse('2024-01-01T00:00:00Z');
+
+    final path = _getChannelUrl(channelId, channelType);
+
+    when(() => client.post(
+          path,
+          data: {
+            'add_members': memberIds,
+            'message': message,
+            'hide_history_before': hideHistoryBefore.toUtc().toIso8601String(),
+          },
+        )).thenAnswer((_) async => successResponse(path, data: {
+          'channel': channelModel.toJson(),
+          'message': message.toJson(),
+        }));
+
+    final res = await channelApi.addMembers(
+      channelId,
+      channelType,
+      memberIds,
+      message: message,
+      hideHistoryBefore: hideHistoryBefore,
+    );
+
+    expect(res, isNotNull);
+    expect(res.channel.cid, channelModel.cid);
+    expect(res.message?.id, message.id);
+
+    verify(() => client.post(path, data: any(named: 'data'))).called(1);
+    verifyNoMoreInteractions(client);
+  });
+
+  test('addMembers with hideHistoryBefore takes precedence over hideHistory',
+      () async {
+    const channelId = 'test-channel-id';
+    const channelType = 'test-channel-type';
+    const memberIds = ['test-member-id-1', 'test-member-id-2'];
+    final channelModel = ChannelModel(id: channelId, type: channelType);
+    final message = Message(id: 'test-message-id', text: 'members-added');
+    const hideHistory = true;
+    final hideHistoryBefore = DateTime.parse('2024-01-01T00:00:00Z');
+
+    final path = _getChannelUrl(channelId, channelType);
+
+    when(() => client.post(
+          path,
+          data: {
+            'add_members': memberIds,
+            'message': message,
+            'hide_history_before': hideHistoryBefore.toUtc().toIso8601String(),
+          },
+        )).thenAnswer((_) async => successResponse(path, data: {
+          'channel': channelModel.toJson(),
+          'message': message.toJson(),
+        }));
+
+    final res = await channelApi.addMembers(
+      channelId,
+      channelType,
+      memberIds,
+      message: message,
+      hideHistory: hideHistory,
+      hideHistoryBefore: hideHistoryBefore,
+    );
+
+    expect(res, isNotNull);
+    expect(res.channel.cid, channelModel.cid);
+    expect(res.message?.id, message.id);
+
+    verify(() => client.post(path, data: any(named: 'data'))).called(1);
+    verifyNoMoreInteractions(client);
+  });
+
   test('removeMembers', () async {
     const channelId = 'test-channel-id';
     const channelType = 'test-channel-type';
@@ -597,6 +676,60 @@ void main() {
       channelId,
       channelType,
       messageId: messageId,
+    );
+
+    expect(res, isNotNull);
+
+    verify(() => client.post(path, data: any(named: 'data'))).called(1);
+    verifyNoMoreInteractions(client);
+  });
+
+  test('markUnread', () async {
+    const channelId = 'test-channel-id';
+    const channelType = 'test-channel-type';
+    const messageId = 'test-message-id';
+
+    final path = '${_getChannelUrl(channelId, channelType)}/unread';
+
+    when(() => client.post(
+              path,
+              data: {'message_id': messageId},
+            ))
+        .thenAnswer(
+            (_) async => successResponse(path, data: <String, dynamic>{}));
+
+    final res = await channelApi.markUnread(
+      channelId,
+      channelType,
+      messageId,
+    );
+
+    expect(res, isNotNull);
+
+    verify(() => client.post(path, data: any(named: 'data'))).called(1);
+    verifyNoMoreInteractions(client);
+  });
+
+  test('markUnreadByTimestamp', () async {
+    const channelId = 'test-channel-id';
+    const channelType = 'test-channel-type';
+    final timestamp = DateTime.parse('2024-01-01T00:00:00Z');
+
+    final path = '${_getChannelUrl(channelId, channelType)}/unread';
+
+    when(() => client.post(
+              path,
+              data: {
+                'message_timestamp': timestamp.toUtc().toIso8601String(),
+              },
+            ))
+        .thenAnswer(
+            (_) async => successResponse(path, data: <String, dynamic>{}));
+
+    final res = await channelApi.markUnreadByTimestamp(
+      channelId,
+      channelType,
+      timestamp,
     );
 
     expect(res, isNotNull);
@@ -804,6 +937,41 @@ void main() {
     verify(() => client.patch(path, data: {
           'unset': unset,
         })).called(1);
+    verifyNoMoreInteractions(client);
+  });
+
+  test('markChannelsDelivered', () async {
+    const path = '/channels/delivered';
+
+    final deliveries = [
+      const MessageDelivery(
+        channelCid: 'messaging:test-channel-1',
+        messageId: 'test-message-id-1',
+      ),
+      const MessageDelivery(
+        channelCid: 'messaging:test-channel-2',
+        messageId: 'test-message-id-2',
+      ),
+    ];
+
+    when(() => client.post(
+          path,
+          data: any(named: 'data'),
+        )).thenAnswer((_) async => successResponse(
+          path,
+          data: <String, dynamic>{},
+        ));
+
+    final res = await channelApi.markChannelsDelivered(deliveries);
+
+    expect(res, isNotNull);
+
+    verify(() => client.post(
+          path,
+          data: jsonEncode({
+            'latest_delivered_messages': deliveries,
+          }),
+        )).called(1);
     verifyNoMoreInteractions(client);
   });
 }

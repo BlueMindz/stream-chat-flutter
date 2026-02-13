@@ -39,8 +39,14 @@ class Channels extends Table {
   /// The count of this channel members
   IntColumn get memberCount => integer().withDefault(const Constant(0))();
 
+  /// The count of messages in this channel
+  IntColumn get messageCount => integer().nullable()();
+
   /// The id of the user that created this channel
   TextColumn get createdById => text().nullable()();
+
+  /// List of filter tags for this channel
+  TextColumn get filterTags => text().nullable().map(ListConverter<String>())();
 
   /// Map of custom channel extraData
   TextColumn get extraData => text().nullable().map(MapConverter())();

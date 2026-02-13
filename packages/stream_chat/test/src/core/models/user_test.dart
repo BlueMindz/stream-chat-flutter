@@ -18,9 +18,11 @@ void main() {
   const online = true;
   const banned = true;
   const teams = ['team-1', 'team-2'];
-  const createdAtString = '2021-08-03 12:39:21.817646';
-  const updatedAtString = '2021-08-04 12:39:21.817646';
-  const lastActiveString = '2021-08-05 12:39:21.817646';
+  const teamsRole = {'team-1': 'admin', 'team-2': 'member'};
+  const avgResponseTime = 120;
+  const createdAtString = '2021-08-03T10:39:21.817646Z';
+  const updatedAtString = '2021-08-04T10:39:21.817646Z';
+  const lastActiveString = '2021-08-05T10:39:21.817646Z';
 
   group('src/models/user', () {
     test('should parse json correctly', () {
@@ -41,6 +43,9 @@ void main() {
       expect(user.updatedAt, DateTime.parse(updatedAtString));
       expect(user.lastActive, DateTime.parse(lastActiveString));
       expect(user.language, 'en');
+      expect(user.invisible, false);
+      expect(user.teamsRole, teamsRole);
+      expect(user.avgResponseTime, avgResponseTime);
     });
 
     test('should serialize to json correctly', () {
@@ -62,10 +67,20 @@ void main() {
         online: banned,
         teams: const ['team-1', 'team-2'],
         language: 'fr',
+        invisible: true,
+        teamsRole: teamsRole,
+        avgResponseTime: avgResponseTime,
       );
 
       expect(user.toJson(), {
         'id': id,
+        'role': role,
+        'teams': teams,
+        'created_at': createdAtString,
+        'updated_at': updatedAtString,
+        'last_active': lastActiveString,
+        'online': online,
+        'banned': banned,
         'name': name,
         'image': image,
         'extraDataStringTest': extraDataStringTest,
@@ -73,6 +88,9 @@ void main() {
         'extraDataDoubleTest': extraDataDoubleTest,
         'extraDataBoolTest': extraDataBoolTest,
         'language': 'fr',
+        'invisible': true,
+        'teams_role': teamsRole,
+        'avg_response_time': avgResponseTime,
       });
     });
 
@@ -91,6 +109,9 @@ void main() {
       expect(newUser.updatedAt, user.updatedAt);
       expect(newUser.lastActive, user.lastActive);
       expect(newUser.language, user.language);
+      expect(newUser.invisible, user.invisible);
+      expect(newUser.teamsRole, user.teamsRole);
+      expect(newUser.avgResponseTime, user.avgResponseTime);
 
       newUser = user.copyWith(
         id: 'test',
@@ -104,6 +125,9 @@ void main() {
         updatedAt: DateTime.parse('2021-05-04 12:39:21.817646'),
         lastActive: DateTime.parse('2021-05-06 12:39:21.817646'),
         language: 'it',
+        invisible: true,
+        teamsRole: {'new-team1': 'admin', 'new-team2': 'member'},
+        avgResponseTime: 60,
       );
 
       expect(newUser.id, 'test');
@@ -118,6 +142,9 @@ void main() {
       expect(newUser.updatedAt, DateTime.parse('2021-05-04 12:39:21.817646'));
       expect(newUser.lastActive, DateTime.parse('2021-05-06 12:39:21.817646'));
       expect(newUser.language, 'it');
+      expect(newUser.invisible, true);
+      expect(newUser.teamsRole, {'new-team1': 'admin', 'new-team2': 'member'});
+      expect(newUser.avgResponseTime, 60);
     });
 
     test('name property and extraData manipulation', () {
@@ -125,8 +152,6 @@ void main() {
 
       expect(user.name, name);
       expect(user.extraData['name'], name);
-      expect(user.toJson(), {'id': id, 'name': name});
-      expect(User.fromJson(user.toJson()).toJson(), {'id': id, 'name': name});
 
       const nameOne = 'Name One';
       var newUser = user.copyWith(
@@ -159,8 +184,6 @@ void main() {
 
       expect(user.image, image);
       expect(user.extraData['image'], image);
-      expect(user.toJson(), {'id': id, 'image': image});
-      expect(User.fromJson(user.toJson()).toJson(), {'id': id, 'image': image});
 
       const imageURLOne = 'https://stream.io/image-one';
       var newUser = user.copyWith(
@@ -202,6 +225,8 @@ void main() {
       expect(user.lastActive, null);
       expect(user.createdAt, null);
       expect(user.updatedAt, null);
+      expect(user.teamsRole, null);
+      expect(user.avgResponseTime, null);
     });
 
     test('default values, parse json', () {
@@ -218,6 +243,8 @@ void main() {
       expect(user.lastActive, null);
       expect(user.createdAt, null);
       expect(user.updatedAt, null);
+      expect(user.teamsRole, null);
+      expect(user.avgResponseTime, null);
     });
 
     group('ComparableFieldProvider', () {
@@ -449,6 +476,8 @@ User createTestUser({
   bool? banned,
   DateTime? lastActive,
   Map<String, Object?>? extraData,
+  Map<String, String>? teamsRole,
+  int? avgResponseTime,
 }) {
   return User(
     id: id,
@@ -457,5 +486,7 @@ User createTestUser({
     banned: banned ?? false,
     lastActive: lastActive,
     extraData: extraData ?? {},
+    teamsRole: teamsRole,
+    avgResponseTime: avgResponseTime,
   );
 }

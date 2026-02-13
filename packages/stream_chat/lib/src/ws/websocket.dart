@@ -9,9 +9,10 @@ import 'package:stream_chat/src/core/error/error.dart';
 import 'package:stream_chat/src/core/http/system_environment_manager.dart';
 import 'package:stream_chat/src/core/http/token_manager.dart';
 import 'package:stream_chat/src/core/models/event.dart';
-import 'package:stream_chat/src/core/models/user.dart';
+import 'package:stream_chat/src/core/models/own_user.dart';
 import 'package:stream_chat/src/core/util/extension.dart';
 import 'package:stream_chat/src/event_type.dart';
+import 'package:stream_chat/src/ws/connect_user_details.dart';
 import 'package:stream_chat/src/ws/connection_status.dart';
 import 'package:stream_chat/src/ws/timer_helper.dart';
 import 'package:web_socket_channel/status.dart' as status;
@@ -43,6 +44,7 @@ class WebSocket with TimerHelper {
     this.reconnectionMonitorInterval = 10,
     this.healthCheckInterval = 20,
     this.reconnectionMonitorTimeout = 40,
+    this.maxReconnectAttempts = 6,
     this.queryParameters = const {},
   }) : _logger = logger;
 
@@ -93,7 +95,12 @@ class WebSocket with TimerHelper {
   /// connection unhealthy
   final int reconnectionMonitorTimeout;
 
-  User? _user;
+  /// Maximum number of reconnection attempts before giving up.
+  ///
+  /// Default is 6 attempts. ~30 seconds of reconnection attempts
+  final int maxReconnectAttempts;
+
+  OwnUser? _user;
   String? _connectionId;
   DateTime? _lastEventAt;
   WebSocketChannel? _webSocketChannel;
@@ -105,18 +112,20 @@ class WebSocket with TimerHelper {
   ///
   String? get connectionId => _connectionId;
 
-  final _connectionStatusController =
-      BehaviorSubject.seeded(ConnectionStatus.disconnected);
-
-  set _connectionStatus(ConnectionStatus status) =>
-      _connectionStatusController.safeAdd(status);
+  final _connectionStatusController = BehaviorSubject.seeded(
+    ConnectionStatus.disconnected,
+  );
 
   /// The current connection status value
   ConnectionStatus get connectionStatus => _connectionStatusController.value;
+  set _connectionStatus(ConnectionStatus status) {
+    _connectionStatusController.safeAdd(status);
+  }
 
   /// This notifies of connection status changes
-  Stream<ConnectionStatus> get connectionStatusStream =>
-      _connectionStatusController.stream.distinct();
+  Stream<ConnectionStatus> get connectionStatusStream {
+    return _connectionStatusController.stream.distinct();
+  }
 
   void _initWebSocketChannel(Uri uri) {
     _logger?.info('Initiating connection with $baseUrl');
@@ -161,11 +170,11 @@ class WebSocket with TimerHelper {
     bool refreshToken = false,
     bool includeUserDetails = true,
   }) async {
-    final user = _user!;
+    final userDetails = ConnectUserDetails.fromOwnUser(_user!);
     final token = await tokenManager.loadToken(refresh: refreshToken);
     final params = {
-      'user_id': user.id,
-      'user_details': includeUserDetails ? user : {'id': user.id},
+      'user_id': userDetails.id,
+      'user_details': includeUserDetails ? userDetails : {'id': userDetails.id},
       'user_token': token.rawValue,
       'server_determines_connection_id': true,
     };
@@ -208,7 +217,7 @@ class WebSocket with TimerHelper {
 
   /// Connect the WS using the parameters passed in the constructor
   Future<Event> connect(
-    User user, {
+    OwnUser user, {
     bool includeUserDetails = false,
   }) {
     if (_connectRequestInProgress) {
@@ -250,6 +259,12 @@ class WebSocket with TimerHelper {
   void _reconnect({bool refreshToken = false}) async {
     _logger?.info('Retrying connection : $_reconnectAttempt');
     if (_reconnectRequestInProgress) return;
+
+    if (_reconnectAttempt >= maxReconnectAttempts) {
+      _logger?.severe('Max reconnect attempts reached: $maxReconnectAttempts');
+      return disconnect();
+    }
+
     _reconnectRequestInProgress = true;
 
     _stopMonitoringEvents();
@@ -263,6 +278,12 @@ class WebSocket with TimerHelper {
     setTimer(
       Duration(milliseconds: delay),
       () async {
+        // If the user is null, it means either the connection was never
+        // established or it was disconnected manually.
+        //
+        // In either case, we should not attempt to reconnect.
+        if (_user == null) return;
+
         final uri = await _buildUri(
           refreshToken: refreshToken,
           includeUserDetails: false,
@@ -475,21 +496,28 @@ class WebSocket with TimerHelper {
   /// Disconnects the WS and releases eventual resources
   void disconnect() {
     if (connectionStatus == ConnectionStatus.disconnected) return;
-
-    _resetRequestFlags(resetAttempts: true);
-
     _connectionStatus = ConnectionStatus.disconnected;
 
     _logger?.info('Disconnecting web-socket connection');
+
+    _manuallyClosed = true;
+    _resetRequestFlags(resetAttempts: true);
+    _stopMonitoringEvents();
 
     // resetting user
     _user = null;
     connectionCompleter = null;
 
-    _stopMonitoringEvents();
-
-    _manuallyClosed = true;
-
     _closeWebSocketChannel();
+  }
+
+  /// Disposes the web-socket connection and releases resources
+  Future<void> dispose() async {
+    _logger?.info('Disposing web-socket connection');
+
+    _stopMonitoringEvents();
+    _unsubscribeFromWebSocketChannel();
+    _closeWebSocketChannel();
+    _connectionStatusController.close();
   }
 }

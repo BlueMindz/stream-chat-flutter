@@ -53,7 +53,7 @@ class MockChannel extends Mock implements Channel {
     PaginationParams? membersPagination,
     PaginationParams? watchersPagination,
   }) {
-    return Future.value(ChannelState());
+    return Future.value(const ChannelState());
   }
 
   @override
@@ -68,6 +68,7 @@ class MockChannelState extends Mock implements ChannelClientState {
     when(() => typingEvents).thenReturn({});
     when(() => typingEventsStream).thenAnswer((_) => Stream.value({}));
     when(() => unreadCount).thenReturn(0);
+    when(() => isUpToDate).thenReturn(true);
     when(() => read).thenReturn([]);
   }
 }

@@ -81,31 +81,90 @@ class StreamChannel extends StatefulWidget {
     StackTrace? stackTrace,
   ) {
     final backgroundColor = _getDefaultBackgroundColor(context);
+
+    Object? unwrapParallelError(Object error) {
+      if (error case ParallelWaitError(:final List<AsyncError?> errors)) {
+        return errors.firstWhereOrNull((it) => it != null)?.error;
+      }
+
+      return error;
+    }
+
+    final exception = unwrapParallelError(error);
     return Material(
       color: backgroundColor,
       child: Center(
-        child: switch (error) {
+        child: switch (exception) {
           DioException(type: DioExceptionType.badResponse) =>
-            Text(error.message ?? 'Bad response'),
+            Text(exception.message ?? 'Bad response'),
           DioException() => const Text('Check your connection and retry'),
-          _ => Text(error.toString()),
+          _ => Text(exception.toString()),
         },
       ),
     );
   }
 
-  /// Use this method to get the current [StreamChannelState] instance
+  /// Finds the [StreamChannelState] from the closest [StreamChannel] ancestor
+  /// that encloses the given [context].
+  ///
+  /// This will throw a [FlutterError] if no [StreamChannel] is found in the
+  /// widget tree above the given context.
+  ///
+  /// Typical usage:
+  ///
+  /// ```dart
+  /// final channelState = StreamChannel.of(context);
+  /// ```
+  ///
+  /// If you're calling this in the same `build()` method that creates the
+  /// `StreamChannel`, consider using a `Builder` or refactoring into a separate
+  /// widget to obtain a context below the [StreamChannel].
+  ///
+  /// If you want to return null instead of throwing, use [maybeOf].
   static StreamChannelState of(BuildContext context) {
-    StreamChannelState? streamChannelState;
+    final result = maybeOf(context);
+    if (result != null) return result;
 
-    streamChannelState = context.findAncestorStateOfType<StreamChannelState>();
+    throw FlutterError.fromParts(<DiagnosticsNode>[
+      ErrorSummary(
+        'StreamChannel.of() called with a context that does not contain a '
+        'StreamChannel.',
+      ),
+      ErrorDescription(
+        'No StreamChannel ancestor could be found starting from the context '
+        'that was passed to StreamChannel.of(). This usually happens when the '
+        'context used comes from the widget that creates the StreamChannel '
+        'itself.',
+      ),
+      ErrorHint(
+        'To fix this, ensure that you are using a context that is a descendant '
+        'of the StreamChannel. You can use a Builder to get a new context that '
+        'is under the StreamChannel:\n\n'
+        '  Builder(\n'
+        '    builder: (context) {\n'
+        '      final channelState = StreamChannel.of(context);\n'
+        '      ...\n'
+        '    },\n'
+        '  )',
+      ),
+      ErrorHint(
+        'Alternatively, split your build method into smaller widgets so that '
+        'you get a new BuildContext that is below the StreamChannel in the '
+        'widget tree.',
+      ),
+      context.describeElement('The context used was'),
+    ]);
+  }
 
-    assert(
-      streamChannelState != null,
-      'You must have a StreamChannel widget at the top of your widget tree',
-    );
-
-    return streamChannelState!;
+  /// Finds the [StreamChannelState] from the closest [StreamChannel] ancestor
+  /// that encloses the given context.
+  ///
+  /// Returns null if no such ancestor exists.
+  ///
+  /// See also:
+  ///  * [of], which throws if no [StreamChannel] is found.
+  static StreamChannelState? maybeOf(BuildContext context) {
+    return context.findAncestorStateOfType<StreamChannelState>();
   }
 
   @override
@@ -137,14 +196,13 @@ class StreamChannelState extends State<StreamChannel> {
   bool _bottomPaginationEnded = false;
 
   Future<void> _queryTopMessages({
-    int limit = 20,
+    int limit = 30,
     bool preferOffline = false,
   }) async {
-    if (_topPaginationEnded ||
-        _queryTopMessagesController.value ||
-        channel.state == null) {
-      return;
-    }
+    if (channel.state == null) return;
+    if (_topPaginationEnded) return;
+    if (_queryTopMessagesController.value) return;
+
     _queryTopMessagesController.safeAdd(true);
 
     if (channel.state!.messages.isEmpty) {
@@ -159,11 +217,14 @@ class StreamChannelState extends State<StreamChannel> {
         limit: limit,
         preferOffline: preferOffline,
       );
-      if (state.messages == null ||
-          state.messages!.isEmpty ||
-          state.messages!.length < limit) {
-        _topPaginationEnded = true;
-      }
+
+      final messages = state.messages ?? [];
+      final limitNotMatched = messages.length < limit;
+
+      // If we didn't get enough messages before the oldest message, that means
+      // there are no more messages before the oldest message.
+      if (limitNotMatched) _topPaginationEnded = true;
+
       _queryTopMessagesController.safeAdd(false);
     } catch (e, stk) {
       _queryTopMessagesController.safeAddError(e, stk);
@@ -171,15 +232,13 @@ class StreamChannelState extends State<StreamChannel> {
   }
 
   Future<void> _queryBottomMessages({
-    int limit = 20,
+    int limit = 30,
     bool preferOffline = false,
   }) async {
-    if (_bottomPaginationEnded ||
-        _queryBottomMessagesController.value ||
-        channel.state == null ||
-        channel.state!.isUpToDate) {
-      return;
-    }
+    if (channel.state == null) return;
+    if (_bottomPaginationEnded) return;
+    if (_queryBottomMessagesController.value) return;
+
     _queryBottomMessagesController.safeAdd(true);
 
     if (channel.state!.messages.isEmpty) {
@@ -194,11 +253,17 @@ class StreamChannelState extends State<StreamChannel> {
         limit: limit,
         preferOffline: preferOffline,
       );
-      if (state.messages == null ||
-          state.messages!.isEmpty ||
-          state.messages!.length < limit) {
-        _bottomPaginationEnded = true;
-      }
+
+      final messages = state.messages ?? [];
+      final limitNotMatched = messages.length < limit;
+
+      // If we didn't get enough messages after the recent message, that means
+      // there are no more messages after the recent message.
+      if (limitNotMatched) _bottomPaginationEnded = true;
+
+      // Sync the channel upToDate state based on pagination status.
+      channel.state?.isUpToDate = _bottomPaginationEnded;
+
       _queryBottomMessagesController.safeAdd(false);
     } catch (e, stk) {
       _queryBottomMessagesController.safeAddError(e, stk);
@@ -208,7 +273,7 @@ class StreamChannelState extends State<StreamChannel> {
   /// Calls [channel.query] updating [queryMessage] stream
   Future<void> queryMessages({
     QueryDirection? direction = QueryDirection.top,
-    int limit = 20,
+    int limit = 30,
   }) {
     if (direction == QueryDirection.top) {
       return _queryTopMessages(limit: limit);
@@ -216,68 +281,151 @@ class StreamChannelState extends State<StreamChannel> {
     return _queryBottomMessages(limit: limit);
   }
 
-  /// Calls [channel.getReplies] updating [queryMessage] stream
-  Future<void> getReplies(
+  Future<void> _queryTopReplies(
     String parentId, {
-    int limit = 50,
+    int limit = 30,
     bool preferOffline = false,
   }) async {
-    if (_topPaginationEnded ||
-        _queryTopMessagesController.value ||
-        channel.state == null) {
-      return;
-    }
+    if (channel.state == null) return;
+    if (_topPaginationEnded) return;
+    if (_queryTopMessagesController.value) return;
+
     _queryTopMessagesController.safeAdd(true);
 
-    Message? message;
-    if (channel.state!.threads.containsKey(parentId)) {
-      final thread = channel.state!.threads[parentId]!;
-      if (thread.isNotEmpty) {
-        message = thread.first;
-      }
+    final threadReplies = channel.state!.threads[parentId];
+    if (threadReplies == null || threadReplies.isEmpty) {
+      return _queryTopMessagesController.safeAdd(false);
     }
 
+    final oldestReply = threadReplies.first;
+
     try {
+      final pagination = PaginationParams(
+        limit: limit,
+        lessThan: oldestReply.id,
+      );
+
       final response = await channel.getReplies(
         parentId,
-        options: PaginationParams(
-          lessThan: message?.id,
-          limit: limit,
-        ),
+        options: pagination,
         preferOffline: preferOffline,
       );
-      if (response.messages.isEmpty || response.messages.length < limit) {
-        _topPaginationEnded = true;
-      }
+
+      final messages = response.messages;
+      final limitNotMatched = messages.length < pagination.limit;
+
+      // If we didn't get enough messages in the response, that means there are
+      // no more messages before the oldest reply.
+      if (limitNotMatched) _topPaginationEnded = true;
+
       _queryTopMessagesController.safeAdd(false);
     } catch (e, stk) {
       _queryTopMessagesController.safeAddError(e, stk);
     }
   }
 
+  Future<void> _queryBottomReplies(
+    String parentId, {
+    int limit = 30,
+    bool preferOffline = false,
+  }) async {
+    if (channel.state == null) return;
+    if (_bottomPaginationEnded) return;
+    if (_queryBottomMessagesController.value) return;
+
+    _queryBottomMessagesController.safeAdd(true);
+
+    final threadReplies = channel.state!.threads[parentId];
+    if (threadReplies == null || threadReplies.isEmpty) {
+      return _queryBottomMessagesController.safeAdd(false);
+    }
+
+    final recentReply = threadReplies.last;
+
+    try {
+      final pagination = PaginationParams(
+        limit: limit,
+        greaterThan: recentReply.id,
+      );
+
+      final response = await channel.getReplies(
+        parentId,
+        options: pagination,
+        preferOffline: preferOffline,
+      );
+
+      final messages = response.messages;
+      final limitNotMatched = messages.length < pagination.limit;
+
+      // If we didn't get enough messages in the response, that means there are
+      // no more messages after the recent reply.
+      if (limitNotMatched) _bottomPaginationEnded = true;
+
+      _queryBottomMessagesController.safeAdd(false);
+    } catch (e, stk) {
+      _queryBottomMessagesController.safeAddError(e, stk);
+    }
+  }
+
+  /// Calls [channel.getReplies] updating [queryMessage] stream
+  Future<void> queryReplies(
+    String parentId, {
+    int limit = 30,
+    QueryDirection direction = QueryDirection.top,
+  }) async {
+    if (direction == QueryDirection.top) {
+      return _queryTopReplies(parentId, limit: limit);
+    }
+    return _queryBottomReplies(parentId, limit: limit);
+  }
+
+  /// Calls [channel.getReplies] updating [queryMessage] stream
+  Future<void> getReplies(
+    String parentId, {
+    int limit = 30,
+    bool preferOffline = false,
+  }) async {
+    if (channel.state == null) return;
+
+    final pagination = PaginationParams(limit: limit);
+
+    final response = await channel.getReplies(
+      parentId,
+      options: pagination,
+      preferOffline: preferOffline,
+    );
+
+    final messages = response.messages;
+    final limitNotMatched = messages.length < pagination.limit;
+
+    // We can assume that the bottom pagination is ended as we are querying
+    // latest replies, and if we didn't get enough messages, that means
+    // there are no more messages to load in the top direction.
+    _bottomPaginationEnded = true;
+    _topPaginationEnded = limitNotMatched;
+  }
+
   /// Query the channel members and watchers
   Future<void> queryMembersAndWatchers() async {
-    final _members = channel.state?.members;
-    if (_members != null) {
-      await widget.channel.query(
-        membersPagination: PaginationParams(
-          offset: _members.length,
-          limit: 100,
-        ),
-        watchersPagination: PaginationParams(
-          offset: _members.length,
-          limit: 100,
-        ),
-      );
-    } else {
-      return;
-    }
+    final members = channel.state?.members;
+    if (members == null) return;
+
+    await widget.channel.query(
+      membersPagination: PaginationParams(
+        offset: members.length,
+        limit: 100,
+      ),
+      watchersPagination: PaginationParams(
+        offset: members.length,
+        limit: 100,
+      ),
+    );
   }
 
   /// Loads channel at specific message
   Future<void> loadChannelAtMessage(
     String? messageId, {
-    int limit = 20,
+    int limit = 30,
     bool preferOffline = false,
   }) =>
       _queryAtMessage(
@@ -289,7 +437,7 @@ class StreamChannelState extends State<StreamChannel> {
   /// Loads channel at specific message
   Future<void> loadChannelAtTimestamp(
     DateTime timestamp, {
-    int limit = 40,
+    int limit = 30,
     bool preferOffline = false,
   }) =>
       _queryAtTimestamp(
@@ -298,86 +446,218 @@ class StreamChannelState extends State<StreamChannel> {
         preferOffline: preferOffline,
       );
 
+  // If we are jumping to a message we can determine if we loaded the oldest
+  // page or the newest page, depending on where the aroundMessageId is located.
+  ({
+    bool endOfPrependReached,
+    bool endOfAppendReached,
+  }) _inferBoundariesFromAnchorId(
+    String anchorId,
+    List<Message> loadedMessages,
+  ) {
+    // If the loaded messages are empty, we assume we have loaded all messages.
+    if (loadedMessages.isEmpty) {
+      return (endOfPrependReached: true, endOfAppendReached: true);
+    }
+
+    final midIndex = loadedMessages.length ~/ 2;
+    final midMessage = loadedMessages[midIndex];
+
+    // If the midMessage is the anchor message, it means there are still
+    // messages before and after it.
+    if (midMessage.id == anchorId) {
+      return (endOfPrependReached: false, endOfAppendReached: false);
+    }
+
+    final firstHalf = loadedMessages.sublist(0, midIndex);
+    final secondHalf = loadedMessages.sublist(midIndex + 1);
+
+    // If the anchor message is in the first half of the loaded messages,
+    // it means we have loaded the oldest page.
+    if (firstHalf.any((m) => m.id == anchorId)) {
+      return (endOfPrependReached: true, endOfAppendReached: false);
+    }
+
+    // If the anchor message is in the second half of the loaded messages,
+    // it means we have loaded the latest page.
+    if (secondHalf.any((m) => m.id == anchorId)) {
+      return (endOfPrependReached: false, endOfAppendReached: true);
+    }
+
+    // If we reach here, it means the anchor message is not in the loaded
+    // messages, which can happen if the message is part of a thread.
+    return (endOfPrependReached: true, endOfAppendReached: true);
+  }
+
   Future<ChannelState?> _queryAtMessage({
     String? messageId,
-    int limit = 40,
+    int limit = 30,
     bool preferOffline = false,
   }) async {
     if (channel.state == null) return null;
-    channel.state!.isUpToDate = false;
-    channel.state!.truncate();
+    channel.state?.isUpToDate = false;
 
-    if (messageId == null) {
-      final state = await channel.query(
-        messagesPagination: PaginationParams(
-          limit: limit,
-        ),
-        preferOffline: preferOffline,
-      );
-      channel.state!.isUpToDate = true;
+    final pagination = PaginationParams(
+      limit: limit,
+      idAround: messageId,
+    );
+
+    final state = await channel.query(
+      preferOffline: preferOffline,
+      messagesPagination: pagination,
+    );
+
+    final messages = state.messages ?? [];
+    final limitNotMatched = messages.length < pagination.limit;
+
+    // If the messageId is null, it means we are loading the latest messages
+    // therefore we can assume that the bottom pagination is ended, and if we
+    // didn't get enough messages, that means there are no more messages
+    // to load in the top direction.
+    if (messageId == null || limitNotMatched) {
+      _bottomPaginationEnded = true;
+      channel.state?.isUpToDate = _bottomPaginationEnded;
+      _topPaginationEnded = limitNotMatched;
+
       return state;
     }
 
-    return channel.query(
-      messagesPagination: PaginationParams(
-        idAround: messageId,
-        limit: limit,
-      ),
-      preferOffline: preferOffline,
+    // If the end of the pagination is not reached, we can infer if there are
+    // more messages before or after the messageId based on the position
+    // of the messageId in the loaded messages.
+    final bound = _inferBoundariesFromAnchorId(messageId, messages);
+
+    _topPaginationEnded = bound.endOfPrependReached;
+    _bottomPaginationEnded = bound.endOfAppendReached;
+    channel.state?.isUpToDate = _bottomPaginationEnded;
+
+    return state;
+  }
+
+  // If we are jumping to a message we can determine if we loaded the oldest
+  // page or the newest page, depending on where the aroundMessageId is located.
+  ({
+    bool endOfPrependReached,
+    bool endOfAppendReached,
+  }) _inferBoundariesFromAnchorTimestamp(
+    DateTime anchorTimestamp,
+    List<Message> loadedMessages,
+  ) {
+    // If the loaded messages are empty, we assume we have loaded all messages.
+    if (loadedMessages.isEmpty) {
+      return (endOfPrependReached: true, endOfAppendReached: true);
+    }
+
+    final [firstMessage, ..., lastMessage] = loadedMessages;
+
+    if (anchorTimestamp.isBefore(firstMessage.createdAt)) {
+      // The anchor is before the first message — no more messages to PREPEND
+      return (endOfPrependReached: true, endOfAppendReached: false);
+    }
+
+    if (anchorTimestamp.isAfter(lastMessage.createdAt)) {
+      // The anchor is after the last message — no more messages to APPEND
+      return (endOfPrependReached: false, endOfAppendReached: true);
+    }
+
+    int anchorPositionIndex(
+      DateTime anchorTimestamp,
+      List<Message> loadedMessages,
+    ) {
+      final messageTimestamps = loadedMessages.map((it) {
+        return it.createdAt.millisecondsSinceEpoch;
+      }).toList(growable: false);
+
+      return messageTimestamps.lowerBoundBy<num>(
+        anchorTimestamp.millisecondsSinceEpoch,
+        (messageCreatedAt) => messageCreatedAt,
+      );
+    }
+
+    final midIndex = loadedMessages.length ~/ 2;
+    final anchorIndex = anchorPositionIndex(anchorTimestamp, loadedMessages);
+
+    return (
+      endOfPrependReached: midIndex > anchorIndex,
+      endOfAppendReached: midIndex < anchorIndex,
     );
   }
 
   Future<ChannelState?> _queryAtTimestamp({
     required DateTime timestamp,
-    int limit = 40,
+    int limit = 30,
     bool preferOffline = false,
   }) async {
     if (channel.state == null) return null;
-    channel.state!.isUpToDate = false;
-    channel.state!.truncate();
+    channel.state?.isUpToDate = false;
 
-    return channel.query(
-      messagesPagination: PaginationParams(
-        createdAtAround: timestamp.toUtc(),
-        limit: limit,
-      ),
-      preferOffline: preferOffline,
+    final pagination = PaginationParams(
+      limit: limit,
+      createdAtAround: timestamp.toUtc(),
     );
+
+    final state = await channel.query(
+      preferOffline: preferOffline,
+      messagesPagination: pagination,
+    );
+
+    final messages = state.messages ?? [];
+    final limitNotMatched = messages.length < pagination.limit;
+
+    // If we didn't get enough messages, that means there are no more
+    // messages around that timestamp.
+    if (limitNotMatched) {
+      _topPaginationEnded = true;
+      _bottomPaginationEnded = true;
+      channel.state?.isUpToDate = _bottomPaginationEnded;
+
+      return state;
+    }
+
+    // If the end of the pagination is not reached, we can infer if there are
+    // more messages before or after the messageId based on the position
+    // of the timestamp in the loaded messages.
+    final bound = _inferBoundariesFromAnchorTimestamp(timestamp, messages);
+
+    _topPaginationEnded = bound.endOfPrependReached;
+    _bottomPaginationEnded = bound.endOfAppendReached;
+    channel.state?.isUpToDate = _bottomPaginationEnded;
+
+    return state;
   }
 
   ///
   Future<ChannelState> queryBeforeMessage(
     String messageId, {
-    int limit = 20,
+    int limit = 30,
     bool preferOffline = false,
-  }) =>
-      channel.query(
-        messagesPagination: PaginationParams(
-          lessThan: messageId,
-          limit: limit,
-        ),
-        preferOffline: preferOffline,
-      );
+  }) {
+    final pagination = PaginationParams(
+      limit: limit,
+      lessThan: messageId,
+    );
+
+    return channel.query(
+      preferOffline: preferOffline,
+      messagesPagination: pagination,
+    );
+  }
 
   ///
   Future<ChannelState> queryAfterMessage(
     String messageId, {
-    int limit = 20,
+    int limit = 30,
     bool preferOffline = false,
-  }) async {
-    final state = await channel.query(
-      messagesPagination: PaginationParams(
-        greaterThanOrEqual: messageId,
-        limit: limit,
-      ),
-      preferOffline: preferOffline,
+  }) {
+    final pagination = PaginationParams(
+      limit: limit,
+      greaterThan: messageId,
     );
-    if (state.messages == null ||
-        state.messages!.isEmpty ||
-        state.messages!.length < limit) {
-      channel.state?.isUpToDate = true;
-    }
-    return state;
+
+    return channel.query(
+      preferOffline: preferOffline,
+      messagesPagination: pagination,
+    );
   }
 
   ///
@@ -482,7 +762,7 @@ class StreamChannelState extends State<StreamChannel> {
   }
 
   /// Reloads the channel with latest message
-  Future<void> reloadChannel() => _queryAtMessage(limit: 30);
+  Future<void> reloadChannel() => _queryAtMessage();
 
   Future<void> _maybeInitChannel() async {
     // If the channel doesn't have an CID yet, it hasn't been created on the
@@ -523,14 +803,18 @@ class StreamChannelState extends State<StreamChannel> {
       // Otherwise, load the channel at the last read date.
       return loadChannelAtTimestamp(currentUserRead.lastRead);
     }
+
+    // If nothing above applies, we just load the channel at the latest
+    // messages if we are not already at the latest messages.
+    if (channel.state?.isUpToDate == false) return loadChannelAtMessage(null);
   }
 
-  late Future<void> _channelInitFuture;
+  late Future<List<void>> _channelInitFuture;
 
   @override
   void initState() {
     super.initState();
-    _channelInitFuture = _maybeInitChannel();
+    _channelInitFuture = [_maybeInitChannel(), channel.initialized].wait;
   }
 
   @override
@@ -539,7 +823,7 @@ class StreamChannelState extends State<StreamChannel> {
     if (oldWidget.channel.cid != widget.channel.cid ||
         oldWidget.initialMessageId != widget.initialMessageId) {
       // Re-initialize channel if the channel CID or initial message ID changes.
-      _channelInitFuture = _maybeInitChannel();
+      _channelInitFuture = [_maybeInitChannel(), channel.initialized].wait;
     }
   }
 

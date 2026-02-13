@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:stream_chat/src/client/channel.dart';
+import 'package:stream_chat/src/client/channel_delivery_reporter.dart';
 import 'package:stream_chat/src/client/retry_policy.dart';
 import 'package:stream_chat/src/core/api/attachment_file_uploader.dart';
 import 'package:stream_chat/src/core/api/requests.dart';
@@ -26,10 +28,13 @@ import 'package:stream_chat/src/core/models/event.dart';
 import 'package:stream_chat/src/core/models/filter.dart';
 import 'package:stream_chat/src/core/models/member.dart';
 import 'package:stream_chat/src/core/models/message.dart';
+import 'package:stream_chat/src/core/models/message_delivery.dart';
+import 'package:stream_chat/src/core/models/message_reminder.dart';
 import 'package:stream_chat/src/core/models/own_user.dart';
 import 'package:stream_chat/src/core/models/poll.dart';
 import 'package:stream_chat/src/core/models/poll_option.dart';
 import 'package:stream_chat/src/core/models/poll_vote.dart';
+import 'package:stream_chat/src/core/models/push_preference.dart';
 import 'package:stream_chat/src/core/models/thread.dart';
 import 'package:stream_chat/src/core/models/user.dart';
 import 'package:stream_chat/src/core/util/utils.dart';
@@ -122,6 +127,13 @@ class StreamChatClient {
           },
         );
 
+    _connectionStatusSubscription = wsConnectionStatusStream.pairwise().listen(
+      (statusPair) {
+        final [prevStatus, currStatus] = statusPair;
+        return _onConnectionStatusChanged(prevStatus, currStatus);
+      },
+    );
+
     state = ClientState(this);
   }
 
@@ -177,9 +189,6 @@ class StreamChatClient {
 
   late final RetryPolicy _retryPolicy;
 
-  /// the last dateTime at the which all the channels were synced
-  DateTime? _lastSyncedAt;
-
   /// The retry policy options getter
   RetryPolicy get retryPolicy => _retryPolicy;
 
@@ -219,7 +228,16 @@ class StreamChatClient {
   ///```
   final LogHandlerFunction logHandlerFunction;
 
-  StreamSubscription<ConnectionStatus>? _connectionStatusSubscription;
+  StreamSubscription<List<ConnectionStatus>>? _connectionStatusSubscription;
+
+  /// Manages delivery receipt reporting for channel messages.
+  ///
+  /// Collects and batches delivery receipts to acknowledge message delivery
+  /// to senders across multiple channels.
+  late final channelDeliveryReporter = ChannelDeliveryReporter(
+    logger: detachedLogger('🧾'),
+    onMarkChannelsDelivered: markChannelsDelivered,
+  );
 
   final _eventController = PublishSubject<Event>();
 
@@ -237,20 +255,14 @@ class StreamChatClient {
         },
       );
 
-  final _wsConnectionStatusController =
-      BehaviorSubject.seeded(ConnectionStatus.disconnected);
-
-  set _wsConnectionStatus(ConnectionStatus status) =>
-      _wsConnectionStatusController.add(status);
-
   /// The current status value of the [_ws] connection
-  ConnectionStatus get wsConnectionStatus =>
-      _wsConnectionStatusController.value;
+  ConnectionStatus get wsConnectionStatus => _ws.connectionStatus;
 
   /// This notifies the connection status of the [_ws] connection.
   /// Listen to this to get notified when the [_ws] tries to reconnect.
-  Stream<ConnectionStatus> get wsConnectionStatusStream =>
-      _wsConnectionStatusController.stream.distinct();
+  Stream<ConnectionStatus> get wsConnectionStatusStream {
+    return _ws.connectionStatusStream.distinct();
+  }
 
   /// Default log handler function for the [StreamChatClient] logger.
   static void defaultLogHandler(LogRecord record) {
@@ -446,16 +458,6 @@ class StreamChatClient {
       throw StreamChatError('Connection already available for ${user.id}');
     }
 
-    _wsConnectionStatus = ConnectionStatus.connecting;
-
-    // skipping `ws` seed connection status -> ConnectionStatus.disconnected
-    // otherwise `client.wsConnectionStatusStream` will emit in order
-    // 1. ConnectionStatus.disconnected -> client seed status
-    // 2. ConnectionStatus.connecting -> client connecting status
-    // 3. ConnectionStatus.disconnected -> ws seed status
-    _connectionStatusSubscription =
-        _ws.connectionStatusStream.skip(1).listen(_connectionStatusHandler);
-
     try {
       final event = await _ws.connect(
         user,
@@ -478,13 +480,7 @@ class StreamChatClient {
   /// This will not trigger default auto-retry mechanism for reconnection.
   /// You need to call [openConnection] to reconnect to [_ws].
   void closeConnection() {
-    if (wsConnectionStatus == ConnectionStatus.disconnected) return;
-
     logger.info('Closing web-socket connection for ${state.currentUser?.id}');
-    _wsConnectionStatus = ConnectionStatus.disconnected;
-
-    _connectionStatusSubscription?.cancel();
-    _connectionStatusSubscription = null;
 
     // Stop listening to events
     state.cancelEventSubscription();
@@ -512,39 +508,37 @@ class StreamChatClient {
     return _eventController.add(event);
   }
 
-  void _connectionStatusHandler(ConnectionStatus status) async {
-    final previousState = wsConnectionStatus;
-    final currentState = _wsConnectionStatus = status;
+  void _onConnectionStatusChanged(
+    ConnectionStatus prevStatus,
+    ConnectionStatus currStatus,
+  ) async {
+    // If the status hasn't changed, we don't need to do anything.
+    if (prevStatus == currStatus) return;
 
-    if (previousState != currentState) {
-      handleEvent(Event(
-        type: EventType.connectionChanged,
-        online: status == ConnectionStatus.connected,
-      ));
-    }
+    final wasConnected = prevStatus == ConnectionStatus.connected;
+    final isConnected = currStatus == ConnectionStatus.connected;
 
-    if (currentState == ConnectionStatus.connected &&
-        previousState != ConnectionStatus.connected) {
+    // Notify the connection status change event
+    handleEvent(Event(
+      type: EventType.connectionChanged,
+      online: isConnected,
+    ));
+
+    final connectionRecovered = !wasConnected && isConnected;
+
+    if (connectionRecovered) {
       // connection recovered
-      final cids = state.channels.keys.toList(growable: false);
+      final cids = [...state.channels.keys.toSet()];
       if (cids.isNotEmpty) {
         await queryChannelsOnline(
           filter: Filter.in_('cid', cids),
           paginationParams: const PaginationParams(limit: 30),
         );
-        if (persistenceEnabled) {
-          await sync(cids: cids, lastSyncAt: _lastSyncedAt);
-        }
-      } else {
-        // channels are empty, assuming it's a fresh start
-        // and making sure `lastSyncAt` is initialized
-        if (persistenceEnabled) {
-          final lastSyncAt = await chatPersistenceClient?.getLastSyncAt();
-          if (lastSyncAt == null) {
-            await chatPersistenceClient?.updateLastSyncAt(DateTime.now());
-          }
-        }
+
+        // Sync the persistence client if available
+        if (persistenceEnabled) await sync(cids: cids);
       }
+
       handleEvent(Event(
         type: EventType.connectionRecovered,
         online: true,
@@ -576,34 +570,45 @@ class StreamChatClient {
   Future<void> sync({List<String>? cids, DateTime? lastSyncAt}) {
     return _syncLock.synchronized(() async {
       final channels = cids ?? await chatPersistenceClient?.getChannelCids();
-      if (channels == null || channels.isEmpty) {
-        return;
-      }
+      if (channels == null || channels.isEmpty) return;
 
       final syncAt = lastSyncAt ?? await chatPersistenceClient?.getLastSyncAt();
       if (syncAt == null) {
-        return;
+        logger.info('Fresh sync start: lastSyncAt initialized to now.');
+        return chatPersistenceClient?.updateLastSyncAt(DateTime.now());
       }
 
       try {
+        logger.info('Syncing events since $syncAt for channels: $channels');
+
         final res = await _chatApi.general.sync(channels, syncAt);
-        final events = res.events
-          ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        final events = res.events.sorted(
+          (a, b) => a.createdAt.compareTo(b.createdAt),
+        );
 
         for (final event in events) {
-          logger.fine('event.type: ${event.type}');
-          final messageText = event.message?.text;
-          if (messageText != null) {
-            logger.fine('event.message.text: $messageText');
-          }
+          logger.fine('Syncing event: ${event.type}');
           handleEvent(event);
         }
 
-        final now = DateTime.now();
-        _lastSyncedAt = now;
-        chatPersistenceClient?.updateLastSyncAt(now);
-      } catch (e, stk) {
-        logger.severe('Error during sync', e, stk);
+        final updatedSyncAt = events.lastOrNull?.createdAt ?? DateTime.now();
+        return chatPersistenceClient?.updateLastSyncAt(updatedSyncAt);
+      } catch (error, stk) {
+        // If we got a 400 error, it means that either the sync time is too
+        // old or the channel list is too long or too many events need to be
+        // synced. In this case, we should just flush the persistence client
+        // and start over.
+        if (error is StreamChatNetworkError && error.statusCode == 400) {
+          logger.warning(
+            'Failed to sync events due to stale or oversized state. '
+            'Resetting the persistence client to enable a fresh start.',
+          );
+
+          await chatPersistenceClient?.flush();
+          return chatPersistenceClient?.updateLastSyncAt(DateTime.now());
+        }
+
+        logger.warning('Error syncing events', error, stk);
       }
     });
   }
@@ -782,6 +787,8 @@ class StreamChatClient {
     logger.info('Got ${res.channels.length} channels from api');
 
     final updateData = _mapChannelStateToChannel(channels);
+    // Submit delivery report for the channels fetched in this query.
+    await channelDeliveryReporter.submitForDelivery(updateData.value);
 
     await chatPersistenceClient?.updateChannelQueries(
       filter,
@@ -997,6 +1004,85 @@ class StreamChatClient {
   Future<EmptyResponse> removeDevice(String id) =>
       _chatApi.device.removeDevice(id);
 
+  /// Set push preferences for the current user.
+  ///
+  /// This method allows you to configure push notification settings
+  /// at both global and channel-specific levels.
+  ///
+  /// [preferences] - List of push preferences to apply
+  ///
+  /// Returns [UpsertPushPreferencesResponse] with the updated preferences.
+  ///
+  /// Example:
+  /// ```dart
+  /// // Set global push preferences
+  /// await client.setPushPreferences([
+  ///   const PushPreferenceInput(
+  ///     chatLevel: ChatLevelPushPreference.mentions,
+  ///     callLevel: CallLevelPushPreference.all,
+  ///   ),
+  /// ]);
+  ///
+  /// // Set channel-specific preferences
+  /// await client.setPushPreferences([
+  ///   const PushPreferenceInput.channel(
+  ///     channelCid: 'messaging:general',
+  ///     chatLevel: ChatLevelPushPreference.none,
+  ///   ),
+  ///   const PushPreferenceInput.channel(
+  ///     channelCid: 'messaging:support',
+  ///     chatLevel: ChatLevelPushPreference.mentions,
+  ///   ),
+  /// ]);
+  ///
+  /// // Mix global and channel-specific preferences
+  /// await client.setPushPreferences([
+  ///   const PushPreferenceInput(
+  ///     chatLevel: ChatLevelPushPreference.all,
+  ///   ), // Global default
+  ///   const PushPreferenceInput.channel(
+  ///     channelCid: 'messaging:spam',
+  ///     chatLevel: ChatLevelPushPreference.none,
+  ///   ),
+  /// ]);
+  /// ```
+  Future<UpsertPushPreferencesResponse> setPushPreferences(
+    List<PushPreferenceInput> preferences,
+  ) async {
+    final res = await _chatApi.device.setPushPreferences(preferences);
+
+    final currentUser = state.currentUser;
+    final currentUserId = currentUser?.id;
+    if (currentUserId == null) return res;
+
+    // Emit events for updated preferences
+    final updatedPushPreference = res.userPreferences[currentUserId];
+    if (updatedPushPreference != null) {
+      final pushPreferenceUpdatedEvent = Event(
+        type: EventType.pushPreferenceUpdated,
+        pushPreference: updatedPushPreference,
+      );
+
+      handleEvent(pushPreferenceUpdatedEvent);
+    }
+
+    // Emit events for updated channel-specific preferences
+    final channelPushPreferences = res.userChannelPreferences[currentUserId];
+    if (channelPushPreferences != null) {
+      for (final MapEntry(:key, :value) in channelPushPreferences.entries) {
+        final pushPreferenceUpdatedEvent = Event(
+          type: EventType.channelPushPreferenceUpdated,
+          cid: key,
+          channelPushPreference: value,
+        );
+
+        handleEvent(pushPreferenceUpdatedEvent);
+      }
+    }
+
+    return res;
+  }
+
   /// Get a development token
   Token devToken(String userId) => Token.development(userId);
 
@@ -1180,6 +1266,7 @@ class StreamChatClient {
     List<String> memberIds, {
     Message? message,
     bool hideHistory = false,
+    DateTime? hideHistoryBefore,
   }) =>
       _chatApi.channel.addMembers(
         channelId,
@@ -1187,6 +1274,7 @@ class StreamChatClient {
         memberIds,
         message: message,
         hideHistory: hideHistory,
+        hideHistoryBefore: hideHistoryBefore,
       );
 
   /// Remove members from the channel
@@ -1255,9 +1343,10 @@ class StreamChatClient {
         messageId: messageId,
       );
 
-  /// Mark [channelId] of type [channelType] all messages as read
-  /// Optionally provide a [messageId] if you want to mark a
-  /// particular message as read
+  /// Marks the [channelId] of type [channelType] as unread
+  /// by a given [messageId].
+  ///
+  /// All messages from the provided message onwards will be marked as unread.
   Future<EmptyResponse> markChannelUnread(
     String channelId,
     String channelType,
@@ -1267,6 +1356,21 @@ class StreamChatClient {
         channelId,
         channelType,
         messageId,
+      );
+
+  /// Marks the [channelId] of type [channelType] as unread
+  /// by a given [timestamp].
+  ///
+  /// All messages after the provided timestamp will be marked as unread.
+  Future<EmptyResponse> markChannelUnreadByTimestamp(
+    String channelId,
+    String channelType,
+    DateTime timestamp,
+  ) =>
+      _chatApi.channel.markUnreadByTimestamp(
+        channelId,
+        channelType,
+        timestamp,
       );
 
   /// Mark the thread with [threadId] in the channel with [channelId] of type
@@ -1546,6 +1650,21 @@ class StreamChatClient {
     }
   }
 
+  /// Returns the unread count information for the current user.
+  Future<GetUnreadCountResponse> getUnreadCount() async {
+    final response = await _chatApi.user.getUnreadCount();
+
+    // Emit an local event with the unread count information as a side effect
+    // in order to update the current user state.
+    handleEvent(Event(
+      totalUnreadCount: response.totalUnreadCount,
+      unreadChannels: response.channels.length,
+      unreadThreads: response.threads.length,
+    ));
+
+    return response;
+  }
+
   /// Mutes a user
   Future<EmptyResponse> muteUser(String userId) =>
       _chatApi.moderation.muteUser(userId);
@@ -1572,6 +1691,29 @@ class StreamChatClient {
 
   /// Mark all channels for this user as read
   Future<EmptyResponse> markAllRead() => _chatApi.channel.markAllRead();
+
+  /// Sends delivery receipts for the latest messages in multiple channels.
+  ///
+  /// Useful when receiving messages through push notifications where only
+  /// channel IDs and message IDs are available, without full channel/message
+  /// objects. For in-app message delivery, use [channelDeliveryReporter]
+  /// which handles this automatically.
+  ///
+  /// ```dart
+  /// // From notification payload
+  /// final receipt = MessageDeliveryInfo(
+  ///   channelCid: notificationData['channel_id'],
+  ///   messageId: notificationData['message_id'],
+  /// );
+  /// await client.markChannelsDelivered([receipt]);
+  /// ```
+  ///
+  /// Accepts up to 100 channels per call.
+  Future<EmptyResponse> markChannelsDelivered(
+    Iterable<MessageDelivery> deliveries,
+  ) {
+    return _chatApi.channel.markChannelsDelivered([...deliveries]);
+  }
 
   /// Send an event to a particular channel
   Future<EmptyResponse> sendEvent(
@@ -1656,10 +1798,12 @@ class StreamChatClient {
   /// Update the given message
   Future<UpdateMessageResponse> updateMessage(
     Message message, {
+    bool skipPush = false,
     bool skipEnrichUrl = false,
   }) =>
       _chatApi.message.updateMessage(
         message,
+        skipPush: skipPush,
         skipEnrichUrl: skipEnrichUrl,
       );
 
@@ -1914,14 +2058,6 @@ class StreamChatClient {
     required String channelId,
     required String channelType,
   }) {
-    final currentUser = state.currentUser;
-    if (currentUser == null) {
-      throw const StreamChatError(
-        'User is not set on client, '
-        'use `connectUser` or `connectAnonymousUser` instead',
-      );
-    }
-
     return partialMemberUpdate(
       channelId: channelId,
       channelType: channelType,
@@ -1962,43 +2098,85 @@ class StreamChatClient {
     );
   }
 
+  /// Queries reminders for the current user.
+  ///
+  /// Optionally, pass [filter], [sort] and [pagination] to filter, sort and
+  /// paginate the reminders.
+  Future<QueryRemindersResponse> queryReminders({
+    Filter? filter,
+    SortOrder<MessageReminder>? sort,
+    PaginationParams pagination = const PaginationParams(),
+  }) {
+    return _chatApi.reminders.queryReminders(
+      filter: filter,
+      sort: sort,
+      pagination: pagination,
+    );
+  }
+
+  /// Creates a reminder for the given [messageId].
+  ///
+  /// Optionally, pass [remindAt] to set the reminder time.
+  Future<CreateReminderResponse> createReminder(
+    String messageId, {
+    DateTime? remindAt,
+  }) {
+    return _chatApi.reminders.createReminder(
+      messageId,
+      remindAt: remindAt,
+    );
+  }
+
+  /// Updates a reminder for the given [messageId].
+  ///
+  /// Optionally, pass [remindAt] to set the new reminder time.
+  Future<UpdateReminderResponse> updateReminder(
+    String messageId, {
+    DateTime? remindAt,
+  }) {
+    return _chatApi.reminders.updateReminder(
+      messageId,
+      remindAt: remindAt,
+    );
+  }
+
+  /// Deletes a reminder for the given [messageId].
+  Future<EmptyResponse> deleteReminder(String messageId) {
+    return _chatApi.reminders.deleteReminder(messageId);
+  }
+
   /// Closes the [_ws] connection and resets the [state]
   /// If [flushChatPersistence] is true the client deletes all offline
   /// user's data.
   Future<void> disconnectUser({bool flushChatPersistence = false}) async {
     logger.info('Disconnecting user : ${state.currentUser?.id}');
 
+    // Cancelling delivery reporter.
+    channelDeliveryReporter.cancel();
+
+    // closing web-socket connection
+    closeConnection();
+
     // resetting state.
     state.dispose();
     state = ClientState(this);
-    _lastSyncedAt = null;
 
     // resetting credentials.
     _tokenManager.reset();
     _connectionIdManager.reset();
 
     // closing persistence connection.
-    await closePersistenceConnection(flush: flushChatPersistence);
-
-    // closing web-socket connection
-    return closeConnection();
+    return closePersistenceConnection(flush: flushChatPersistence);
   }
 
   /// Call this function to dispose the client
   Future<void> dispose() async {
-    logger.info('Disposing new StreamChatClient');
+    logger.info('Disposing StreamChatClient');
 
-    // disposing state.
-    state.dispose();
-
-    // closing persistence connection.
-    await closePersistenceConnection();
-
-    // closing web-socket connection.
-    closeConnection();
-
+    await disconnectUser();
+    await _ws.dispose();
     await _eventController.close();
-    await _wsConnectionStatusController.close();
+    await _connectionStatusSubscription?.cancel();
   }
 }
 
@@ -2038,6 +2216,11 @@ class ClientState {
           // Update the unread threads count.
           if (event.unreadThreads case final count?) {
             currentUser = currentUser?.copyWith(unreadThreads: count);
+          }
+
+          // Update the push preferences.
+          if (event.pushPreference case final preferences?) {
+            currentUser = currentUser?.copyWith(pushPreferences: preferences);
           }
         }),
       );
@@ -2084,10 +2267,24 @@ class ClientState {
   void _listenUserUpdated() {
     _eventsSubscription?.add(
       _client.on(EventType.userUpdated).listen((event) {
-        if (event.user!.id == currentUser!.id) {
-          currentUser = OwnUser.fromUser(event.user!);
+        var user = event.user;
+        if (user == null) return;
+
+        if (user.id == currentUser?.id) {
+          final updatedUser = OwnUser.fromUser(user);
+          currentUser = user = updatedUser.copyWith(
+            // PRESERVE these fields (we don't get them in user.updated events)
+            devices: currentUser?.devices,
+            mutes: currentUser?.mutes,
+            channelMutes: currentUser?.channelMutes,
+            totalUnreadCount: currentUser?.totalUnreadCount,
+            unreadChannels: currentUser?.unreadChannels,
+            unreadThreads: currentUser?.unreadThreads,
+            pushPreferences: currentUser?.pushPreferences,
+          );
         }
-        updateUser(event.user);
+
+        updateUser(user);
       }),
     );
   }
@@ -2095,10 +2292,12 @@ class ClientState {
   void _listenAllChannelsRead() {
     _eventsSubscription?.add(
       _client.on(EventType.notificationMarkRead).listen((event) {
-        if (event.cid == null) {
-          channels.forEach((key, value) {
-            value.state?.unreadCount = 0;
-          });
+        // If a cid is provided, it means it's for a specific channel.
+        if (event.cid != null) return;
+
+        // Update all channels' unread count to 0.
+        for (final channel in channels.values) {
+          channel.state?.unreadCount = 0;
         }
       }),
     );
@@ -2202,10 +2401,7 @@ class ClientState {
 
   /// Adds a list of channels to the current list of cached channels
   void addChannels(Map<String, Channel> channelMap) {
-    final newChannels = {
-      ...channels,
-      ...channelMap,
-    };
+    final newChannels = {...channels, ...channelMap};
     channels = newChannels;
   }
 

@@ -92,6 +92,11 @@ Message _$MessageFromJson(Map<String, dynamic> json) => Message(
       draft: json['draft'] == null
           ? null
           : Draft.fromJson(json['draft'] as Map<String, dynamic>),
+      reminder: json['reminder'] == null
+          ? null
+          : MessageReminder.fromJson(json['reminder'] as Map<String, dynamic>),
+      channelRole:
+          Message._channelRoleReadValue(json, 'channel_role') as String?,
     );
 
 Map<String, dynamic> _$MessageToJson(Message instance) => <String, dynamic>{
@@ -110,5 +115,6 @@ Map<String, dynamic> _$MessageToJson(Message instance) => <String, dynamic>{
       if (instance.restrictedVisibility case final value?)
         'restricted_visibility': value,
       'draft': instance.draft?.toJson(),
+      'reminder': instance.reminder?.toJson(),
       'extra_data': instance.extraData,
     };
