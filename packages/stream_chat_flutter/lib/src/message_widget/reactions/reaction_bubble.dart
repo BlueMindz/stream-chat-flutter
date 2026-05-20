@@ -124,10 +124,10 @@ class StreamReactionBubble extends StatelessWidget {
     final chatThemeData = StreamChatTheme.of(context);
     final userId = StreamChat.of(context).currentUser?.id;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: EdgeInsets.zero,
       child: reactionIcon != null
           ? ConstrainedBox(
-              constraints: BoxConstraints.tight(const Size.square(14)),
+              constraints: BoxConstraints.tight(const Size.square(22)),
               child: reactionIcon.builder(
                 context,
                 highlightOwnReactions && reaction.user?.id == userId,
