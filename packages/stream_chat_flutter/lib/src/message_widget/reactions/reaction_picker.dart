@@ -72,7 +72,7 @@ class _StreamReactionPickerState extends State<StreamReactionPicker>
             final child = reactionIcon.builder(
               context,
               ownReactionIndex != -1,
-              24,
+              18,
             );
 
             return ConstrainedBox(
