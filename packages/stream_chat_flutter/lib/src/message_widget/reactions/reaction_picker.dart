@@ -90,6 +90,14 @@ class _StreamReactionPickerState extends State<StreamReactionPicker>
                   width: 24,
                 ),
                 onPressed: () {
+                  // Per-icon onTap override (used by e.g. a "+" entry
+                  // that should open a custom picker instead of sending
+                  // a literal reaction). The host is responsible for
+                  // dismissing the modal/dialog itself.
+                  if (reactionIcon.onTap != null) {
+                    reactionIcon.onTap!(context, widget.message);
+                    return;
+                  }
                   if (ownReactionIndex != -1) {
                     removeReaction(
                       context,

@@ -123,25 +123,73 @@ class StreamReactionBubble extends StatelessWidget {
 
     final chatThemeData = StreamChatTheme.of(context);
     final userId = StreamChat.of(context).currentUser?.id;
+
+    // Configured icon takes precedence (legacy: love/like/etc.).
+    if (reactionIcon != null) {
+      return Padding(
+        padding: EdgeInsets.zero,
+        child: ConstrainedBox(
+          constraints: BoxConstraints.tight(const Size.square(22)),
+          child: reactionIcon.builder(
+            context,
+            highlightOwnReactions && reaction.user?.id == userId,
+            16,
+          ),
+        ),
+      );
+    }
+
+    // Fallback: app-level encoded emoji types `e_<hex>(_<hex>)*` are
+    // decoded back to the literal emoji and rendered as Text.
+    final decoded = _decodeEncodedEmoji(reaction.type);
+    if (decoded != null) {
+      return Padding(
+        padding: EdgeInsets.zero,
+        child: ConstrainedBox(
+          constraints: BoxConstraints.tight(const Size.square(22)),
+          child: Center(
+            child: Text(
+              decoded,
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Last resort: SDK's original placeholder.
     return Padding(
       padding: EdgeInsets.zero,
-      child: reactionIcon != null
-          ? ConstrainedBox(
-              constraints: BoxConstraints.tight(const Size.square(22)),
-              child: reactionIcon.builder(
-                context,
-                highlightOwnReactions && reaction.user?.id == userId,
-                16,
-              ),
-            )
-          : Icon(
-              Icons.help_outline_rounded,
-              size: 14,
-              color: (highlightOwnReactions && reaction.user?.id == userId)
-                  ? chatThemeData.colorTheme.accentPrimary
-                  : chatThemeData.colorTheme.textLowEmphasis,
-            ),
+      child: Icon(
+        Icons.help_outline_rounded,
+        size: 14,
+        color: (highlightOwnReactions && reaction.user?.id == userId)
+            ? chatThemeData.colorTheme.accentPrimary
+            : chatThemeData.colorTheme.textLowEmphasis,
+      ),
     );
+  }
+
+  /// Inline decoder for the KeyZane reaction-encoding scheme: types of
+  /// the form `e_<hex>(_<hex>)*` represent an emoji whose Unicode rune
+  /// codepoints are the underscore-separated hex segments. Returns
+  /// `null` for any other input. Kept here (rather than imported) so
+  /// this SDK package has no upstream-app dependency.
+  String? _decodeEncodedEmoji(String? type) {
+    if (type == null) return null;
+    const prefix = 'e_';
+    if (!type.startsWith(prefix)) return null;
+    final hex = type.substring(prefix.length);
+    if (hex.isEmpty) return null;
+    try {
+      final runes = hex
+          .split('_')
+          .map((s) => int.parse(s, radix: 16))
+          .toList(growable: false);
+      return String.fromCharCodes(runes);
+    } catch (_) {
+      return null;
+    }
   }
 
   Widget _buildReactionsTail(BuildContext context) {
