@@ -1,0 +1,91 @@
+import 'package:flutter/material.dart';
+
+import '../../../stream_chat_flutter.dart';
+import 'message_composer_input_center.dart';
+import 'message_composer_input_header.dart';
+import 'message_composer_input_leading.dart';
+import 'message_composer_input_trailing.dart';
+
+/// A widget that shows the input container of the message composer.
+/// Uses the factory to show a fully custom container or the default
+/// implementation that assembles the header, leading, center, and trailing
+/// sub-components.
+class StreamMessageComposerInput extends StatelessWidget {
+  /// Creates a new instance of [StreamMessageComposerInput].
+  /// [props] contains the properties for the message composer input container,
+  /// including all text-field and audio-recording configuration.
+  const StreamMessageComposerInput({
+    super.key,
+    required this.props,
+  });
+
+  /// The properties for the message composer input container.
+  final MessageComposerInputProps props;
+
+  @override
+  Widget build(BuildContext context) {
+    return context.chatComponentBuilder<MessageComposerInputProps>()?.call(context, props) ??
+        DefaultStreamMessageComposerInput(props: props);
+  }
+}
+
+/// Default implementation of the message composer input container.
+///
+/// Renders the rounded input surface (background, border, optional shadow) and
+/// assembles the header, leading, center and trailing sub-components into a
+/// [Column] / [Row] layout identical to the former core widget.
+class DefaultStreamMessageComposerInput extends StatelessWidget {
+  /// Creates a new instance of [DefaultStreamMessageComposerInput].
+  const DefaultStreamMessageComposerInput({
+    super.key,
+    required this.props,
+  });
+
+  /// The properties for the message composer input container.
+  final MessageComposerInputProps props;
+
+  @override
+  Widget build(BuildContext context) {
+    final isFloating = props.isFloating;
+    final borderColor = props.isSlowModeActive
+        ? context.streamColorScheme.borderDisabled
+        : context.streamColorScheme.borderDefault;
+
+    final borderRadius = BorderRadius.all(context.streamRadius.xxxl);
+    final elevation = context.streamElevation;
+
+    // Material clips its children via PhysicalShape, so the border is drawn
+    // outside the Material to keep it from being clipped away.
+    return DecoratedBox(
+      position: DecorationPosition.foreground,
+      decoration: BoxDecoration(
+        borderRadius: borderRadius,
+        border: Border.all(color: borderColor),
+      ),
+      child: Material(
+        borderRadius: borderRadius,
+        clipBehavior: Clip.antiAlias,
+        color: context.streamColorScheme.backgroundElevation1,
+        elevation: isFloating ? elevation.level3 : elevation.none,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            StreamMessageComposerInputHeader(props: props),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                StreamMessageComposerInputLeading(props: props),
+                Expanded(
+                  child: StreamMessageComposerInputCenter(
+                    props: MessageComposerInputCenterProps.from(props),
+                  ),
+                ),
+                StreamMessageComposerInputTrailing(props: props),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

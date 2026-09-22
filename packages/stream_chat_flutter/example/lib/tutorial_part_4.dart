@@ -18,13 +18,13 @@ import 'package:stream_chat_flutter/stream_chat_flutter.dart';
 /// message, you can tap on "Reply" and it will open the same [ThreadPage].
 Future<void> main() async {
   final client = StreamChatClient(
-    's2dxdhpxd94g',
+    'b67pax5b2wdq',
     logLevel: Level.INFO,
   );
 
   await client.connectUser(
-    User(id: 'super-band-9'),
-    '''eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoic3VwZXItYmFuZC05In0.0L6lGoeLwkz0aZRUcpZKsvaXtNEDHBcezVTZ0oPq40A''',
+    User(id: 'tutorial-flutter'),
+    '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidHV0b3JpYWwtZmx1dHRlciJ9.S-MJpoSwDiqyXpUURgO5wVqJ4vKlIVFLSEyrFYCOE1c''',
   );
 
   runApp(
@@ -40,6 +40,8 @@ class MyApp extends StatelessWidget {
     required this.client,
   });
 
+  /// Instance of [StreamChatClient] we created earlier. This contains
+  /// information about our application and connection state.
   final StreamChatClient client;
 
   @override
@@ -54,6 +56,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+/// Displays the list of channels for the current user.
 class ChannelListPage extends StatefulWidget {
   const ChannelListPage({
     super.key,
@@ -81,23 +84,30 @@ class _ChannelListPageState extends State<ChannelListPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        body: StreamChannelListView(
-          controller: _listController,
-          onChannelTap: (channel) {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => StreamChannel(
-                  channel: channel,
-                  child: const ChannelPage(),
-                ),
+  Widget build(BuildContext context) {
+    final colorScheme = context.streamColorScheme;
+
+    return Scaffold(
+      backgroundColor: colorScheme.backgroundApp,
+      appBar: const StreamChannelListHeader(),
+      body: StreamChannelListView(
+        controller: _listController,
+        onChannelTap: (channel) {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => StreamChannel(
+                channel: channel,
+                child: const ChannelPage(),
               ),
-            );
-          },
-        ),
-      );
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
+/// Displays the list of messages inside the channel.
 class ChannelPage extends StatelessWidget {
   const ChannelPage({
     super.key,
@@ -105,49 +115,68 @@ class ChannelPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.streamColorScheme;
+
     return Scaffold(
+      backgroundColor: colorScheme.backgroundApp,
       appBar: const StreamChannelHeader(),
       body: Column(
         children: <Widget>[
           Expanded(
             child: StreamMessageListView(
               threadBuilder: (_, parentMessage) => ThreadPage(
-                parent: parentMessage,
+                parent: parentMessage!,
               ),
             ),
           ),
-          const StreamMessageInput(),
+          StreamMessageComposer(),
         ],
       ),
     );
   }
 }
 
-class ThreadPage extends StatelessWidget {
+/// Displays the thread replies for a parent message.
+class ThreadPage extends StatefulWidget {
   const ThreadPage({
     super.key,
-    this.parent,
+    required this.parent,
   });
 
-  final Message? parent;
+  /// The root message this thread is replying to.
+  final Message parent;
+
+  @override
+  State<ThreadPage> createState() => _ThreadPageState();
+}
+
+class _ThreadPageState extends State<ThreadPage> {
+  late final _controller = StreamMessageComposerController(
+    message: Message(parentId: widget.parent.id),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.streamColorScheme;
+
     return Scaffold(
-      appBar: StreamThreadHeader(
-        parent: parent!,
-      ),
+      backgroundColor: colorScheme.backgroundApp,
+      appBar: StreamThreadHeader(parent: widget.parent),
       body: Column(
         children: <Widget>[
           Expanded(
             child: StreamMessageListView(
-              parentMessage: parent,
+              parentMessage: widget.parent,
             ),
           ),
-          StreamMessageInput(
-            messageInputController: StreamMessageInputController(
-              message: Message(parentId: parent!.id),
-            ),
+          StreamMessageComposer(
+            messageComposerController: _controller,
           ),
         ],
       ),

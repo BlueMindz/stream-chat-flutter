@@ -1,17 +1,17 @@
 // coverage:ignore-file
 import 'package:drift/drift.dart';
-import 'package:stream_chat_persistence/src/converter/map_converter.dart';
-import 'package:stream_chat_persistence/src/entity/channels.dart';
+import '../converter/converter.dart';
+import 'channels.dart';
 
-/// Represents a [Members] table in [MoorChatDatabase].
+/// Represents a [Members] table in [DriftChatDatabase].
 @DataClassName('MemberEntity')
+@TableIndex(name: 'idx_members_channel_cid', columns: {#channelCid})
 class Members extends Table {
   /// The interested user id
   TextColumn get userId => text()();
 
   /// The channel cid of which this user is part of
-  TextColumn get channelCid =>
-      text().references(Channels, #cid, onDelete: KeyAction.cascade)();
+  TextColumn get channelCid => text().references(Channels, #cid, onDelete: KeyAction.cascade)();
 
   /// The role of the user in the channel
   TextColumn get channelRole => text().nullable()();
@@ -32,12 +32,10 @@ class Members extends Table {
   BoolColumn get shadowBanned => boolean().withDefault(const Constant(false))();
 
   /// The date at which the channel was pinned by the member
-  DateTimeColumn get pinnedAt =>
-      dateTime().nullable().withDefault(const Constant(null))();
+  DateTimeColumn get pinnedAt => dateTime().nullable().withDefault(const Constant(null))();
 
   /// The date at which the channel was archived by the member
-  DateTimeColumn get archivedAt =>
-      dateTime().nullable().withDefault(const Constant(null))();
+  DateTimeColumn get archivedAt => dateTime().nullable().withDefault(const Constant(null))();
 
   /// True if the user is a moderator of the channel
   BoolColumn get isModerator => boolean().withDefault(const Constant(false))();
@@ -50,6 +48,12 @@ class Members extends Table {
 
   /// The last date of update
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  /// List of message ids deleted by the member only for himself.
+  ///
+  /// These messages are now marked deleted for this member, but are still
+  /// kept as regular to other channel members.
+  TextColumn get deletedMessages => text().map(ListConverter<String>())();
 
   @override
   Set<Column> get primaryKey => {userId, channelCid};

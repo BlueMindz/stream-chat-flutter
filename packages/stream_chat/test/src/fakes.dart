@@ -9,7 +9,9 @@ import 'package:stream_chat/src/core/api/guest_api.dart';
 import 'package:stream_chat/src/core/api/message_api.dart';
 import 'package:stream_chat/src/core/api/moderation_api.dart';
 import 'package:stream_chat/src/core/api/polls_api.dart';
+import 'package:stream_chat/src/core/api/roles_api.dart';
 import 'package:stream_chat/src/core/api/user_api.dart';
+import 'package:stream_chat/src/core/api/user_groups_api.dart';
 import 'package:stream_chat/src/core/http/token.dart';
 import 'package:stream_chat/src/core/http/token_manager.dart';
 import 'package:stream_chat/src/ws/websocket.dart';
@@ -34,8 +36,7 @@ class FakeTokenManager extends Fake implements TokenManager {
     String userId, {
     Token? token,
     TokenProvider? provider,
-  }) async =>
-      this.token;
+  }) async => this.token;
 
   @override
   void reset() {}
@@ -46,10 +47,9 @@ class FakeMultiPartFile extends Fake implements MultipartFile {}
 /// Fake persistence client for testing persistence client reliability features
 class FakePersistenceClient extends Fake implements ChatPersistenceClient {
   FakePersistenceClient({
-    DateTime? lastSyncAt,
+    this._lastSyncAt,
     List<String>? channelCids,
-  })  : _lastSyncAt = lastSyncAt,
-        _channelCids = channelCids ?? [];
+  }) : _channelCids = channelCids ?? [];
 
   String? _userId;
   bool _isConnected = false;
@@ -59,6 +59,7 @@ class FakePersistenceClient extends Fake implements ChatPersistenceClient {
   // Track method calls for testing
   int connectCallCount = 0;
   int disconnectCallCount = 0;
+  int flushCallCount = 0;
 
   @override
   bool get isConnected => _isConnected;
@@ -84,6 +85,7 @@ class FakePersistenceClient extends Fake implements ChatPersistenceClient {
 
   @override
   Future<void> flush() async {
+    flushCallCount++;
     _lastSyncAt = null;
     _channelCids = [];
   }
@@ -98,6 +100,22 @@ class FakePersistenceClient extends Fake implements ChatPersistenceClient {
 
   @override
   Future<List<String>> getChannelCids() async => _channelCids;
+
+  @override
+  Future<void> saveChannelQueries({
+    required List<String> cids,
+    Filter? filter,
+    SortOrder<ChannelState>? sort,
+    String? predefinedFilter,
+    Filter? resolvedFilter,
+    SortOrder<ChannelState>? resolvedSort,
+    Map<String, Object?>? filterValues,
+    Map<String, Object?>? sortValues,
+    bool clearQueryCache = false,
+  }) async {}
+
+  @override
+  Future<void> updateChannelStates(List<ChannelState> channelStates) async {}
 }
 
 class FakeChatApi extends Fake implements StreamChatApi {
@@ -136,6 +154,16 @@ class FakeChatApi extends Fake implements StreamChatApi {
   @override
   ModerationApi get moderation => _moderation ??= MockModerationApi();
 
+  UserGroupsApi? _userGroups;
+
+  @override
+  UserGroupsApi get userGroups => _userGroups ??= MockUserGroupsApi();
+
+  RolesApi? _roles;
+
+  @override
+  RolesApi get roles => _roles ??= MockRolesApi();
+
   GeneralApi? _general;
 
   @override
@@ -144,14 +172,13 @@ class FakeChatApi extends Fake implements StreamChatApi {
   AttachmentFileUploader? _fileUploader;
 
   @override
-  AttachmentFileUploader get fileUploader =>
-      _fileUploader ??= MockAttachmentFileUploader();
+  AttachmentFileUploader get fileUploader => _fileUploader ??= MockAttachmentFileUploader();
 }
 
 class FakeClientState extends Fake implements ClientState {
   FakeClientState({
-    OwnUser? currentUser,
-  }) : _currentUser = currentUser;
+    this._currentUser,
+  });
 
   OwnUser? _currentUser;
 
@@ -166,6 +193,9 @@ class FakeClientState extends Fake implements ClientState {
       ),
     );
   }
+
+  @override
+  Map<String, User> get users => const {};
 
   @override
   void updateUser(User? user) {
@@ -218,8 +248,7 @@ class FakeWebSocket extends Fake implements WebSocket {
   ConnectionStatus get connectionStatus => _connectionStatusController.value;
 
   @override
-  Stream<ConnectionStatus> get connectionStatusStream =>
-      _connectionStatusController.stream;
+  Stream<ConnectionStatus> get connectionStatusStream => _connectionStatusController.stream;
 
   @override
   Completer<Event>? connectionCompleter;
@@ -265,8 +294,7 @@ class FakeWebSocketWithConnectionError extends Fake implements WebSocket {
   ConnectionStatus get connectionStatus => _connectionStatusController.value;
 
   @override
-  Stream<ConnectionStatus> get connectionStatusStream =>
-      _connectionStatusController.stream;
+  Stream<ConnectionStatus> get connectionStatusStream => _connectionStatusController.stream;
 
   @override
   Completer<Event>? connectionCompleter;
@@ -296,8 +324,7 @@ class FakeWebSocketWithConnectionError extends Fake implements WebSocket {
 
 class FakeChannelState extends Fake implements ChannelState {}
 
-class FakePartialUpdateMemberResponse extends Fake
-    implements PartialUpdateMemberResponse {
+class FakePartialUpdateMemberResponse extends Fake implements PartialUpdateMemberResponse {
   FakePartialUpdateMemberResponse({
     Member? channelMember,
   }) : _channelMember = channelMember ?? Member();

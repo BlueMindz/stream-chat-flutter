@@ -4,12 +4,49 @@ import 'package:stream_chat/stream_chat.dart' show StreamChatError;
 
 part 'paged_value_notifier.freezed.dart';
 
+/// A mixin for [ValueNotifier]s whose async methods may write to [value] after
+/// the notifier has already been disposed (e.g. an in-flight network request
+/// completes after the widget that owned the controller has been torn down).
+///
+/// Without this guard, the inherited [ValueNotifier.notifyListeners] throws an
+/// assertion error in debug mode when called on a disposed instance.
+///
+/// Apply this mixin to any [ValueNotifier] subclass whose [value] setter may be
+/// reached from an async context:
+///
+/// ```dart
+/// class MyController extends ValueNotifier<MyState>
+///     with DisposeAwareValueNotifier<MyState> { … }
+/// ```
+///
+/// After the notifier is disposed, any subsequent [value] write is silently
+/// discarded. Use the [disposed] getter to check disposal state if you also
+/// need to skip other side effects (e.g. setting up event subscriptions) that
+/// follow an async operation.
+mixin DisposeAwareValueNotifier<T> on ValueNotifier<T> {
+  bool _disposed = false;
+
+  /// Whether [dispose] has been called on this notifier.
+  bool get disposed => _disposed;
+
+  @override
+  set value(T newValue) {
+    if (_disposed) return;
+    super.value = newValue;
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+}
+
 /// Default initial page size multiplier.
 const defaultInitialPagedLimitMultiplier = 3;
 
 /// Value listenable for paged data.
-typedef PagedValueListenableBuilder<Key, Value>
-    = ValueListenableBuilder<PagedValue<Key, Value>>;
+typedef PagedValueListenableBuilder<Key, Value> = ValueListenableBuilder<PagedValue<Key, Value>>;
 
 /// A [PagedValueNotifier] that uses a [PagedListenable] to load data.
 ///
@@ -19,8 +56,8 @@ typedef PagedValueListenableBuilder<Key, Value>
 ///
 /// [PagedValueNotifier] is a [ValueNotifier] that emits a [PagedValue]
 /// whenever the data is loaded or an error occurs.
-abstract class PagedValueNotifier<Key, Value>
-    extends ValueNotifier<PagedValue<Key, Value>> {
+abstract class PagedValueNotifier<Key, Value> extends ValueNotifier<PagedValue<Key, Value>>
+    with DisposeAwareValueNotifier<PagedValue<Key, Value>> {
   /// Creates a [PagedValueNotifier]
   PagedValueNotifier(this._initialValue) : super(_initialValue);
 
@@ -148,17 +185,18 @@ extension PagedValuePatternMatching<Key, Value> on PagedValue<Key, Value> {
       List<Value> items,
       Key? nextPageKey,
       StreamChatError? error,
-    ) success, {
+    )
+    success, {
     required TResult Function() loading,
     required TResult Function(StreamChatError error) error,
   }) {
     final pagedValue = this;
     return switch (pagedValue) {
       Success<Key, Value>() => success(
-          pagedValue.items,
-          pagedValue.nextPageKey,
-          pagedValue.error,
-        ),
+        pagedValue.items,
+        pagedValue.nextPageKey,
+        pagedValue.error,
+      ),
       Loading<Key, Value>() => loading(),
       Error<Key, Value>() => error(pagedValue.error),
     };
@@ -171,17 +209,18 @@ extension PagedValuePatternMatching<Key, Value> on PagedValue<Key, Value> {
       List<Value> items,
       Key? nextPageKey,
       StreamChatError? error,
-    )? success, {
+    )?
+    success, {
     TResult? Function()? loading,
     TResult? Function(StreamChatError error)? error,
   }) {
     final pagedValue = this;
     return switch (pagedValue) {
       Success<Key, Value>() => success?.call(
-          pagedValue.items,
-          pagedValue.nextPageKey,
-          pagedValue.error,
-        ),
+        pagedValue.items,
+        pagedValue.nextPageKey,
+        pagedValue.error,
+      ),
       Loading<Key, Value>() => loading?.call(),
       Error<Key, Value>() => error?.call(pagedValue.error),
     };
@@ -194,7 +233,8 @@ extension PagedValuePatternMatching<Key, Value> on PagedValue<Key, Value> {
       List<Value> items,
       Key? nextPageKey,
       StreamChatError? error,
-    )? success, {
+    )?
+    success, {
     TResult Function()? loading,
     TResult Function(StreamChatError error)? error,
     required TResult orElse(),
@@ -202,10 +242,10 @@ extension PagedValuePatternMatching<Key, Value> on PagedValue<Key, Value> {
     final pagedValue = this;
     final result = switch (pagedValue) {
       Success<Key, Value>() => success?.call(
-          pagedValue.items,
-          pagedValue.nextPageKey,
-          pagedValue.error,
-        ),
+        pagedValue.items,
+        pagedValue.nextPageKey,
+        pagedValue.error,
+      ),
       Loading<Key, Value>() => loading?.call(),
       Error<Key, Value>() => error?.call(pagedValue.error),
     };

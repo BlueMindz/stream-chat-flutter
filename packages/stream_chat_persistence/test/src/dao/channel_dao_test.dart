@@ -68,7 +68,9 @@ void main() {
 
     // Saving a dummy member
     final dummyMember = Member(userId: userId, user: dummyUser);
-    await database.memberDao.updateMembers(cid, [dummyMember]);
+    await database.memberDao.bulkUpdateMembers({
+      cid: [dummyMember],
+    });
 
     // Should match the dummy member
     final updatedMembers = await database.memberDao.getMembersByCid(cid);
@@ -78,7 +80,9 @@ void main() {
     // Saving a dummy message
     const messageId = 'messageId';
     final dummyMessage = Message(id: messageId, user: dummyUser);
-    await database.messageDao.updateMessages(cid, [dummyMessage]);
+    await database.messageDao.bulkUpdateMessages({
+      cid: [dummyMessage],
+    });
 
     // Should match the dummy message
     final updatedMessages = await database.messageDao.getMessagesByCid(cid);
@@ -91,7 +95,9 @@ void main() {
       user: dummyUser,
       lastReadMessageId: messageId,
     );
-    await database.readDao.updateReads(cid, [dummyRead]);
+    await database.readDao.bulkUpdateReads({
+      cid: [dummyRead],
+    });
 
     // Should match the dummy read
     final updatedReads = await database.readDao.getReadsByCid(cid);
@@ -99,13 +105,13 @@ void main() {
     expect(updatedReads.first.user, dummyUser);
 
     // Saving a dummy reaction
-    final dummyReaction =
-        Reaction(type: 'type', messageId: messageId, userId: userId);
+    final dummyReaction = Reaction(type: 'type', messageId: messageId, userId: userId);
     await database.reactionDao.updateReactions([dummyReaction]);
 
     // Should match the dummy reaction
-    final updatedReactions =
-        await database.reactionDao.getReactionsByUserId(messageId, userId);
+    final updatedReactions = (await database.reactionDao.getReactionsForMessagesByUserId([
+      messageId,
+    ], userId))[messageId]!;
     expect(updatedReactions.length, 1);
     expect(updatedReactions.first.messageId, messageId);
 
@@ -129,8 +135,7 @@ void main() {
     expect(reads, isEmpty);
 
     // Fetched readtions for passed message id and user id should be empty
-    final reactions =
-        await database.reactionDao.getReactionsByUserId(messageId, userId);
+    final reactions = (await database.reactionDao.getReactionsForMessagesByUserId([messageId], userId))[messageId]!;
     expect(reactions, isEmpty);
   });
 
@@ -139,22 +144,18 @@ void main() {
     final cids = await channelDao.cids;
     expect(cids, []);
 
-    const id = 'testId';
-    const cid = 'testCid';
-    const type = 'testType';
+    // Saving channels ordered by the later of lastMessageAt and createdAt, so
+    // a truncated channel keeps its position instead of sinking below stale
+    // channels.
+    await channelDao.updateChannels([
+      ChannelModel(cid: 'test:stale', createdAt: DateTime(2023), lastMessageAt: DateTime(2023, 2)),
+      ChannelModel(cid: 'test:truncated', createdAt: DateTime(2023, 6), lastMessageAt: DateTime(1970)),
+      ChannelModel(cid: 'test:active', createdAt: DateTime(2023), lastMessageAt: DateTime(2023, 9)),
+    ]);
 
-    // Saving a dummy channel
-    final dummyChannel = ChannelModel(
-      id: id,
-      type: type,
-      cid: cid,
-      config: ChannelConfig(),
-    );
-    await channelDao.updateChannels([dummyChannel]);
-
-    // Should return the cid of the dummy channel
+    // Should return the saved cids, most recently active first
     final updatedCids = await channelDao.cids;
-    expect(updatedCids, [cid]);
+    expect(updatedCids, ['test:active', 'test:truncated', 'test:stale']);
   });
 
   test('updateChannels', () async {

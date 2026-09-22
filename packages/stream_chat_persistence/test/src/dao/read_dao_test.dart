@@ -32,7 +32,7 @@ void main() {
 
     await database.userDao.updateUsers(users);
     await database.channelDao.updateChannels(channels);
-    await readDao.updateReads(cid, reads);
+    await readDao.bulkUpdateReads({cid: reads});
     return reads;
   }
 
@@ -56,10 +56,8 @@ void main() {
       expect(fetchedRead.user.id, insertedRead.user.id);
       expect(fetchedRead.lastRead, isSameDateAs(insertedRead.lastRead));
       expect(fetchedRead.unreadMessages, insertedRead.unreadMessages);
-      expect(fetchedRead.lastDeliveredAt,
-          isSameDateAs(insertedRead.lastDeliveredAt));
-      expect(fetchedRead.lastDeliveredMessageId,
-          insertedRead.lastDeliveredMessageId);
+      expect(fetchedRead.lastDeliveredAt, isSameDateAs(insertedRead.lastDeliveredAt));
+      expect(fetchedRead.lastDeliveredMessageId, insertedRead.lastDeliveredMessageId);
     }
   });
 
@@ -81,7 +79,9 @@ void main() {
       lastDeliveredMessageId: 'lastDeliveredMessageId3',
     );
     await database.userDao.updateUsers([newUser]);
-    await readDao.updateReads(cid, [copyRead, newRead]);
+    await readDao.bulkUpdateReads({
+      cid: [copyRead, newRead],
+    });
 
     // Fetched reads length should be one more than inserted reads.
     // copyRead `unreadMessages` modified field should be 33.
@@ -89,16 +89,12 @@ void main() {
     final fetchedReads = await readDao.getReadsByCid(cid);
     expect(fetchedReads.length, insertedReads.length + 1);
     expect(
-      fetchedReads
-          .firstWhere((it) => it.user.id == copyRead.user.id)
-          .unreadMessages,
+      fetchedReads.firstWhere((it) => it.user.id == copyRead.user.id).unreadMessages,
       33,
     );
     expect(
       fetchedReads
-          .where((it) =>
-              it.user.id == newRead.user.id &&
-              it.unreadMessages == newRead.unreadMessages)
+          .where((it) => it.user.id == newRead.user.id && it.unreadMessages == newRead.unreadMessages)
           .isNotEmpty,
       true,
     );

@@ -1,7 +1,8 @@
 import 'package:file_picker/file_picker.dart';
-import 'package:stream_chat_flutter/src/attachment/handler/common.dart';
-import 'package:stream_chat_flutter/src/attachment/handler/stream_attachment_handler_base.dart';
-import 'package:stream_chat_flutter/stream_chat_flutter.dart';
+
+import '../../../stream_chat_flutter.dart';
+import 'common.dart';
+import 'stream_attachment_handler_base.dart';
 
 /// StreamAttachmentHandler implementation for html.
 class StreamAttachmentHandler extends StreamAttachmentHandlerBase {
@@ -11,10 +12,7 @@ class StreamAttachmentHandler extends StreamAttachmentHandlerBase {
 
   /// Returns the singleton instance of [StreamAttachmentHandler].
   // ignore: prefer_constructors_over_static_methods
-  static StreamAttachmentHandler get instance =>
-      _instance ??= StreamAttachmentHandler._();
-
-  late final _filePicker = FilePicker.platform;
+  static StreamAttachmentHandler get instance => _instance ??= StreamAttachmentHandler._();
 
   @override
   Future<Attachment?> pickFile({
@@ -23,14 +21,12 @@ class StreamAttachmentHandler extends StreamAttachmentHandlerBase {
     FileType type = FileType.any,
     List<String>? allowedExtensions,
     Function(FilePickerStatus)? onFileLoading,
-    @Deprecated('Has no effect, Use compressionQuality instead.')
-    bool allowCompression = true,
     int compressionQuality = 0,
     bool withData = true,
     bool withReadStream = false,
     bool lockParentWindow = true,
   }) async {
-    final result = await _filePicker.pickFiles(
+    final result = await FilePicker.pickFiles(
       dialogTitle: dialogTitle,
       initialDirectory: initialDirectory,
       type: type,

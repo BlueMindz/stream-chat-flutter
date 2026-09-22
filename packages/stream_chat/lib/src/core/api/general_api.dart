@@ -1,11 +1,11 @@
 import 'dart:convert';
 
-import 'package:stream_chat/src/core/api/requests.dart';
-import 'package:stream_chat/src/core/api/responses.dart';
-import 'package:stream_chat/src/core/api/sort_order.dart';
-import 'package:stream_chat/src/core/http/stream_http_client.dart';
-import 'package:stream_chat/src/core/models/filter.dart';
-import 'package:stream_chat/src/core/models/member.dart';
+import '../http/stream_http_client.dart';
+import '../models/filter.dart';
+import '../models/member.dart';
+import 'requests.dart';
+import 'responses.dart';
+import 'sort_order.dart';
 
 /// Defines the api dedicated to general operations
 class GeneralApi {
@@ -60,8 +60,7 @@ class GeneralApi {
           'filter_conditions': filter,
           if (sort != null) 'sort': sort,
           if (query != null) 'query': query,
-          if (messageFilters != null)
-            'message_filter_conditions': messageFilters,
+          if (messageFilters != null) 'message_filter_conditions': messageFilters,
           if (pagination != null) ...pagination.toJson(),
         }),
       },
@@ -85,10 +84,7 @@ class GeneralApi {
         'payload': jsonEncode({
           'type': channelType,
           'filter_conditions': filter ?? {},
-          if (channelId != null)
-            'id': channelId
-          else if (members != null)
-            'members': members,
+          if (channelId != null) 'id': channelId else if (members != null) 'members': members,
           if (sort != null) 'sort': sort,
           if (pagination != null) ...pagination.toJson(),
         }),
@@ -108,5 +104,11 @@ class GeneralApi {
     );
 
     return OGAttachmentResponse.fromJson(response.data);
+  }
+
+  /// Fetches the app settings from the `GET /app` endpoint.
+  Future<GetAppSettingsResponse> getAppSettings() async {
+    final response = await _client.get('/app');
+    return GetAppSettingsResponse.fromJson(response.data);
   }
 }

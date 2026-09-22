@@ -13,17 +13,12 @@ Future<void> main() async {
   await client.connectUser(
     User(
       id: 'cool-shadow-7',
-      image:
-          'https://getstream.io/random_png/?id=cool-shadow-7&amp;name=Cool+shadow',
+      image: 'https://getstream.io/random_png/?id=cool-shadow-7&amp;name=Cool+shadow',
     ),
     '''eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiY29vbC1zaGFkb3ctNyJ9.gkOlCRb1qgy4joHPaxFwPOdXcGvSPvp6QY0S4mpRkVo''',
   );
 
-  runApp(
-    StreamExample(
-      client: client,
-    ),
-  );
+  runApp(StreamExample(client: client));
 }
 
 /// Example application using Stream Chat core widgets.
@@ -37,10 +32,7 @@ class StreamExample extends StatelessWidget {
   ///
   /// If you'd prefer using pre-made UI widgets for your app, please see our
   /// other package, `stream_chat_flutter`.
-  const StreamExample({
-    Key? key,
-    required this.client,
-  }) : super(key: key);
+  const StreamExample({super.key, required this.client});
 
   /// Instance of Stream Client.
   /// Stream's [StreamChatClient] can be used to connect to our servers and
@@ -50,13 +42,10 @@ class StreamExample extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'Stream Chat Core Example',
-        home: HomeScreen(),
-        builder: (context, child) => StreamChatCore(
-          client: client,
-          child: child!,
-        ),
-      );
+    title: 'Stream Chat Core Example',
+    home: const HomeScreen(),
+    builder: (context, child) => StreamChatCore(client: client, child: child!),
+  );
 }
 
 /// Basic layout displaying a list of [Channel]s the user is a part of.
@@ -67,7 +56,7 @@ class StreamExample extends StatelessWidget {
 class HomeScreen extends StatefulWidget {
   /// Builds a basic layout displaying a list of [Channel]s the user is a
   /// part of.
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -80,12 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
     client: StreamChatCore.of(context).client,
     filter: Filter.and([
       Filter.equal('type', 'messaging'),
-      Filter.in_(
-        'members',
-        [
-          StreamChatCore.of(context).currentUser!.id,
-        ],
-      ),
+      Filter.in_('members', [StreamChatCore.of(context).currentUser!.id]),
     ]),
   );
 
@@ -103,91 +87,87 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Channels'),
-        ),
-        body: PagedValueListenableBuilder<int, Channel>(
-          valueListenable: channelListController,
-          builder: (context, value, child) {
-            return value.when(
-              (channels, nextPageKey, error) => LazyLoadScrollView(
-                onEndOfPage: () async {
-                  if (nextPageKey != null) {
-                    channelListController.loadMore(nextPageKey);
-                  }
-                },
-                child: ListView.builder(
-                  /// We're using the channels length when there are no more
-                  /// pages to load and there are no errors with pagination.
-                  /// In case we need to show a loading indicator or and error
-                  /// tile we're increasing the count by 1.
-                  itemCount: (nextPageKey != null || error != null)
-                      ? channels.length + 1
-                      : channels.length,
-                  itemBuilder: (BuildContext context, int index) {
-                    if (index == channels.length) {
-                      if (error != null) {
-                        return TextButton(
-                          onPressed: () {
-                            channelListController.retry();
-                          },
-                          child: Text(error.message),
-                        );
-                      }
-                      return CircularProgressIndicator();
-                    }
-
-                    final _item = channels[index];
-                    return ListTile(
-                      title: Text(_item.name ?? ''),
-                      subtitle: StreamBuilder<Message?>(
-                        stream: _item.state!.lastMessageStream,
-                        initialData: _item.state!.lastMessage,
-                        builder: (context, snapshot) {
-                          if (snapshot.hasData) {
-                            return Text(snapshot.data!.text!);
-                          }
-
-                          return const SizedBox();
-                        },
-                      ),
-                      onTap: () {
-                        /// Display a list of messages when the user taps on
-                        /// an item. We can use [StreamChannel] to wrap our
-                        /// [MessageScreen] screen with the selected channel.
-                        ///
-                        /// This allows us to use a built-in inherited widget
-                        /// for accessing our `channel` later on.
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => StreamChannel(
-                              channel: _item,
-                              child: const MessageScreen(),
-                            ),
-                          ),
-                        );
+    appBar: AppBar(title: const Text('Channels')),
+    body: PagedValueListenableBuilder<int, Channel>(
+      valueListenable: channelListController,
+      builder: (context, value, child) {
+        return value.when(
+          (channels, nextPageKey, error) => LazyLoadScrollView(
+            onEndOfPage: () async {
+              if (nextPageKey != null) {
+                channelListController.loadMore(nextPageKey);
+              }
+            },
+            child: ListView.builder(
+              /// We're using the channels length when there are no more
+              /// pages to load and there are no errors with pagination.
+              /// In case we need to show a loading indicator or and error
+              /// tile we're increasing the count by 1.
+              itemCount: (nextPageKey != null || error != null) ? channels.length + 1 : channels.length,
+              itemBuilder: (BuildContext context, int index) {
+                if (index == channels.length) {
+                  if (error != null) {
+                    return TextButton(
+                      onPressed: () {
+                        channelListController.retry();
                       },
+                      child: Text(error.message),
+                    );
+                  }
+                  return const CircularProgressIndicator();
+                }
+
+                final _item = channels[index];
+                return ListTile(
+                  title: Text(_item.name ?? ''),
+                  subtitle: StreamBuilder<Message?>(
+                    stream: _item.state!.lastMessageStream,
+                    initialData: _item.state!.lastMessage,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        return Text(snapshot.data!.text!);
+                      }
+
+                      return const SizedBox();
+                    },
+                  ),
+                  onTap: () {
+                    /// Display a list of messages when the user taps on
+                    /// an item. We can use [StreamChannel] to wrap our
+                    /// [MessageScreen] screen with the selected channel.
+                    ///
+                    /// This allows us to use a built-in inherited widget
+                    /// for accessing our `channel` later on.
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => StreamChannel(
+                          channel: _item,
+                          child: const MessageScreen(),
+                        ),
+                      ),
                     );
                   },
-                ),
-              ),
-              loading: () => const Center(
-                child: SizedBox(
-                  height: 100,
-                  width: 100,
-                  child: CircularProgressIndicator(),
-                ),
-              ),
-              error: (e) => Center(
-                child: Text(
-                  'Oh no, something went wrong. '
-                  'Please check your config. $e',
-                ),
-              ),
-            );
-          },
-        ),
-      );
+                );
+              },
+            ),
+          ),
+          loading: () => const Center(
+            child: SizedBox(
+              height: 100,
+              width: 100,
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          error: (e) => Center(
+            child: Text(
+              'Oh no, something went wrong. '
+              'Please check your config. $e',
+            ),
+          ),
+        );
+      },
+    ),
+  );
 }
 
 /// A list of messages sent in the current channel.
@@ -198,15 +178,14 @@ class _HomeScreenState extends State<HomeScreen> {
 /// callbacks for building UIs based on different api results.
 class MessageScreen extends StatefulWidget {
   /// Build a MessageScreen
-  const MessageScreen({Key? key}) : super(key: key);
+  const MessageScreen({super.key});
 
   @override
   _MessageScreenState createState() => _MessageScreenState();
 }
 
 class _MessageScreenState extends State<MessageScreen> {
-  final StreamMessageInputController messageInputController =
-      StreamMessageInputController();
+  final StreamMessageComposerController messageComposerController = StreamMessageComposerController();
   late final ScrollController _scrollController;
   final messageListController = MessageListController();
 
@@ -218,7 +197,7 @@ class _MessageScreenState extends State<MessageScreen> {
 
   @override
   void dispose() {
-    messageInputController.dispose();
+    messageComposerController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -259,9 +238,7 @@ class _MessageScreenState extends State<MessageScreen> {
                 },
                 child: MessageListCore(
                   messageListController: messageListController,
-                  emptyBuilder: (BuildContext context) => const Center(
-                    child: Text('Nothing here yet'),
-                  ),
+                  emptyBuilder: (BuildContext context) => const Center(child: Text('Nothing here yet')),
                   loadingBuilder: (BuildContext context) => const Center(
                     child: SizedBox(
                       height: 100,
@@ -269,11 +246,7 @@ class _MessageScreenState extends State<MessageScreen> {
                       child: CircularProgressIndicator(),
                     ),
                   ),
-                  messageListBuilder: (
-                    BuildContext context,
-                    List<Message> messages,
-                  ) =>
-                      ListView.builder(
+                  messageListBuilder: (BuildContext context, List<Message> messages) => ListView.builder(
                     controller: _scrollController,
                     itemCount: messages.length,
                     reverse: true,
@@ -305,8 +278,9 @@ class _MessageScreenState extends State<MessageScreen> {
                       child: SizedBox(
                         height: 100,
                         width: 100,
-                        child:
-                            Text('Oh no, an error occured. Please see logs.'),
+                        child: Text(
+                          'Oh no, an error occured. Please see logs.',
+                        ),
                       ),
                     );
                   },
@@ -319,7 +293,7 @@ class _MessageScreenState extends State<MessageScreen> {
                 children: [
                   Expanded(
                     child: TextField(
-                      controller: messageInputController.textFieldController,
+                      controller: messageComposerController.textFieldController,
                       decoration: const InputDecoration(
                         hintText: 'Enter your message',
                       ),
@@ -331,11 +305,11 @@ class _MessageScreenState extends State<MessageScreen> {
                     clipBehavior: Clip.hardEdge,
                     child: InkWell(
                       onTap: () async {
-                        if (messageInputController.text.isNotEmpty) {
+                        if (messageComposerController.text.isNotEmpty) {
                           await channel.sendMessage(
-                            messageInputController.message,
+                            messageComposerController.message,
                           );
-                          messageInputController.clear();
+                          messageComposerController.clear();
                           if (mounted) {
                             _updateList();
                           }
@@ -344,10 +318,7 @@ class _MessageScreenState extends State<MessageScreen> {
                       child: const Padding(
                         padding: EdgeInsets.all(8),
                         child: Center(
-                          child: Icon(
-                            Icons.send,
-                            color: Colors.white,
-                          ),
+                          child: Icon(Icons.send, color: Colors.white),
                         ),
                       ),
                     ),

@@ -1,10 +1,10 @@
 // coverage:ignore-file
 import 'package:drift/drift.dart';
-import 'package:stream_chat_persistence/src/converter/list_converter.dart';
-import 'package:stream_chat_persistence/src/converter/map_converter.dart';
-import 'package:stream_chat_persistence/src/converter/voting_visibility_converter.dart';
+import '../converter/list_converter.dart';
+import '../converter/map_converter.dart';
+import '../converter/voting_visibility_converter.dart';
 
-/// Represents a [Polls] table in [MoorChatDatabase].
+/// Represents a [Polls] table in [DriftChatDatabase].
 @DataClassName('PollEntity')
 class Polls extends Table {
   /// The unique identifier of the poll.
@@ -22,15 +22,13 @@ class Polls extends Table {
   /// Represents the visibility of the voting process.
   ///
   /// Defaults to 'public'.
-  TextColumn get votingVisibility => text()
-      .map(const VotingVisibilityConverter())
-      .withDefault(const Constant('public'))();
+  TextColumn get votingVisibility =>
+      text().map(const VotingVisibilityConverter()).withDefault(const Constant('public'))();
 
   /// If true, only unique votes are allowed.
   ///
   /// Defaults to false.
-  BoolColumn get enforceUniqueVote =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get enforceUniqueVote => boolean().withDefault(const Constant(false))();
 
   /// The maximum number of votes allowed per user.
   IntColumn get maxVotesAllowed => integer().nullable()();
@@ -38,8 +36,7 @@ class Polls extends Table {
   /// If true, users can suggest their own options.
   ///
   /// Defaults to false.
-  BoolColumn get allowUserSuggestedOptions =>
-      boolean().withDefault(const Constant(false))();
+  BoolColumn get allowUserSuggestedOptions => boolean().withDefault(const Constant(false))();
 
   /// If true, users can provide their own answers/comments.
   ///

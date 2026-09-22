@@ -1,27 +1,33 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_error_widget.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_load_more_error.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_load_more_indicator.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_loading_widget.dart';
-import 'package:stream_chat_flutter/stream_chat_flutter.dart';
+
+import '../../../stream_chat_flutter.dart';
+import '../../utils/network_error_text.dart';
+import 'stream_thread_list_skeleton_loading.dart';
 
 /// Default separator builder for [StreamThreadListView].
 Widget defaultThreadListViewSeparatorBuilder(
   BuildContext context,
   List<Thread> threads,
   int index,
-) =>
-    const StreamThreadListSeparator();
+) => const StreamThreadListSeparator();
 
 /// Signature for the item builder that creates the children of the
 /// [StreamThreadListView].
-typedef StreamThreadListViewIndexedWidgetBuilder
-    = StreamScrollViewIndexedWidgetBuilder<Thread, StreamThreadListTile>;
+///
+typedef StreamThreadListViewIndexedWidgetBuilder = StreamScrollViewIndexedWidgetBuilder<Thread, StreamThreadListTile>;
 
 /// {@template streamThreadListView}
-/// A [ListView] that shows a list of [Thread]'s. It uses a
-/// [StreamThreadListController] to load the threads in paginated form.
+/// A [ListView] that shows a list of [Thread]'s the current user participated
+/// in.
+///
+/// Uses a [StreamThreadListController] to load threads in paginated form.
+///
+/// Wrap with [StreamUnreadThreadsBanner] to show a banner above the list when
+/// new unseen threads are available.
+///
+/// Each row is rendered using [StreamThreadListTile], which can be customized
+/// app-wide through [StreamComponentFactory].
 ///
 /// Example:
 ///
@@ -29,16 +35,14 @@ typedef StreamThreadListViewIndexedWidgetBuilder
 /// StreamThreadListView(
 ///   controller: controller,
 ///   onThreadTap: (thread) {
-///     // Handle thread tap event
-///   },
-///   onThreadLongPress: (thread) {
-///     // Handle thread long press event
+///     // Navigate to thread conversation
 ///   },
 /// )
 /// ```
 ///
 /// See also:
-/// * [StreamThreadListTile]
+/// * [StreamUnreadThreadsBanner], which wraps this view to show new threads.
+/// * [StreamMessageItem], which renders each thread's parent message.
 /// * [StreamThreadListController]
 /// {@endtemplate}
 class StreamThreadListView extends StatelessWidget {
@@ -75,6 +79,7 @@ class StreamThreadListView extends StatelessWidget {
   final StreamThreadListController controller;
 
   /// A builder that is called to build items in the [ListView].
+  ///
   final StreamThreadListViewIndexedWidgetBuilder? itemBuilder;
 
   /// A builder that is called to build the list separator.
@@ -89,10 +94,10 @@ class StreamThreadListView extends StatelessWidget {
   /// A builder that is called to build the error state of the list.
   final Widget Function(BuildContext, StreamChatError)? errorBuilder;
 
-  /// Called when the user taps this list tile.
+  /// Called when the user taps a thread.
   final void Function(Thread)? onThreadTap;
 
-  /// Called when the user long-presses on this list tile.
+  /// Called when the user long-presses on a thread.
   final void Function(Thread)? onThreadLongPress;
 
   /// The index to take into account when triggering [controller.loadMore].
@@ -301,7 +306,6 @@ class StreamThreadListView extends StatelessWidget {
         final currentUser = StreamChat.of(context).currentUser;
         final onTap = onThreadTap;
         final onLongPress = onThreadLongPress;
-
         final tile = StreamThreadListTile(
           thread: thread,
           currentUser: currentUser,
@@ -311,50 +315,42 @@ class StreamThreadListView extends StatelessWidget {
 
         return itemBuilder?.call(context, threads, index, tile) ?? tile;
       },
-      emptyBuilder: (context) {
-        final chatThemeData = StreamChatTheme.of(context);
-        return emptyBuilder?.call(context) ??
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: StreamScrollViewEmptyWidget(
-                  emptyIcon: StreamSvgIcon(
-                    size: 148,
-                    icon: StreamSvgIcons.threadReply,
-                    color: chatThemeData.colorTheme.disabled,
-                  ),
-                  emptyTitle: Text(
-                    context.translations.emptyMessagesText,
-                    style: chatThemeData.textTheme.headline,
-                  ),
-                ),
-              ),
-            );
-      },
-      loadMoreErrorBuilder: (context, error) =>
-          StreamScrollViewLoadMoreError.list(
+      emptyBuilder: (context) =>
+          emptyBuilder?.call(context) ??
+          Center(
+            child: StreamScrollViewEmptyWidget(
+              emptyIcon: Icon(context.streamIcons.messageBubblesLarge),
+              emptyTitle: Text(context.translations.replyToStartThreadText),
+            ),
+          ),
+      loadMoreErrorBuilder: (context, error) => StreamScrollViewLoadMoreError.list(
         onTap: controller.retry,
         error: Text(context.translations.loadingMessagesError),
       ),
-      loadMoreIndicatorBuilder: (context) => const Center(
+      loadMoreIndicatorBuilder: (context) => Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
-          child: StreamScrollViewLoadMoreIndicator(),
+          padding: const EdgeInsets.all(16),
+          child: StreamLoadingSpinner(),
         ),
       ),
       loadingBuilder: (context) =>
           loadingBuilder?.call(context) ??
-          const Center(
-            child: StreamScrollViewLoadingWidget(),
-          ),
-      errorBuilder: (context, error) =>
-          errorBuilder?.call(context, error) ??
           Center(
-            child: StreamScrollViewErrorWidget(
-              errorTitle: Text(context.translations.loadingMessagesError),
-              onRetryPressed: controller.refresh,
-            ),
+            child: StreamThreadListSkeletonLoading(padding: padding),
           ),
+      errorBuilder: (context, error) {
+        if (errorBuilder?.call(context, error) case final builder?) return builder;
+
+        final translations = context.translations;
+        final text = resolveNetworkErrorText(context, error, fallbackTitle: translations.loadingMessagesError);
+
+        return Center(
+          child: StreamScrollViewErrorWidget(
+            errorTitle: Text(text.title),
+            onRetryPressed: controller.refresh,
+          ),
+        );
+      },
     );
   }
 }
@@ -367,11 +363,7 @@ class StreamThreadListSeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effect = StreamChatTheme.of(context).colorTheme.borderBottom;
-    return Container(
-      height: 1,
-      // ignore: deprecated_member_use
-      color: effect.color!.withOpacity(effect.alpha ?? 1.0),
-    );
+    final colorScheme = context.streamColorScheme;
+    return Divider(height: 1, color: colorScheme.borderSubtle);
   }
 }

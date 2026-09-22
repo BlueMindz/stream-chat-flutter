@@ -152,6 +152,110 @@ void main() {
   });
 
   group('Message Extension Tests', () {
+    const original = 'Hello, world!';
+    final message = Message(
+      text: original,
+      i18n: const {
+        'language': 'en',
+        'en_text': original,
+        'fr_text': 'Bonjour, monde!',
+      },
+    );
+
+    group('originalLanguage', () {
+      test('returns the language the message was written in', () {
+        expect(message.originalLanguage, 'en');
+      });
+
+      test('returns null when the message has no translations', () {
+        expect(Message(text: original).originalLanguage, isNull);
+      });
+
+      test('returns null when the language is unknown', () {
+        // The server omits the `language` key for messages it did not
+        // detect a language for.
+        final unknown = message.copyWith(i18n: const {'fr_text': 'Bonjour, monde!'});
+        expect(unknown.originalLanguage, isNull);
+
+        final empty = message.copyWith(i18n: const {'language': '', 'fr_text': 'Bonjour, monde!'});
+        expect(empty.originalLanguage, isNull);
+      });
+    });
+
+    group('translatedText', () {
+      test('returns the translation for the given language', () {
+        expect(message.translatedText('fr'), 'Bonjour, monde!');
+      });
+
+      test('returns null when the language has no translation', () {
+        expect(message.translatedText('de'), isNull);
+      });
+
+      test('returns null for a null or empty language', () {
+        expect(message.translatedText(null), isNull);
+        expect(message.translatedText(''), isNull);
+      });
+
+      test('returns null for the language the message was written in', () {
+        // The server echoes a self-referential `en_text` entry, which is not
+        // a translation of anything.
+        expect(message.translatedText('en'), isNull);
+      });
+
+      test('compares the original language case-insensitively', () {
+        expect(message.translatedText('EN'), isNull);
+
+        final uppercased = message.copyWith(
+          i18n: const {'language': 'EN', 'en_text': original, 'fr_text': 'Bonjour, monde!'},
+        );
+        expect(uppercased.translatedText('en'), isNull);
+      });
+
+      test('returns the translation when the original language is unknown', () {
+        final unknown = message.copyWith(i18n: const {'fr_text': 'Bonjour, monde!'});
+        expect(unknown.translatedText('fr'), 'Bonjour, monde!');
+      });
+    });
+
+    group('translate', () {
+      test('returns the translation for the given language', () {
+        expect(message.translate('fr').text, 'Bonjour, monde!');
+      });
+
+      test('returns the original text when the language has no translation', () {
+        expect(message.translate('de').text, original);
+      });
+
+      test('returns the original text for a null language', () {
+        expect(message.translate(null).text, original);
+      });
+
+      test('returns the original text for an empty language', () {
+        // Stream's API reports an unset `User.language` as `''` rather than
+        // omitting it, so an empty string must not be looked up as `_text`.
+        expect(message.translate('').text, original);
+      });
+
+      test('returns the same instance when there is nothing to translate', () {
+        expect(message.translate(null), same(message));
+        expect(message.translate(''), same(message));
+        expect(message.translate('de'), same(message));
+        expect(message.translate('en'), same(message));
+      });
+
+      test('returns the original text when the message has no translations', () {
+        final untranslated = Message(text: original);
+        expect(untranslated.translate('fr').text, original);
+      });
+
+      test('leaves the rest of the message untouched', () {
+        final translated = message.translate('fr');
+
+        expect(translated.id, message.id);
+        expect(translated.i18n, message.i18n);
+      });
+    });
+
     test('replaceMentions should replace user mentions with names and IDs', () {
       final user1 = User(id: 'user1', name: 'Alice');
       final user2 = User(id: 'user2', name: 'Bob');
@@ -163,8 +267,8 @@ void main() {
 
       final modifiedMessage = message.replaceMentions();
 
-      expect(modifiedMessage.text, contains('[@Alice](user1)'));
-      expect(modifiedMessage.text, contains('[@Bob](user2)'));
+      expect(modifiedMessage.text, contains('[@Alice](mention:user1)'));
+      expect(modifiedMessage.text, contains('[@Bob](mention:user2)'));
     });
 
     test('replaceMentions without linkify should not add links', () {
@@ -190,7 +294,7 @@ void main() {
 
       final modifiedMessage = message.replaceMentions();
 
-      expect(modifiedMessage.text, contains('[@Alice](user1)'));
+      expect(modifiedMessage.text, contains('[@Alice](mention:user1)'));
     });
 
     test(
@@ -222,8 +326,8 @@ void main() {
 
         final modifiedMessage = message.replaceMentions();
 
-        expect(modifiedMessage.text, contains('[@Alice](user1)'));
-        expect(modifiedMessage.text, contains('[@Bob](user2)'));
+        expect(modifiedMessage.text, contains('[@Alice](mention:user1)'));
+        expect(modifiedMessage.text, contains('[@Bob](mention:user2)'));
       },
     );
 
@@ -238,7 +342,7 @@ void main() {
 
         final modifiedMessage = message.replaceMentions();
 
-        expect(modifiedMessage.text, equals('Hello, [@Tester (X)](user1)!'));
+        expect(modifiedMessage.text, equals('Hello, [@Tester (X)](mention:user1)!'));
       });
 
       test('should handle usernames with square brackets', () {
@@ -251,7 +355,7 @@ void main() {
 
         final modifiedMessage = message.replaceMentions();
 
-        expect(modifiedMessage.text, equals('Hello, [@User[123]](user1)!'));
+        expect(modifiedMessage.text, equals('Hello, [@User[123]](mention:user1)!'));
       });
 
       test('should handle usernames with dots and asterisks', () {
@@ -264,7 +368,7 @@ void main() {
 
         final modifiedMessage = message.replaceMentions();
 
-        expect(modifiedMessage.text, equals('Hello, [@user.name*](user1)!'));
+        expect(modifiedMessage.text, equals('Hello, [@user.name*](mention:user1)!'));
       });
 
       test('should handle usernames with plus and question marks', () {
@@ -277,7 +381,7 @@ void main() {
 
         final modifiedMessage = message.replaceMentions();
 
-        expect(modifiedMessage.text, equals('Hello, [@test+user?](user1)!'));
+        expect(modifiedMessage.text, equals('Hello, [@test+user?](mention:user1)!'));
       });
 
       test('should handle usernames without linkify', () {
@@ -305,7 +409,7 @@ void main() {
 
         expect(
           modifiedMessage.text,
-          equals('Hello, [@Test (X)](user1) and @Test (Y)!'),
+          equals('Hello, [@Test (X)](mention:user1) and @Test (Y)!'),
         );
       });
 
@@ -321,12 +425,11 @@ void main() {
 
         expect(
           modifiedMessage.text,
-          equals('Hello, [@TestUser](user.id+123)!'),
+          equals('Hello, [@TestUser](mention:user.id+123)!'),
         );
       });
 
-      test('should handle both userId and userName with special characters',
-          () {
+      test('should handle both userId and userName with special characters', () {
         final user = User(id: 'user[123]', name: 'Test (X)');
 
         final message = Message(
@@ -338,7 +441,7 @@ void main() {
 
         expect(
           modifiedMessage.text,
-          equals('Hello, [@Test (X)](user[123]) and [@Test (X)](user[123])!'),
+          equals('Hello, [@Test (X)](mention:user[123]) and [@Test (X)](mention:user[123])!'),
         );
       });
     });
@@ -387,125 +490,166 @@ void main() {
       expect(modifiedMessage.text, contains('@user1'));
       expect(modifiedMessage.text, isNot(contains('@Alice')));
     });
-  });
 
-  group('Message List Extension Tests', () {
-    group('lastUnreadMessage', () {
-      test('should return null when list is empty', () {
-        final messages = <Message>[];
-        final userRead = Read(
-          lastRead: DateTime.now(),
-          user: User(id: 'user1'),
-        );
-        expect(messages.lastUnreadMessage(userRead), isNull);
-      });
-
-      test('should return null when userRead is null', () {
-        final messages = <Message>[
-          Message(id: '1'),
-          Message(id: '2'),
-        ];
-        expect(messages.lastUnreadMessage(null), isNull);
-      });
-
-      test('should return null when all messages are read', () {
-        final lastRead = DateTime.now();
-        final messages = <Message>[
-          Message(
-              id: '1',
-              createdAt: lastRead.subtract(const Duration(seconds: 1))),
-          Message(id: '2', createdAt: lastRead),
-        ];
-        final userRead = Read(
-          lastRead: lastRead,
-          user: User(id: 'user1'),
-        );
-        expect(messages.lastUnreadMessage(userRead), isNull);
-      });
-
-      test('should return null when all messages are mine', () {
-        final lastRead = DateTime.now();
-        final userRead = Read(
-          lastRead: lastRead,
-          user: User(id: 'user1'),
-        );
-        final messages = <Message>[
-          Message(
-              id: '1',
-              user: userRead.user,
-              createdAt: lastRead.add(const Duration(seconds: 1))),
-          Message(id: '2', user: userRead.user, createdAt: lastRead),
-        ];
-        expect(messages.lastUnreadMessage(userRead), isNull);
-      });
-
-      test('should return the message', () {
-        final lastRead = DateTime.now();
-        final otherUser = User(id: 'user2');
-        final userRead = Read(
-          lastRead: lastRead,
-          user: User(id: 'user1'),
+    group('replaceMentions with enhanced mention types', () {
+      test('wraps @channel as broadcast when mentionedChannel is true', () {
+        final message = Message(
+          text: 'Heads up @channel - release tomorrow.',
+          mentionedChannel: true,
         );
 
-        final messages = <Message>[
-          Message(
-            id: '1',
-            user: otherUser,
-            createdAt: lastRead.add(const Duration(seconds: 2)),
-          ),
-          Message(
-            id: '2',
-            user: otherUser,
-            createdAt: lastRead.add(const Duration(seconds: 1)),
-          ),
-          Message(
-            id: '3',
-            user: otherUser,
-            createdAt: lastRead.subtract(const Duration(seconds: 1)),
-          ),
-        ];
+        final result = message.replaceMentions();
 
-        final lastUnreadMessage = messages.lastUnreadMessage(userRead);
-        expect(lastUnreadMessage, isNotNull);
-        expect(lastUnreadMessage!.id, '2');
+        expect(
+          result.text,
+          equals(
+            'Heads up [@channel](mention-channel:channel) - release tomorrow.',
+          ),
+        );
       });
 
-      test('should not return the last message read', () {
-        final lastRead = DateTime.timestamp();
-        final otherUser = User(id: 'user2');
-        final userRead = Read(
-          lastRead: lastRead,
-          user: User(id: 'user1'),
-          lastReadMessageId: '3',
+      test('wraps @here as broadcast when mentionedHere is true', () {
+        final message = Message(
+          text: 'Anyone available @here ?',
+          mentionedHere: true,
         );
 
-        final messages = <Message>[
-          Message(
-            id: '1',
-            user: otherUser,
-            createdAt: lastRead.add(const Duration(seconds: 2)),
-          ),
-          Message(
-            id: '2',
-            user: otherUser,
-            createdAt: lastRead.add(const Duration(milliseconds: 1)),
-          ),
-          Message(
-            id: '3',
-            user: otherUser,
-            createdAt: lastRead.add(const Duration(microseconds: 1)),
-          ),
-          Message(
-            id: '4',
-            user: otherUser,
-            createdAt: lastRead.subtract(const Duration(seconds: 1)),
-          ),
-        ];
+        final result = message.replaceMentions();
 
-        final lastUnreadMessage = messages.lastUnreadMessage(userRead);
-        expect(lastUnreadMessage, isNotNull);
-        expect(lastUnreadMessage!.id, '2');
+        expect(
+          result.text,
+          equals('Anyone available [@here](mention-here:here) ?'),
+        );
       });
+
+      test('leaves @channel untouched when mentionedChannel is false', () {
+        final message = Message(text: 'Discussing @channel feature.');
+
+        final result = message.replaceMentions();
+
+        expect(result.text, equals('Discussing @channel feature.'));
+      });
+
+      test('wraps role mentions from mentionedRoles', () {
+        final message = Message(
+          text: 'Paging @admin for review.',
+          mentionedRoles: const ['admin'],
+        );
+
+        final result = message.replaceMentions();
+
+        expect(
+          result.text,
+          equals('Paging [@admin](mention-role:admin) for review.'),
+        );
+      });
+
+      test('wraps group mentions from mentionedGroups by name and id', () {
+        final group = UserGroup(
+          id: 'grp-1',
+          name: 'Dream Team',
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+        );
+        final message = Message(
+          text: 'Pinging @Dream Team and @grp-1.',
+          mentionedGroups: [group],
+        );
+
+        final result = message.replaceMentions();
+
+        expect(
+          result.text,
+          equals(
+            'Pinging [@Dream Team](mention-group:grp-1) and [@Dream Team](mention-group:grp-1).',
+          ),
+        );
+      });
+
+      test('user mentions still emit the bare mention: scheme (unchanged)', () {
+        final user = User(id: 'user-1', name: 'Alice');
+        final message = Message(
+          text: 'Hey @Alice!',
+          mentionedUsers: [user],
+        );
+
+        final result = message.replaceMentions();
+
+        expect(result.text, equals('Hey [@Alice](mention:user-1)!'));
+      });
+
+      test('combines all four mention kinds in a single message', () {
+        final user = User(id: 'usr-1', name: 'Alice');
+        final group = UserGroup(
+          id: 'grp-1',
+          name: 'Dream Team',
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+        );
+        final message = Message(
+          text: '@channel @here @Dream Team @admin @Alice',
+          mentionedChannel: true,
+          mentionedHere: true,
+          mentionedRoles: const ['admin'],
+          mentionedGroups: [group],
+          mentionedUsers: [user],
+        );
+
+        final result = message.replaceMentions();
+
+        expect(
+          result.text,
+          equals(
+            '[@channel](mention-channel:channel) '
+            '[@here](mention-here:here) '
+            '[@Dream Team](mention-group:grp-1) '
+            '[@admin](mention-role:admin) '
+            '[@Alice](mention:usr-1)',
+          ),
+        );
+      });
+
+      test('linkify:false substitutes display names without markdown', () {
+        final user = User(id: 'usr-1', name: 'Alice');
+        final group = UserGroup(
+          id: 'grp-1',
+          name: 'Dream Team',
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+        );
+        final message = Message(
+          text: '@channel @grp-1 @admin @Alice',
+          mentionedChannel: true,
+          mentionedRoles: const ['admin'],
+          mentionedGroups: [group],
+          mentionedUsers: [user],
+        );
+
+        final result = message.replaceMentions(linkify: false);
+
+        expect(result.text, equals('@channel @Dream Team @admin @Alice'));
+      });
+
+      test(
+        'overlapping role and user names: first match wins, no double-wrap',
+        () {
+          final user = User(id: 'usr-1', name: 'admin');
+          final message = Message(
+            text: 'Hey @admin!',
+            mentionedRoles: const ['admin'],
+            mentionedUsers: [user],
+          );
+
+          final result = message.replaceMentions();
+
+          // Role is processed before user; the negative lookbehind prevents
+          // the user iteration from re-wrapping the already-wrapped mention.
+          expect(
+            result.text,
+            equals('Hey [@admin](mention-role:admin)!'),
+          );
+        },
+      );
     });
   });
 }

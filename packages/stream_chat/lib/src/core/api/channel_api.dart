@@ -1,14 +1,14 @@
 import 'dart:convert';
 
-import 'package:stream_chat/src/core/api/requests.dart';
-import 'package:stream_chat/src/core/api/responses.dart';
-import 'package:stream_chat/src/core/api/sort_order.dart';
-import 'package:stream_chat/src/core/http/stream_http_client.dart';
-import 'package:stream_chat/src/core/models/channel_state.dart';
-import 'package:stream_chat/src/core/models/event.dart';
-import 'package:stream_chat/src/core/models/filter.dart';
-import 'package:stream_chat/src/core/models/message.dart';
-import 'package:stream_chat/src/core/models/message_delivery.dart';
+import '../http/stream_http_client.dart';
+import '../models/channel_state.dart';
+import '../models/event.dart';
+import '../models/filter.dart';
+import '../models/message.dart';
+import '../models/message_delivery.dart';
+import 'requests.dart';
+import 'responses.dart';
+import 'sort_order.dart';
 
 /// Defines the api dedicated to channel operations
 class ChannelApi {
@@ -17,8 +17,7 @@ class ChannelApi {
 
   final StreamHttpClient _client;
 
-  String _getChannelUrl(String channelId, String channelType) =>
-      '/channels/$channelType/$channelId';
+  String _getChannelUrl(String channelId, String channelType) => '/channels/$channelType/$channelId';
 
   /// Query the API, get messages, members or other channel fields
   Future<ChannelState> queryChannel(
@@ -50,9 +49,17 @@ class ChannelApi {
   }
 
   /// Requests channels with a given query from the API.
+  ///
+  /// Either an inline [filter]/[sort] pair or a [predefinedFilter] identifier
+  /// (optionally interpolated with [filterValues] and [sortValues]) can be
+  /// provided. When a predefined filter is used, the server resolves it and
+  /// returns the materialized filter/sort on [QueryChannelsResponse].
   Future<QueryChannelsResponse> queryChannels({
     Filter? filter,
     SortOrder<ChannelState>? sort,
+    String? predefinedFilter,
+    Map<String, Object?>? filterValues,
+    Map<String, Object?>? sortValues,
     int? memberLimit,
     int? messageLimit,
     bool state = true,
@@ -72,6 +79,9 @@ class ChannelApi {
           // passed options
           if (sort != null) 'sort': sort,
           if (filter != null) 'filter_conditions': filter,
+          if (predefinedFilter != null) 'predefined_filter': predefinedFilter,
+          if (filterValues != null) 'filter_values': filterValues,
+          if (sortValues != null) 'sort_values': sortValues,
           if (memberLimit != null) 'member_limit': memberLimit,
           if (messageLimit != null) 'message_limit': messageLimit,
 
@@ -100,8 +110,7 @@ class ChannelApi {
       _getChannelUrl(channelId, channelType),
       data: {
         'data': data,
-        if (message != null)
-          'message': message.copyWith(updatedAt: DateTime.now()),
+        if (message != null) 'message': message.copyWith(updatedAt: DateTime.now()),
       },
     );
     return UpdateChannelResponse.fromJson(response.data);

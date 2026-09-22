@@ -1,9 +1,14 @@
+// ignore_for_file: lines_longer_than_80_chars
+
 part of 'stream_chat_localizations.dart';
 
 /// The translations for Norwegian (`no`).
 class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   /// Create an instance of the translation bundle for Norwegian.
   const StreamChatLocalizationsNo({super.localeName = 'no'});
+
+  @override
+  AccessibilityTranslations get accessibility => _AccessibilityTranslationsNo(localeName: localeName);
 
   @override
   String get launchUrlError => 'Kan ikke laste inn url';
@@ -40,6 +45,9 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get threadReplyLabel => 'Svar på tråd';
 
   @override
+  String get threadLabel => 'Tråd';
+
+  @override
   String get onlyVisibleToYouText => 'Kun synlig for deg';
 
   @override
@@ -47,10 +55,9 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
 
   @override
   String attachmentsUploadProgressText({
-    required int remaining,
+    required int completed,
     required int total,
-  }) =>
-      'Laster opp $remaining/$total ...';
+  }) => 'Lastet opp $completed av $total ...';
 
   @override
   String pinnedByUserText({
@@ -63,11 +70,10 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   }
 
   @override
-  String get sendMessagePermissionError =>
-      'Du har ikke tillatelse til å sende meldinger';
+  String get sendMessagePermissionError => 'Du har ikke tillatelse til å sende meldinger';
 
   @override
-  String get emptyMessagesText => 'Det er ingen meldinger akkurat nå';
+  String get emptyMessagesText => 'Ingen meldinger ennå';
 
   @override
   String get genericErrorText => 'Noe gikk galt';
@@ -121,10 +127,19 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get searchGifLabel => 'Søk GIFs';
 
   @override
-  String get writeAMessageLabel => 'Skriv en melding';
+  String get writeAMessageLabel => 'Send en melding';
 
   @override
   String get instantCommandsLabel => 'Direkte kommandoer';
+
+  @override
+  String get commandUnavailableWhileEditingError => 'Not available while editing';
+
+  @override
+  String get commandUnavailableWhileQuotingError => 'Not available while replying';
+
+  @override
+  String get commandUnavailableError => 'Command not available';
 
   @override
   String fileTooLargeAfterCompressionError(double limitInMB) =>
@@ -133,8 +148,13 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
       'Vi prøvde å komprimere den, men det hjalp ikke.';
 
   @override
-  String fileTooLargeError(double limitInMB) =>
-      'Filen er for stor til å laste opp. Filgrense er $limitInMB MB.';
+  String fileTooLargeError(double limitInMB) => 'Filen er for stor til å laste opp. Filgrense er $limitInMB MB.';
+
+  @override
+  String fileTypeNotSupportedError(String? extension) {
+    if (extension != null) return "'.$extension'-filer støttes ikke for opplasting.";
+    return 'Denne filtypen støttes ikke for opplasting.';
+  }
 
   @override
   String get addAFileLabel => 'Legg til en fil';
@@ -161,12 +181,29 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get somethingWentWrongError => 'Noe gikk galt';
 
   @override
-  String get addMoreFilesLabel => 'Legg til flere filer';
+  String get connectionErrorTitle => 'Ingen internettforbindelse';
+
+  @override
+  String get connectionErrorDescription => 'Sjekk internettforbindelsen din';
+
+  @override
+  String get slowConnectionErrorTitle => 'Treg internettforbindelse';
+
+  @override
+  String get slowConnectionErrorDescription => 'Det ser ut til å være et problem med internettforbindelsen din';
+
+  @override
+  String get genericErrorTitle => 'Feil';
+
+  @override
+  String get genericErrorDescription => 'Oi, noe gikk galt';
+
+  @override
+  String get addMoreFilesLabel => 'Legg til flere';
 
   @override
   String get enablePhotoAndVideoAccessMessage =>
-      'Vennligst gi tillatelse til dine bilder'
-      '\nog videoer så du kan dele de med dine venner.';
+      'Vennligst gi tillatelse til dine bilder og videoer så du kan dele de med dine venner.';
 
   @override
   String get allowGalleryAccessMessage => 'Tillat tilgang til galleri';
@@ -176,35 +213,31 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
 
   @override
   String get flagMessageQuestion =>
-      'Ønsker du å sende en kopi av denne meldingen til en'
-      '\nmoderator for videre undersøkelser';
+      'Ønsker du å sende en kopi av denne meldingen til en moderator for videre undersøkelser';
 
   @override
-  String get flagLabel => 'RAPPORTER';
+  String get flagLabel => 'Rapporter';
 
   @override
-  String get cancelLabel => 'AVBRYT';
+  String get cancelLabel => 'Avbryt';
 
   @override
   String get flagMessageSuccessfulLabel => 'Melding rapportert';
 
   @override
-  String get flagMessageSuccessfulText =>
-      'Meldingen har blitt rapportert til en moderator.';
+  String get flagMessageSuccessfulText => 'Meldingen har blitt rapportert til en moderator.';
 
   @override
-  String get deleteLabel => 'SLETT';
+  String get deleteLabel => 'Slett';
 
   @override
   String get deleteMessageLabel => 'Slett melding';
 
   @override
-  String get deleteMessageQuestion =>
-      'Er du sikker på at du ønsker å slette denne meldingen permanent?';
+  String get deleteMessageQuestion => 'Er du sikker på at du ønsker å slette denne meldingen permanent?';
 
   @override
-  String get operationCouldNotBeCompletedText =>
-      'Denne handlingen kunne ikke bli gjennomført.';
+  String get operationCouldNotBeCompletedText => 'Denne handlingen kunne ikke bli gjennomført.';
 
   @override
   String get replyLabel => 'Svar';
@@ -235,6 +268,9 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
 
   @override
   String get photosLabel => 'Foto';
+
+  @override
+  String get photosAndVideosLabel => 'Foto og video';
 
   String _getDay(DateTime dateTime) {
     final now = DateTime.now();
@@ -274,8 +310,7 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get letsStartChattingLabel => 'La oss starte å chatte!';
 
   @override
-  String get sendingFirstMessageLabel =>
-      'Hva med å sende din første melding til en venn?';
+  String get sendingFirstMessageLabel => 'Hva med å sende din første melding til en venn?';
 
   @override
   String get startAChatLabel => 'Start en chat';
@@ -287,11 +322,10 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get deleteConversationLabel => 'Slett samtale';
 
   @override
-  String get deleteConversationQuestion =>
-      'Er du sikker på at du ønsker å slette denne samtalen?';
+  String get deleteConversationQuestion => 'Er du sikker på at du ønsker å slette denne samtalen?';
 
   @override
-  String get streamChatLabel => 'Stream Chat';
+  String get streamChatLabel => 'Samtaler';
 
   @override
   String get searchingForNetworkText => 'Søker etter nettverk';
@@ -315,6 +349,16 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   }
 
   @override
+  String membersCountWithOnlineText({
+    required int memberCount,
+    required int onlineCount,
+  }) {
+    final members = membersCountText(memberCount);
+    if (onlineCount <= 0) return members;
+    return '$members, ${watchersCountText(onlineCount)}';
+  }
+
+  @override
   String get viewInfoLabel => 'Se info';
 
   @override
@@ -327,8 +371,7 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get leaveConversationLabel => 'Forlat samtale';
 
   @override
-  String get leaveConversationQuestion =>
-      'Er du sikker på at du ønsker å forlate denne samtalen?';
+  String get leaveConversationQuestion => 'Er du sikker på at du ønsker å forlate denne samtalen?';
 
   @override
   String get showInChatLabel => 'Se i chat';
@@ -364,8 +407,7 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String galleryPaginationText({
     required int currentPage,
     required int totalPages,
-  }) =>
-      '${currentPage + 1} of $totalPages';
+  }) => '${currentPage + 1} of $totalPages';
 
   @override
   String get fileText => 'Fil';
@@ -374,15 +416,16 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get replyToMessageLabel => 'Svar på melding';
 
   @override
-  String attachmentLimitExceedError(int limit) =>
-      'Antall vedlegg oversteget, maks antall: $limit';
+  String attachmentLimitExceedError(int limit) => 'Antall vedlegg oversteget, maks antall: $limit';
 
   @override
-  String get slowModeOnLabel => 'Sakte modus PÅ';
+  String slowModeOnLabel(int cooldownTimeOut) => 'Sakte modus, vent ${cooldownTimeOut}s\u2026';
 
   @override
-  String get linkDisabledDetails =>
-      'Sende lenker er ikke lov i denne samtalen.';
+  String get commandUsernameLabel => '@username';
+
+  @override
+  String get linkDisabledDetails => 'Sende lenker er ikke lov i denne samtalen.';
 
   @override
   String get linkDisabledError => 'Lenker er deaktivert';
@@ -394,8 +437,17 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String unreadMessagesSeparatorText() => 'Nye meldinger.';
 
   @override
-  String get couldNotReadBytesFromFileError =>
-      'Kunne ikke lese bytes fra filen.';
+  String unreadMessagesSeparatorLabel({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count ulest melding',
+      other: '$count uleste meldinger',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String get couldNotReadBytesFromFileError => 'Kunne ikke lese bytes fra filen.';
 
   @override
   String get downloadLabel => 'Nedlasting';
@@ -423,7 +475,6 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   @override
   String toggleMuteUnmuteUserQuestion({required bool isMuted}) {
     if (isMuted) {
-      // ignore: lines_longer_than_80_chars
       return 'Er du sikker på at du vil oppheve ignoreringen av denne brukeren?';
     }
     return 'Er du sikker på at du vil ignorere denne brukeren?';
@@ -436,8 +487,13 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   }
 
   @override
-  String get enableFileAccessMessage =>
-      'Aktiver tilgang til filer slik' '\nat du kan dele dem med venner.';
+  String toggleBlockUnblockUserText({required bool isBlocked}) {
+    if (isBlocked) return 'Opphev blokkering';
+    return 'Blokker bruker';
+  }
+
+  @override
+  String get enableFileAccessMessage => 'Aktiver tilgang til filer slik at du kan dele dem med venner.';
 
   @override
   String get allowFileAccessMessage => 'Gi tilgang til filer';
@@ -462,7 +518,7 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   }
 
   @override
-  String get questionsLabel => 'Spørsmål';
+  String questionLabel({bool isPlural = false}) => 'Spørsmål';
 
   @override
   String get askAQuestionLabel => 'Still et spørsmål';
@@ -503,8 +559,7 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get multipleAnswersLabel => 'Flere svar';
 
   @override
-  String get maximumVotesPerPersonLabel =>
-      'Maksimalt antall stemmer per person';
+  String get maximumVotesPerPersonLabel => 'Maksimalt antall stemmer per person';
 
   @override
   String? maxVotesPerPersonValidationError(int votes, Range<int> range) {
@@ -546,15 +601,17 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get enterYourCommentLabel => 'Skriv inn kommentaren din';
 
   @override
-  String get endVoteConfirmationText =>
-      'Er du sikker på at du vil avslutte avstemningen?';
+  String get endVoteConfirmationTitle => 'Er du sikker på at du vil avslutte avstemningen?';
+
+  @override
+  String get endVoteConfirmationMessage =>
+      'Vil du avslutte denne avstemningen nå? Ingen vil kunne stemme i denne avstemningen lenger.';
 
   @override
   String get deletePollOptionLabel => 'Slett alternativ';
 
   @override
-  String get deletePollOptionQuestion =>
-      'Er du sikker på at du vil slette dette alternativet?';
+  String get deletePollOptionQuestion => 'Er du sikker på at du vil slette dette alternativet?';
 
   @override
   String get createLabel => 'Opprett';
@@ -591,17 +648,30 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get pollResultsLabel => 'Resultater for avstemningen';
 
   @override
+  String get pollVotesLabel => 'Stemmer';
+
+  @override
   String showAllVotesLabel({int? count}) {
     if (count == null) return 'Vis alle stemmer';
     return 'Vis alle $count stemmer';
   }
 
   @override
+  String get viewAllLabel => 'Vis alle';
+
+  @override
   String voteCountLabel({int? count}) => switch (count) {
-        null || < 1 => '0 stemmer',
-        1 => '1 stemme',
-        _ => '$count stemmer',
-      };
+    null || < 1 => '0 stemmer',
+    1 => '1 stemme',
+    _ => '$count stemmer',
+  };
+
+  @override
+  String totalVoteCountLabel({int? count}) => switch (count) {
+    null || < 1 => '0 stemmer totalt',
+    1 => '1 stemme totalt',
+    _ => '$count stemmer totalt',
+  };
 
   @override
   String get noPollVotesLabel => 'Det er ingen stemmer for øyeblikket';
@@ -619,6 +689,9 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   }
 
   @override
+  String get loadingLabel => 'Laster...';
+
+  @override
   String get slideToCancelLabel => 'Gli for å avbryte';
 
   @override
@@ -628,8 +701,7 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get sendAnywayLabel => 'Send likevel';
 
   @override
-  String get moderatedMessageBlockedText =>
-      'Meldingen ble blokkert av modereringsregler';
+  String get moderatedMessageBlockedText => 'Meldingen ble blokkert av modereringsregler';
 
   @override
   String get moderationReviewModalTitle => 'Er du sikker?';
@@ -654,6 +726,21 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
   String get videoAttachmentText => 'Video';
 
   @override
+  String get fileAttachmentText => 'Fil';
+
+  @override
+  String get linkAttachmentText => 'Lenke';
+
+  @override
+  String filesAttachmentCountText(int count) => count == 1 ? 'Fil' : '$count filer';
+
+  @override
+  String photosAttachmentCountText(int count) => count == 1 ? 'Bilde' : '$count bilder';
+
+  @override
+  String videosAttachmentCountText(int count) => count == 1 ? 'Video' : '$count videoer';
+
+  @override
   String get pollYouVotedText => 'Du stemte';
 
   @override
@@ -667,4 +754,507 @@ class StreamChatLocalizationsNo extends GlobalStreamChatLocalizations {
 
   @override
   String get draftLabel => 'Utkast';
+
+  @override
+  String locationLabel({bool isLive = false}) {
+    if (isLive) return 'Direkte posisjon';
+    return 'Posisjon';
+  }
+
+  @override
+  String get noConversationsYetText => 'Ingen samtaler ennå';
+
+  @override
+  String get replyToStartThreadText => 'Svar på en melding for å starte en tråd';
+
+  @override
+  String get sendMessageToStartConversationText => 'Send en melding for å starte samtalen';
+
+  @override
+  String get savedForLaterLabel => 'Lagret til senere';
+
+  @override
+  String get repliedToThreadAnnotationLabel => 'Svarte i en tråd';
+
+  @override
+  String get alsoSentInChannelAnnotationLabel => 'Også sendt i kanalen';
+
+  @override
+  String get viewLabel => 'Vis';
+
+  @override
+  String get reminderSetLabel => 'Påminnelse satt';
+
+  @override
+  String reminderAtText(String time) => 'I dag kl. $time';
+
+  @override
+  String get translatedLabel => 'Oversatt';
+
+  @override
+  String get originalLabel => 'Original';
+
+  @override
+  String get showOriginalLabel => 'Vis original';
+
+  @override
+  String get showTranslationLabel => 'Vis oversettelse';
+
+  @override
+  String translatedFromLanguageText(String languageCode) => 'Oversatt fra ${_languageNameNo(languageCode)}';
+
+  @override
+  String get createPollPromptLabel => 'Lag en avstemning og la alle stemme!';
+
+  @override
+  String get takePhotoAndShareLabel => 'Ta et bilde og del';
+
+  @override
+  String get takeVideoAndShareLabel => 'Ta en video og del';
+
+  @override
+  String get openCameraLabel => 'Åpne kamera';
+
+  @override
+  String get selectFilesToShareLabel => 'Velg filer å dele';
+
+  @override
+  String get openFilesLabel => 'Åpne filer';
+
+  @override
+  String get unsupportedAttachmentLabel => 'Vedlegg støttes ikke';
+
+  @override
+  String get confirmLabel => 'BEKREFT';
+
+  @override
+  String get emptyReactionsText => 'Ingen reaksjoner ennå';
+
+  @override
+  String get loadingReactionsError => 'Kunne ikke laste reaksjoner';
+
+  @override
+  String get tapToRemoveReactionLabel => 'Trykk for å fjerne';
+
+  @override
+  String reactionsCountText(int count) => '$count reaksjoner';
+
+  @override
+  String get justNowLabel => 'Akkurat nå';
+
+  @override
+  String replyToUserLabel(String userName) => 'Svar til $userName';
+
+  @override
+  String get multipleAnswersDescription => 'Velg mer enn ett alternativ';
+
+  @override
+  String maximumVotesPerPersonDescription([Range<int>? range]) {
+    final (:min, :max) = range ?? (min: 2, max: 10);
+    return 'Velg mellom $min\u2013$max alternativer';
+  }
+
+  @override
+  String get anonymousPollDescription => 'Skjul hvem som stemte';
+
+  @override
+  String get suggestAnOptionDescription => 'La andre legge til alternativer';
+
+  @override
+  String get addACommentDescription => 'La andre legge til kommentarer';
+
+  @override
+  String get notifyChannelText => 'Varsle alle i denne kanalen';
+
+  @override
+  String get notifyHereText => 'Varsle alle pålogga medlemmer i denne kanalen';
+
+  @override
+  String notifyRoleText(String role) => 'Varsle alle $role-medlemmer';
 }
+
+class _AccessibilityTranslationsNo extends AccessibilityTranslations {
+  const _AccessibilityTranslationsNo({super.localeName = 'no'});
+
+  @override
+  String get sendMessageTooltip => 'Send melding';
+
+  @override
+  String get saveEditTooltip => 'Lagre redigering';
+
+  @override
+  String get sendCommandTooltip => 'Send kommando';
+
+  @override
+  String slowModeTooltip({required int seconds}) {
+    if (seconds == 1) return 'Sakte modus: 1 sekund';
+    return 'Sakte modus: $seconds sekunder';
+  }
+
+  @override
+  String get recordVoiceRecordingLabel => 'Ta opp talemelding';
+
+  @override
+  String get cancelRecordingTooltip => 'Avbryt opptak';
+
+  @override
+  String get stopRecordingTooltip => 'Stopp opptak';
+
+  @override
+  String get sendRecordingTooltip => 'Send opptak';
+
+  @override
+  String recordingDurationLabel({required Duration duration}) => 'Opptaksvarighet, ${formatDuration(duration)}';
+
+  @override
+  String voiceRecordingPreviewPlayLabel({required Duration duration}) =>
+      'Spill av taleopptak, ${formatDuration(duration)}';
+
+  @override
+  String voiceRecordingPreviewPauseLabel({required Duration duration}) =>
+      'Sett taleopptak på pause, ${formatDuration(duration)}';
+
+  @override
+  String get attachmentPickerTooltip => 'Veksle vedleggsvelger';
+
+  @override
+  String get attachmentPickerOpenHint => 'dobbeltrykk for å åpne vedleggsvelger';
+
+  @override
+  String get attachmentPickerCloseHint => 'dobbeltrykk for å lukke vedleggsvelger';
+
+  @override
+  String get attachmentPickerOpenTapHint => 'åpne vedleggsvelger';
+
+  @override
+  String get attachmentPickerCloseTapHint => 'lukk vedleggsvelger';
+
+  @override
+  String get attachmentPickerOpenedAnnouncement => 'Vedleggsvelger åpnet';
+
+  @override
+  String get attachmentPickerClosedAnnouncement => 'Vedleggsvelger lukket';
+
+  @override
+  String voiceRecordingAttachmentLabel({Duration? duration}) {
+    if (duration == null) return 'Talemelding';
+    return 'Talemelding, ${formatDuration(duration)}';
+  }
+
+  @override
+  String videoAttachmentLabel({String? title}) {
+    if (title == null || title.isEmpty) return 'Video';
+    return 'Video, $title';
+  }
+
+  @override
+  String get gifAttachmentLabel => 'GIF';
+
+  @override
+  String imageAttachmentLabel({String? title}) {
+    if (title == null || title.isEmpty) return 'Foto';
+    return 'Foto, $title';
+  }
+
+  @override
+  String attachmentPositionLabel({required int index, required int total}) => '$index av $total';
+
+  @override
+  String get outgoingReplyToOwnMessageLabel => 'Du svarte på din egen melding';
+
+  @override
+  String outgoingReplyToMessageLabel({required String authorName}) => 'Du svarte på meldingen fra $authorName';
+
+  @override
+  String incomingReplyToOwnMessageLabel({required String replierName}) => '$replierName svarte på meldingen din';
+
+  @override
+  String incomingReplyToMessageLabel({required String replierName, required String authorName}) =>
+      '$replierName svarte på meldingen fra $authorName';
+
+  @override
+  String get voiceRecordingPlayTooltip => 'Spill av';
+
+  @override
+  String get voiceRecordingPauseTooltip => 'Pause';
+
+  @override
+  String get voiceRecordingLoadingTooltip => 'Laster';
+
+  @override
+  String get channelInfoLabel => 'Kanalinformasjon';
+
+  @override
+  String get messageActionsLabel => 'Meldingshandlinger';
+
+  @override
+  String galleryImageLabel({DateTime? createdAt}) {
+    if (createdAt == null) return 'Foto';
+    return 'Foto, ${formatDateTime(createdAt)}';
+  }
+
+  @override
+  String galleryVideoLabel({
+    DateTime? createdAt,
+    Duration? duration,
+  }) {
+    final parts = <String>[
+      'Video',
+      if (duration != null) formatDuration(duration),
+      if (createdAt != null) formatDateTime(createdAt),
+    ];
+    return parts.join(', ');
+  }
+
+  @override
+  String get selectMediaTapHint => 'velg';
+
+  @override
+  String get deselectMediaTapHint => 'fjern valg';
+
+  @override
+  String get outgoingMessagePreviewLabel => 'Du';
+
+  @override
+  String incomingMessagePreviewLabel({String? senderName}) {
+    return senderName ?? 'Melding';
+  }
+
+  @override
+  String outgoingMessageLabel({required String body}) => 'Du sa, $body';
+
+  @override
+  String incomingMessageLabel({required String senderName, required String body}) => '$senderName sa, $body';
+
+  @override
+  String outgoingDeletedMessageLabel({required String body}) => 'Du, $body';
+
+  @override
+  String incomingDeletedMessageLabel({required String senderName, required String body}) => '$senderName, $body';
+
+  @override
+  String get pollPreviewLabel => 'Avstemning';
+
+  @override
+  String get draftPreviewLabel => 'Utkast';
+
+  @override
+  String get messageSendingStatusLabel => 'Sender';
+
+  @override
+  String get messageSentStatusLabel => 'Sendt';
+
+  @override
+  String get messageDeliveredStatusLabel => 'Levert';
+
+  @override
+  String get messageReadStatusLabel => 'Lest';
+
+  @override
+  String get messageFailedStatusLabel => 'Meldingen ble ikke sendt';
+
+  @override
+  String unreadMessagesLabel({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count ulest melding',
+      other: '$count uleste meldinger',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String get channelGroupLabel => 'Gruppe';
+
+  @override
+  String get systemMessagePreviewLabel => 'System';
+
+  @override
+  String get channelMutedLabel => 'dempet';
+
+  @override
+  String get channelPinnedLabel => 'festet';
+
+  @override
+  String get savePollTooltip => 'Lagre avstemning';
+
+  @override
+  String removePollOptionTooltip({String? optionText}) {
+    final trimmed = optionText?.trim();
+    if (trimmed == null || trimmed.isEmpty) return 'Fjern alternativ';
+    return 'Fjern alternativ $trimmed';
+  }
+
+  @override
+  String get recordingStartedAnnouncement => 'Opptak startet. Sveip venstre for å avbryte. Sveip opp for å låse.';
+
+  @override
+  String get recordingLockedAnnouncement => 'Opptak låst';
+
+  @override
+  String get recordingStoppedAnnouncement => 'Opptak stoppet';
+
+  @override
+  String get recordingCancelledAnnouncement => 'Opptak avbrutt';
+
+  @override
+  String get recordingCompletedAnnouncement => 'Opptak fullført';
+
+  @override
+  String get imageAttachmentAddedAnnouncement => 'Foto lagt til';
+
+  @override
+  String get imageAttachmentRemovedAnnouncement => 'Foto fjernet';
+
+  @override
+  String get videoAttachmentAddedAnnouncement => 'Video lagt til';
+
+  @override
+  String get videoAttachmentRemovedAnnouncement => 'Video fjernet';
+
+  @override
+  String get gifAttachmentAddedAnnouncement => 'GIF lagt til';
+
+  @override
+  String get gifAttachmentRemovedAnnouncement => 'GIF fjernet';
+
+  @override
+  String get fileAttachmentAddedAnnouncement => 'Fil lagt til';
+
+  @override
+  String get fileAttachmentRemovedAnnouncement => 'Fil fjernet';
+
+  @override
+  String get voiceRecordingAttachmentAddedAnnouncement => 'Talemelding lagt til';
+
+  @override
+  String get voiceRecordingAttachmentRemovedAnnouncement => 'Talemelding fjernet';
+
+  @override
+  String get attachmentAddedAnnouncement => 'Vedlegg lagt til';
+
+  @override
+  String get attachmentRemovedAnnouncement => 'Vedlegg fjernet';
+
+  @override
+  String attachmentsAddedAnnouncement({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count vedlegg lagt til',
+      other: '$count vedlegg lagt til',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String attachmentsRemovedAnnouncement({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count vedlegg fjernet',
+      other: '$count vedlegg fjernet',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String formatRecentDateTime(DateTime date) {
+    if (date.isWithinLastMinute) return 'Akkurat nå';
+
+    final localDate = date.toLocal();
+    final jiffyDate = Jiffy.parseFromDateTime(localDate);
+    final time = jiffyDate.jm;
+
+    if (localDate.isToday) return 'I dag kl. $time';
+    if (localDate.isYesterday) return 'I går kl. $time';
+    if (localDate.isWithinLastWeek) return '${jiffyDate.EEEE} kl. $time';
+    if (localDate.isInSameYear) {
+      return '${jiffyDate.format(pattern: 'd. MMM')} kl. $time';
+    }
+    return '${jiffyDate.format(pattern: 'd. MMM yyyy')} kl. $time';
+  }
+
+  @override
+  String formatDateTime(DateTime dateTime) {
+    final jiffy = Jiffy.parseFromDateTime(dateTime);
+    return '${jiffy.EEEE}, ${jiffy.yMMMMd}, ${jiffy.jm}';
+  }
+
+  @override
+  String formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    final parts = <String>[
+      if (hours > 0) Intl.plural(hours, one: '$hours time', other: '$hours timer', locale: localeName),
+      if (minutes > 0) Intl.plural(minutes, one: '$minutes minutt', other: '$minutes minutter', locale: localeName),
+      if (seconds > 0 || (hours == 0 && minutes == 0))
+        Intl.plural(seconds, one: '$seconds sekund', other: '$seconds sekunder', locale: localeName),
+    ];
+    return parts.join(', ');
+  }
+}
+
+// Display name for each language code Stream Chat's translation API
+// supports (`Message.i18n['language']`). Falls back to the uppercased code
+// itself for anything unrecognized.
+String _languageNameNo(String code) => _languageNamesNo[code] ?? code.toUpperCase();
+
+const _languageNamesNo = <String, String>{
+  'af': 'Afrikaans',
+  'sq': 'Albansk',
+  'am': 'Amharisk',
+  'ar': 'Arabisk',
+  'az': 'Aserbajdsjansk',
+  'bn': 'Bengali',
+  'bs': 'Bosnisk',
+  'bg': 'Bulgarsk',
+  'zh': 'Kinesisk (forenklet)',
+  'zh-TW': 'Kinesisk (tradisjonell)',
+  'hr': 'Kroatisk',
+  'cs': 'Tsjekkisk',
+  'da': 'Dansk',
+  'fa-AF': 'Dari',
+  'nl': 'Nederlandsk',
+  'en': 'Engelsk',
+  'et': 'Estisk',
+  'fi': 'Finsk',
+  'fr': 'Fransk',
+  'fr-CA': 'Fransk (Canada)',
+  'ka': 'Georgisk',
+  'de': 'Tysk',
+  'el': 'Gresk',
+  'ht': 'Haitisk kreolsk',
+  'ha': 'Hausa',
+  'he': 'Hebraisk',
+  'hi': 'Hindi',
+  'hu': 'Ungarsk',
+  'id': 'Indonesisk',
+  'it': 'Italiensk',
+  'ja': 'Japansk',
+  'ko': 'Koreansk',
+  'lv': 'Latvisk',
+  'lt': 'Litauisk',
+  'ms': 'Malayisk',
+  'no': 'Norsk',
+  'fa': 'Persisk',
+  'ps': 'Pashto',
+  'pl': 'Polsk',
+  'pt': 'Portugisisk',
+  'ro': 'Rumensk',
+  'ru': 'Russisk',
+  'sr': 'Serbisk',
+  'sk': 'Slovakisk',
+  'sl': 'Slovensk',
+  'so': 'Somalisk',
+  'es': 'Spansk',
+  'es-MX': 'Spansk (Mexico)',
+  'sw': 'Swahili',
+  'sv': 'Svensk',
+  'tl': 'Tagalog',
+  'ta': 'Tamilsk',
+  'th': 'Thai',
+  'tr': 'Tyrkisk',
+  'uk': 'Ukrainsk',
+  'ur': 'Urdu',
+  'vi': 'Vietnamesisk',
+};

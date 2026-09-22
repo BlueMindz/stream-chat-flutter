@@ -1,11 +1,39 @@
 // ignore_for_file: lines_longer_than_80_chars
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:stream_chat_flutter_core/stream_chat_flutter_core.dart';
 
 import 'mocks.dart';
+
+Future<StreamChannelState> _pumpStreamChannel(
+  WidgetTester tester,
+  Channel channel, {
+  bool openAtFirstUnread = true,
+}) async {
+  StreamChannelState? channelState;
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: StreamChannel(
+          channel: channel,
+          openAtFirstUnread: openAtFirstUnread,
+          child: Builder(
+            builder: (context) {
+              channelState = StreamChannel.of(context);
+              return const Text('Channel Content');
+            },
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  return channelState!;
+}
 
 void main() {
   group('StreamChannel.of()', () {
@@ -293,12 +321,11 @@ void main() {
       // Important: Making initialization fail with a direct error
       when(nonInitializedMockChannel.watch).thenThrow('Failed to connect');
 
-      // A widget with custom error handler
+      // A widget relying on the default error builder.
       final testWidget = MaterialApp(
         home: Scaffold(
           body: StreamChannel(
             channel: nonInitializedMockChannel,
-            // The default error builder will show the error message
             child: const Text('Child Widget'),
           ),
         ),
@@ -312,8 +339,9 @@ void main() {
       // Wait for error to occur
       await tester.pumpAndSettle();
 
-      // Should show error widget with the error message
-      expect(find.text('Failed to connect'), findsOneWidget);
+      // Should show a safe, generic error message instead of the raw error.
+      expect(find.text('Failed to connect'), findsNothing);
+      expect(find.text('Oops, something went wrong'), findsOneWidget);
       expect(find.text('Child Widget'), findsNothing);
     },
   );
@@ -348,6 +376,290 @@ void main() {
       // Should show error widget with the error message
       expect(find.text('Custom Error'), findsOneWidget);
       expect(find.text('Child Widget'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'errorBuilder receives the unwrapped error, not a ParallelWaitError',
+    (tester) async {
+      final channel = NonInitializedMockChannel();
+      when(() => channel.cid).thenReturn('test:channel');
+      final networkError = StreamChatNetworkError.fromDioException(
+        DioException(
+          requestOptions: RequestOptions(path: 'test'),
+          type: DioExceptionType.connectionError,
+        ),
+      );
+      when(channel.watch).thenThrow(networkError);
+
+      Object? capturedError;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamChannel(
+              channel: channel,
+              errorBuilder: (_, error, _) {
+                capturedError = error;
+                return const Text('Custom Error');
+              },
+              child: const Text('Child Widget'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The builder gets the real cause, not the aggregate wrapper.
+      expect(capturedError, isNot(isA<ParallelWaitError>()));
+      expect(capturedError, same(networkError));
+    },
+  );
+
+  testWidgets(
+    'default errorBuilder never renders the raw error and shows a generic message',
+    (tester) async {
+      final channel = NonInitializedMockChannel();
+      when(() => channel.cid).thenReturn('test:channel');
+      final rawError = StreamChatNetworkError.raw(
+        code: -1,
+        message: 'super secret internal failure',
+        statusCode: 500,
+      );
+      when(channel.watch).thenThrow(rawError);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamChannel(
+              channel: channel,
+              child: const Text('Child Widget'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The raw error string must not leak to the UI.
+      expect(find.textContaining('StreamChatNetworkError'), findsNothing);
+      expect(find.textContaining('super secret internal failure'), findsNothing);
+      expect(find.text('Oops, something went wrong'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'default errorBuilder shows a connection message for connection errors',
+    (tester) async {
+      final channel = NonInitializedMockChannel();
+      when(() => channel.cid).thenReturn('test:channel');
+      when(channel.watch).thenThrow(
+        StreamChatNetworkError.fromDioException(
+          DioException(
+            requestOptions: RequestOptions(path: 'test'),
+            type: DioExceptionType.connectionError,
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamChannel(
+              channel: channel,
+              child: const Text('Child Widget'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('No Internet Connection'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'retry() re-runs initialization and clears the error on success',
+    (tester) async {
+      final channel = NonInitializedMockChannel();
+      when(() => channel.cid).thenReturn('test:channel');
+      var attempts = 0;
+      when(channel.watch).thenAnswer((_) async {
+        attempts++;
+        if (attempts == 1) {
+          throw StreamChatNetworkError.raw(code: -1, message: 'boom');
+        }
+        return const ChannelState();
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamChannel(
+              channel: channel,
+              child: const Text('Child Widget'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The error state is shown and the child is hidden.
+      expect(find.text('Oops, something went wrong'), findsOneWidget);
+      expect(find.text('Child Widget'), findsNothing);
+
+      // Retrying re-runs init; the second watch succeeds and the child renders.
+      tester.state<StreamChannelState>(find.byType(StreamChannel)).retry();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Child Widget'), findsOneWidget);
+      expect(find.text('Oops, something went wrong'), findsNothing);
+      expect(attempts, 2);
+    },
+  );
+
+  testWidgets(
+    'retry() shows the loading state again instead of the stale error',
+    (tester) async {
+      final channel = NonInitializedMockChannel();
+      when(() => channel.cid).thenReturn('test:channel');
+      Completer<ChannelState>? secondWatch;
+      var attempts = 0;
+      when(channel.watch).thenAnswer((_) {
+        attempts++;
+        if (attempts == 1) {
+          return Future<ChannelState>.error(
+            StreamChatNetworkError.raw(code: -1, message: 'boom'),
+          );
+        }
+        secondWatch = Completer<ChannelState>();
+        return secondWatch!.future;
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamChannel(
+              channel: channel,
+              child: const Text('Child Widget'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Oops, something went wrong'), findsOneWidget);
+
+      // Retry while the second attempt is still in flight.
+      tester.state<StreamChannelState>(find.byType(StreamChannel)).retry();
+      await tester.pump();
+
+      // The loading state is shown again — not the stale error snapshot that
+      // FutureBuilder retains across the future reassignment.
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Oops, something went wrong'), findsNothing);
+
+      // Completing the in-flight watch renders the child.
+      secondWatch!.complete(const ChannelState());
+      await tester.pumpAndSettle();
+      expect(find.text('Child Widget'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'retry into a persistent failure surfaces the error without leaking',
+    (tester) async {
+      final channel = NonInitializedMockChannel();
+      when(() => channel.cid).thenReturn('test:channel');
+      // Always fails, so the retry fails again.
+      when(channel.watch).thenThrow(
+        StreamChatNetworkError.raw(code: -1, message: 'boom'),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StreamChannel(
+              channel: channel,
+              child: const Text('Child Widget'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Oops, something went wrong'), findsOneWidget);
+
+      // Retry while still failing. The init future errors before the deferred
+      // rebuild resubscribes; without the `..ignore()` guard this leaks an
+      // unhandled async error, which the test binding reports as a failure.
+      tester.state<StreamChannelState>(find.byType(StreamChannel)).retry();
+      await tester.pumpAndSettle();
+
+      // Error UI still shown, and no unhandled error was thrown.
+      expect(find.text('Oops, something went wrong'), findsOneWidget);
+      expect(find.text('Child Widget'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'uses DefaultStreamChannelBuilders.errorBuilder when none is provided',
+    (tester) async {
+      final channel = NonInitializedMockChannel();
+      when(() => channel.cid).thenReturn('test:channel');
+      when(channel.watch).thenThrow(
+        StreamChatNetworkError.raw(code: -1, message: 'boom'),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DefaultStreamChannelBuilders(
+            errorBuilder: (_, _, _) => const Text('Inherited Error'),
+            child: Scaffold(
+              body: StreamChannel(
+                channel: channel,
+                child: const Text('Child Widget'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // The inherited default is used, not the built-in one.
+      expect(find.text('Inherited Error'), findsOneWidget);
+      expect(find.text('Oops, something went wrong'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'explicit errorBuilder wins over DefaultStreamChannelBuilders',
+    (tester) async {
+      final channel = NonInitializedMockChannel();
+      when(() => channel.cid).thenReturn('test:channel');
+      when(channel.watch).thenThrow(
+        StreamChatNetworkError.raw(code: -1, message: 'boom'),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DefaultStreamChannelBuilders(
+            errorBuilder: (_, _, _) => const Text('Inherited Error'),
+            child: Scaffold(
+              body: StreamChannel(
+                channel: channel,
+                errorBuilder: (_, _, _) => const Text('Explicit Error'),
+                child: const Text('Child Widget'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Explicit Error'), findsOneWidget);
+      expect(find.text('Inherited Error'), findsNothing);
     },
   );
 
@@ -515,34 +827,6 @@ void main() {
 
     tearDown(() => reset(mockChannel));
 
-    Future<StreamChannelState> _pumpStreamChannel(WidgetTester tester) async {
-      StreamChannelState? channelState;
-
-      // Build a widget that accesses the channel state
-      final testWidget = MaterialApp(
-        home: Scaffold(
-          body: StreamChannel(
-            channel: mockChannel,
-            child: Builder(
-              builder: (context) {
-                // Access the channel state
-                channelState = StreamChannel.of(context);
-                return const Text('Channel Content');
-              },
-            ),
-          ),
-        ),
-      );
-
-      await tester.pumpWidget(testWidget);
-      await tester.pumpAndSettle();
-
-      // Verify we can access the channel state
-      expect(channelState, isNotNull);
-
-      return channelState!;
-    }
-
     testWidgets(
       'Returns null when messages list is empty',
       (tester) async {
@@ -550,7 +834,7 @@ void main() {
         when(() => mockChannel.state.unreadCount).thenReturn(0);
         when(() => mockChannel.state.isUpToDate).thenReturn(true);
 
-        final streamChannel = await _pumpStreamChannel(tester);
+        final streamChannel = await _pumpStreamChannel(tester, mockChannel);
 
         expect(streamChannel.getFirstUnreadMessage(), isNull);
       },
@@ -579,7 +863,7 @@ void main() {
         when(() => mockChannel.state.currentUserRead).thenReturn(mockRead);
         when(() => mockChannel.state.isUpToDate).thenReturn(true);
 
-        final streamChannel = await _pumpStreamChannel(tester);
+        final streamChannel = await _pumpStreamChannel(tester, mockChannel);
 
         expect(streamChannel.getFirstUnreadMessage(mockRead), isNull);
       },
@@ -614,7 +898,7 @@ void main() {
         when(() => mockChannel.state.messages).thenReturn(messages);
         when(() => mockChannel.state.currentUserRead).thenReturn(mockRead);
 
-        final streamChannel = await _pumpStreamChannel(tester);
+        final streamChannel = await _pumpStreamChannel(tester, mockChannel);
 
         expect(streamChannel.getFirstUnreadMessage(), isNull);
       },
@@ -655,7 +939,7 @@ void main() {
         when(() => mockChannel.state.messages).thenReturn(messages);
         when(() => mockChannel.state.currentUserRead).thenReturn(mockRead);
 
-        final streamChannel = await _pumpStreamChannel(tester);
+        final streamChannel = await _pumpStreamChannel(tester, mockChannel);
 
         expect(streamChannel.getFirstUnreadMessage(), equals(unreadMessage));
       },
@@ -703,7 +987,7 @@ void main() {
         when(() => mockChannel.state.messages).thenReturn(messages);
         when(() => mockChannel.state.currentUserRead).thenReturn(mockRead);
 
-        final streamChannel = await _pumpStreamChannel(tester);
+        final streamChannel = await _pumpStreamChannel(tester, mockChannel);
 
         expect(
           streamChannel.getFirstUnreadMessage(),
@@ -750,7 +1034,7 @@ void main() {
         when(() => mockChannel.state.messages).thenReturn(messages);
         when(() => mockChannel.state.currentUserRead).thenReturn(defaultRead);
 
-        final streamChannel = await _pumpStreamChannel(tester);
+        final streamChannel = await _pumpStreamChannel(tester, mockChannel);
 
         // With default read - should return null
         expect(streamChannel.getFirstUnreadMessage(), isNull);
@@ -759,6 +1043,469 @@ void main() {
         expect(
           streamChannel.getFirstUnreadMessage(customRead),
           equals(unreadMessage),
+        );
+      },
+    );
+  });
+
+  group('_maybeInitChannel', () {
+    final mockChannel = MockChannel();
+    tearDownAll(mockChannel.dispose);
+
+    setUp(() {
+      when(() => mockChannel.cid).thenReturn('test:channel1');
+      when(() => mockChannel.state.messages).thenReturn(const <Message>[]);
+      when(() => mockChannel.state.isUpToDate).thenReturn(true);
+      when(
+        () => mockChannel.query(
+          preferOffline: any(named: 'preferOffline'),
+          messagesPagination: any(named: 'messagesPagination'),
+        ),
+      ).thenAnswer((_) async => const ChannelState());
+    });
+
+    tearDown(() => reset(mockChannel));
+
+    testWidgets(
+      'queries idAround=lastReadMessageId when lastReadMessageId is set',
+      (tester) async {
+        final read = Read(
+          user: User(id: 'testUserId'),
+          lastRead: DateTime.now(),
+          unreadMessages: 100,
+          lastReadMessageId: 'last-read-msg',
+        );
+        when(() => mockChannel.state.unreadCount).thenReturn(100);
+        when(() => mockChannel.state.currentUserRead).thenReturn(read);
+
+        await _pumpStreamChannel(tester, mockChannel);
+
+        final captured =
+            verify(
+                  () => mockChannel.query(
+                    preferOffline: any(named: 'preferOffline'),
+                    messagesPagination: captureAny(named: 'messagesPagination'),
+                  ),
+                ).captured.single
+                as PaginationParams;
+
+        expect(captured.idAround, equals('last-read-msg'));
+        expect(captured.createdAtAround, isNull);
+      },
+    );
+
+    testWidgets(
+      'does not position at the boundary when openAtFirstUnread is false',
+      (tester) async {
+        final read = Read(
+          user: User(id: 'testUserId'),
+          lastRead: DateTime.now(),
+          unreadMessages: 100,
+          lastReadMessageId: 'last-read-msg',
+        );
+        when(() => mockChannel.state.unreadCount).thenReturn(100);
+        when(() => mockChannel.state.currentUserRead).thenReturn(read);
+
+        await _pumpStreamChannel(tester, mockChannel, openAtFirstUnread: false);
+
+        // `isUpToDate` is true (setUp), so opting out of the unread anchor
+        // leaves nothing to query at all — the loaded window stays put at
+        // the latest page.
+        verifyNever(
+          () => mockChannel.query(
+            preferOffline: any(named: 'preferOffline'),
+            messagesPagination: any(named: 'messagesPagination'),
+          ),
+        );
+      },
+    );
+
+    testWidgets(
+      'queries the latest page when openAtFirstUnread is false and the '
+      'channel is stale',
+      (tester) async {
+        when(() => mockChannel.state.isUpToDate).thenReturn(false);
+        final read = Read(
+          user: User(id: 'testUserId'),
+          lastRead: DateTime.now(),
+          unreadMessages: 100,
+          lastReadMessageId: 'last-read-msg',
+        );
+        when(() => mockChannel.state.unreadCount).thenReturn(100);
+        when(() => mockChannel.state.currentUserRead).thenReturn(read);
+
+        await _pumpStreamChannel(tester, mockChannel, openAtFirstUnread: false);
+
+        // With `openAtFirstUnread: true` this read state would anchor the
+        // query on `last-read-msg`. Opting out has to skip that and fall
+        // through to the catch-all "load latest" path, which — unlike the
+        // up-to-date case above — a stale channel actually reaches.
+        final captured =
+            verify(
+                  () => mockChannel.query(
+                    preferOffline: any(named: 'preferOffline'),
+                    messagesPagination: captureAny(named: 'messagesPagination'),
+                  ),
+                ).captured.single
+                as PaginationParams;
+
+        expect(captured.idAround, isNull);
+        expect(captured.createdAtAround, isNull);
+      },
+    );
+
+    testWidgets(
+      'openAtFirstUnread: false still honours an explicit initialMessageId',
+      (tester) async {
+        final read = Read(
+          user: User(id: 'testUserId'),
+          lastRead: DateTime.now(),
+          unreadMessages: 100,
+          lastReadMessageId: 'last-read-msg',
+        );
+        when(() => mockChannel.state.unreadCount).thenReturn(100);
+        when(() => mockChannel.state.currentUserRead).thenReturn(read);
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: StreamChannel(
+                channel: mockChannel,
+                openAtFirstUnread: false,
+                initialMessageId: 'jump-to-me',
+                child: const Text('Channel Content'),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final captured =
+            verify(
+                  () => mockChannel.query(
+                    preferOffline: any(named: 'preferOffline'),
+                    messagesPagination: captureAny(named: 'messagesPagination'),
+                  ),
+                ).captured.single
+                as PaginationParams;
+
+        expect(captured.idAround, equals('jump-to-me'));
+      },
+    );
+
+    testWidgets(
+      'queries createdAtAround=lastRead when lastReadMessageId is null and '
+      'lastRead is a real timestamp',
+      (tester) async {
+        final lastRead = DateTime.utc(2026, 6, 26, 12);
+        final read = Read(
+          user: User(id: 'testUserId'),
+          lastRead: lastRead,
+          unreadMessages: 100,
+        );
+        when(() => mockChannel.state.unreadCount).thenReturn(100);
+        when(() => mockChannel.state.currentUserRead).thenReturn(read);
+
+        await _pumpStreamChannel(tester, mockChannel);
+
+        final captured =
+            verify(
+                  () => mockChannel.query(
+                    preferOffline: any(named: 'preferOffline'),
+                    messagesPagination: captureAny(named: 'messagesPagination'),
+                  ),
+                ).captured.single
+                as PaginationParams;
+
+        expect(captured.idAround, isNull);
+        expect(captured.createdAtAround, equals(lastRead.toUtc()));
+      },
+    );
+
+    testWidgets(
+      'does not query around when lastReadMessageId is null and lastRead is '
+      'the Go zero-time sentinel',
+      (tester) async {
+        final read = Read(
+          user: User(id: 'testUserId'),
+          // Go `time.Time{}` deserializes to `0001-01-01T00:00:00Z`.
+          lastRead: DateTime.utc(1, 1, 1),
+          unreadMessages: 100,
+        );
+        when(() => mockChannel.state.unreadCount).thenReturn(100);
+        when(() => mockChannel.state.currentUserRead).thenReturn(read);
+
+        await _pumpStreamChannel(tester, mockChannel);
+
+        // `isUpToDate` is true (setUp), so the catch-all "load latest" path
+        // at the end of `_maybeInitChannel` does not fire either — no query
+        // should happen at all.
+        verifyNever(
+          () => mockChannel.query(
+            preferOffline: any(named: 'preferOffline'),
+            messagesPagination: any(named: 'messagesPagination'),
+          ),
+        );
+      },
+    );
+
+    testWidgets(
+      'queries latest page (no around-anchor) when lastRead is the Go '
+      'zero-time sentinel and channel is stale',
+      (tester) async {
+        when(() => mockChannel.state.isUpToDate).thenReturn(false);
+        final read = Read(
+          user: User(id: 'testUserId'),
+          lastRead: DateTime.utc(1, 1, 1),
+          unreadMessages: 100,
+        );
+        when(() => mockChannel.state.unreadCount).thenReturn(100);
+        when(() => mockChannel.state.currentUserRead).thenReturn(read);
+
+        await _pumpStreamChannel(tester, mockChannel);
+
+        final captured =
+            verify(
+                  () => mockChannel.query(
+                    preferOffline: any(named: 'preferOffline'),
+                    messagesPagination: captureAny(named: 'messagesPagination'),
+                  ),
+                ).captured.single
+                as PaginationParams;
+
+        expect(captured.idAround, isNull);
+        expect(captured.createdAtAround, isNull);
+      },
+    );
+  });
+
+  group('pruneOldest', () {
+    final mockChannel = MockChannel();
+    tearDownAll(mockChannel.dispose);
+
+    // Mutable backing for state.messages so the mocked pruneOldest can
+    // modify the value subsequent stubs return.
+    var stateMessages = <Message>[];
+
+    List<Message> _generateMessages(int count) => List.generate(
+      count,
+      (i) => Message(
+        id: 'msg-$i',
+        createdAt: DateTime(2024).add(Duration(seconds: i)),
+        user: User(id: 'otherUserId'),
+      ),
+    );
+
+    setUp(() {
+      when(() => mockChannel.cid).thenReturn('test:channel');
+      when(() => mockChannel.state.messages).thenAnswer((_) => stateMessages);
+      when(() => mockChannel.state.isUpToDate).thenReturn(true);
+      when(() => mockChannel.state.unreadCount).thenReturn(0);
+      when(() => mockChannel.state.pruneOldest(any())).thenAnswer((invocation) {
+        final n = invocation.positionalArguments[0] as int;
+        if (n <= 0) return;
+        if (stateMessages.length <= n) return;
+        stateMessages = stateMessages.sublist(stateMessages.length - n);
+      });
+    });
+
+    tearDown(() {
+      stateMessages = <Message>[];
+      reset(mockChannel);
+    });
+
+    testWidgets('delegates to channel.state.pruneOldest', (tester) async {
+      stateMessages = _generateMessages(10);
+
+      final streamChannel = await _pumpStreamChannel(tester, mockChannel);
+      streamChannel.pruneOldest(4);
+
+      verify(() => mockChannel.state.pruneOldest(4)).called(1);
+      expect(stateMessages, hasLength(4));
+    });
+
+    testWidgets(
+      're-enables top pagination after a prune actually drops messages',
+      (tester) async {
+        stateMessages = _generateMessages(10);
+
+        // First top query returns fewer than the limit, which the
+        // StreamChannel uses to mark top-pagination as ended.
+        when(
+          () => mockChannel.query(
+            preferOffline: any(named: 'preferOffline'),
+            messagesPagination: any(named: 'messagesPagination'),
+          ),
+        ).thenAnswer(
+          (_) async => ChannelState(messages: _generateMessages(2)),
+        );
+
+        final streamChannel = await _pumpStreamChannel(tester, mockChannel);
+
+        await streamChannel.queryMessages();
+        await streamChannel.queryMessages();
+
+        // Second call short-circuits because top-pagination is now ended.
+        verify(
+          () => mockChannel.query(
+            preferOffline: any(named: 'preferOffline'),
+            messagesPagination: any(named: 'messagesPagination'),
+          ),
+        ).called(1);
+
+        // Pruning drops messages and should re-enable top pagination.
+        streamChannel.pruneOldest(4);
+        expect(stateMessages, hasLength(4));
+
+        await streamChannel.queryMessages();
+
+        verify(
+          () => mockChannel.query(
+            preferOffline: any(named: 'preferOffline'),
+            messagesPagination: any(named: 'messagesPagination'),
+          ),
+        ).called(1);
+      },
+    );
+
+    testWidgets(
+      'leaves top pagination state untouched when prune is a no-op',
+      (tester) async {
+        stateMessages = _generateMessages(3);
+
+        when(
+          () => mockChannel.query(
+            preferOffline: any(named: 'preferOffline'),
+            messagesPagination: any(named: 'messagesPagination'),
+          ),
+        ).thenAnswer(
+          (_) async => ChannelState(messages: _generateMessages(2)),
+        );
+
+        final streamChannel = await _pumpStreamChannel(tester, mockChannel);
+
+        await streamChannel.queryMessages();
+
+        // No-op prune (limit higher than current count).
+        streamChannel.pruneOldest(10);
+        expect(stateMessages, hasLength(3));
+
+        await streamChannel.queryMessages();
+
+        // Top pagination remains ended — only the initial query ran.
+        verify(
+          () => mockChannel.query(
+            preferOffline: any(named: 'preferOffline'),
+            messagesPagination: any(named: 'messagesPagination'),
+          ),
+        ).called(1);
+      },
+    );
+  });
+
+  group('reloadChannel', () {
+    final mockChannel = MockChannel();
+    tearDownAll(mockChannel.dispose);
+
+    // Mutable backing so the mocked `truncate` and `query` can model the
+    // real `ChannelClientState.messages` lifecycle: truncate clears it,
+    // a `query` response is merged on top of whatever's there. With the
+    // truncate-before-query fix the merge target is empty; without it,
+    // the previously loaded window leaks past the reload (the original bug).
+    var stateMessages = <Message>[];
+
+    List<Message> _generateMessages(int count, {required String prefix}) => List.generate(
+      count,
+      (i) => Message(
+        id: '$prefix-$i',
+        createdAt: DateTime(2024).add(Duration(seconds: i)),
+        user: User(id: 'otherUserId'),
+      ),
+    );
+
+    setUp(() {
+      when(() => mockChannel.cid).thenReturn('test:channel');
+      when(() => mockChannel.state.messages).thenAnswer((_) => stateMessages);
+      when(() => mockChannel.state.isUpToDate).thenReturn(true);
+      when(() => mockChannel.state.unreadCount).thenReturn(0);
+      when(() => mockChannel.state.truncate()).thenAnswer((_) {
+        stateMessages = [];
+      });
+      when(
+        () => mockChannel.query(
+          preferOffline: any(named: 'preferOffline'),
+          messagesPagination: any(named: 'messagesPagination'),
+        ),
+      ).thenAnswer((_) async {
+        // Model `Channel.query` merging the new page onto the existing
+        // window — dedupe by id is unnecessary here because the test
+        // primes disjoint old/new sets.
+        final newMessages = _generateMessages(30, prefix: 'new');
+        stateMessages = [...stateMessages, ...newMessages];
+        return ChannelState(messages: newMessages);
+      });
+    });
+
+    tearDown(() {
+      stateMessages = <Message>[];
+      reset(mockChannel);
+    });
+
+    testWidgets(
+      'truncates the existing window before querying the latest messages',
+      (tester) async {
+        final streamChannel = await _pumpStreamChannel(tester, mockChannel);
+
+        await streamChannel.reloadChannel();
+
+        verifyInOrder([
+          () => mockChannel.state.truncate(),
+          () => mockChannel.query(
+            preferOffline: any(named: 'preferOffline'),
+            messagesPagination: any(named: 'messagesPagination'),
+          ),
+        ]);
+      },
+    );
+
+    testWidgets(
+      'queries with no around-anchor (loads the latest page)',
+      (tester) async {
+        final streamChannel = await _pumpStreamChannel(tester, mockChannel);
+
+        await streamChannel.reloadChannel();
+
+        final captured =
+            verify(
+                  () => mockChannel.query(
+                    preferOffline: any(named: 'preferOffline'),
+                    messagesPagination: captureAny(named: 'messagesPagination'),
+                  ),
+                ).captured.single
+                as PaginationParams;
+
+        expect(captured.idAround, isNull);
+        expect(captured.createdAtAround, isNull);
+      },
+    );
+
+    testWidgets(
+      'state contains only the latest page after reloading (drops the '
+      'previously loaded window)',
+      (tester) async {
+        // Seed the around-Y window that a prior `loadChannelAtMessage`
+        // would have produced.
+        stateMessages = _generateMessages(30, prefix: 'old');
+
+        final streamChannel = await _pumpStreamChannel(tester, mockChannel);
+        await streamChannel.reloadChannel();
+
+        // Without the truncate the merge would land us on 60 messages
+        // (old 30 + new 30). The fix yields just the latest page.
+        expect(stateMessages, hasLength(30));
+        expect(
+          stateMessages.map((m) => m.id),
+          everyElement(startsWith('new-')),
         );
       },
     );

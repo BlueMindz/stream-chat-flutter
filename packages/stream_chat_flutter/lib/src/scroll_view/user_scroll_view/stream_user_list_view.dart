@@ -1,23 +1,19 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_error_widget.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_load_more_error.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_load_more_indicator.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_loading_widget.dart';
-import 'package:stream_chat_flutter/stream_chat_flutter.dart';
+
+import '../../../stream_chat_flutter.dart';
+import '../../utils/network_error_text.dart';
 
 /// Default separator builder for [StreamUserListView].
 Widget defaultUserListViewSeparatorBuilder(
   BuildContext context,
   List<User> users,
   int index,
-) =>
-    const StreamUserListSeparator();
+) => const StreamUserListSeparator();
 
 /// Signature for the item builder that creates the children of the
 /// [StreamUserListView].
-typedef StreamUserListViewIndexedWidgetBuilder
-    = StreamScrollViewIndexedWidgetBuilder<User, StreamUserListTile>;
+typedef StreamUserListViewIndexedWidgetBuilder = StreamScrollViewIndexedWidgetBuilder<User, StreamUserListTile>;
 
 /// A [ListView] that shows a list of [User]s,
 /// it uses [StreamUserListTile] as a default item.
@@ -278,88 +274,80 @@ class StreamUserListView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => PagedValueListView<int, User>(
-        scrollDirection: scrollDirection,
-        padding: padding,
-        physics: physics,
-        reverse: reverse,
-        controller: controller,
-        scrollController: scrollController,
-        primary: primary,
-        shrinkWrap: shrinkWrap,
-        addAutomaticKeepAlives: addAutomaticKeepAlives,
-        addRepaintBoundaries: addRepaintBoundaries,
-        addSemanticIndexes: addSemanticIndexes,
-        keyboardDismissBehavior: keyboardDismissBehavior,
-        restorationId: restorationId,
-        dragStartBehavior: dragStartBehavior,
-        cacheExtent: cacheExtent,
-        clipBehavior: clipBehavior,
-        loadMoreTriggerIndex: loadMoreTriggerIndex,
-        separatorBuilder: separatorBuilder,
-        itemBuilder: (context, users, index) {
-          final user = users[index];
-          final onTap = onUserTap;
-          final onLongPress = onUserLongPress;
+    scrollDirection: scrollDirection,
+    padding: padding,
+    physics: physics,
+    reverse: reverse,
+    controller: controller,
+    scrollController: scrollController,
+    primary: primary,
+    shrinkWrap: shrinkWrap,
+    addAutomaticKeepAlives: addAutomaticKeepAlives,
+    addRepaintBoundaries: addRepaintBoundaries,
+    addSemanticIndexes: addSemanticIndexes,
+    keyboardDismissBehavior: keyboardDismissBehavior,
+    restorationId: restorationId,
+    dragStartBehavior: dragStartBehavior,
+    cacheExtent: cacheExtent,
+    clipBehavior: clipBehavior,
+    loadMoreTriggerIndex: loadMoreTriggerIndex,
+    separatorBuilder: separatorBuilder,
+    itemBuilder: (context, users, index) {
+      final user = users[index];
+      final onTap = onUserTap;
+      final onLongPress = onUserLongPress;
 
-          final streamUserListTile = StreamUserListTile(
-            user: user,
-            onTap: onTap == null ? null : () => onTap(user),
-            onLongPress: onLongPress == null ? null : () => onLongPress(user),
-          );
+      final streamUserListTile = StreamUserListTile(
+        user: user,
+        onTap: onTap == null ? null : () => onTap(user),
+        onLongPress: onLongPress == null ? null : () => onLongPress(user),
+      );
 
-          return itemBuilder?.call(
-                context,
-                users,
-                index,
-                streamUserListTile,
-              ) ??
-              streamUserListTile;
-        },
-        emptyBuilder: (context) {
-          final chatThemeData = StreamChatTheme.of(context);
-          return emptyBuilder?.call(context) ??
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: StreamScrollViewEmptyWidget(
-                    emptyIcon: StreamSvgIcon(
-                      size: 148,
-                      icon: StreamSvgIcons.user,
-                      color: chatThemeData.colorTheme.disabled,
-                    ),
-                    emptyTitle: Text(
-                      context.translations.noUsersLabel,
-                      style: chatThemeData.textTheme.headline,
-                    ),
-                  ),
-                ),
-              );
-        },
-        loadMoreErrorBuilder: (context, error) =>
-            StreamScrollViewLoadMoreError.list(
-          onTap: controller.retry,
-          error: Text(context.translations.loadingUsersError),
-        ),
-        loadMoreIndicatorBuilder: (context) => const Center(
-          child: Padding(
-            padding: EdgeInsets.all(16),
-            child: StreamScrollViewLoadMoreIndicator(),
+      return itemBuilder?.call(
+            context,
+            users,
+            index,
+            streamUserListTile,
+          ) ??
+          streamUserListTile;
+    },
+    emptyBuilder: (context) =>
+        emptyBuilder?.call(context) ??
+        Center(
+          child: StreamScrollViewEmptyWidget(
+            emptyIcon: Icon(context.streamIcons.user),
+            emptyTitle: Text(context.translations.noUsersLabel),
           ),
         ),
-        loadingBuilder: (context) =>
-            loadingBuilder?.call(context) ??
-            const Center(
-              child: StreamScrollViewLoadingWidget(),
-            ),
-        errorBuilder: (context, error) =>
-            errorBuilder?.call(context, error) ??
-            Center(
-              child: StreamScrollViewErrorWidget(
-                errorTitle: Text(context.translations.loadingUsersError),
-                onRetryPressed: controller.refresh,
-              ),
-            ),
+    loadMoreErrorBuilder: (context, error) => StreamScrollViewLoadMoreError.list(
+      onTap: controller.retry,
+      error: Text(context.translations.loadingUsersError),
+    ),
+    loadMoreIndicatorBuilder: (context) => Center(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: StreamLoadingSpinner(),
+      ),
+    ),
+    loadingBuilder: (context) =>
+        loadingBuilder?.call(context) ??
+        const Center(
+          child: StreamScrollViewLoadingWidget(),
+        ),
+    errorBuilder: (context, error) {
+      if (errorBuilder?.call(context, error) case final builder?) return builder;
+
+      final translations = context.translations;
+      final text = resolveNetworkErrorText(context, error, fallbackTitle: translations.loadingUsersError);
+
+      return Center(
+        child: StreamScrollViewErrorWidget(
+          errorTitle: Text(text.title),
+          onRetryPressed: controller.refresh,
+        ),
       );
+    },
+  );
 }
 
 /// A widget that is used to display a separator between
@@ -370,11 +358,7 @@ class StreamUserListSeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effect = StreamChatTheme.of(context).colorTheme.borderBottom;
-    return Container(
-      height: 1,
-      // ignore: deprecated_member_use
-      color: effect.color!.withOpacity(effect.alpha ?? 1.0),
-    );
+    final colorScheme = context.streamColorScheme;
+    return Divider(height: 1, color: colorScheme.borderSubtle);
   }
 }

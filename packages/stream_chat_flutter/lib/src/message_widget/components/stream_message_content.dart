@@ -1,0 +1,291 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:stream_chat_flutter_core/stream_chat_flutter_core.dart';
+import 'package:stream_core_flutter/chat.dart' as core;
+
+import '../../attachment/builder/attachment_widget_builder.dart';
+import '../stream_message_attachments.dart';
+import '../stream_message_item.dart';
+import '../stream_quoted_message.dart';
+import 'stream_message_deleted.dart';
+import 'stream_message_reactions.dart';
+import 'stream_message_text.dart';
+
+/// Composes the main message content including the bubble, attachments, text,
+/// and reactions.
+///
+/// For deleted messages a [StreamMessageDeleted] placeholder is shown.
+/// Otherwise the content displays attachments, message text, and reactions.
+///
+/// The [header], [footer], and [replies] slots are passed in from
+/// [DefaultStreamMessageItem] and rendered in the appropriate positions via
+/// the core [core.StreamMessageContent] layout.
+///
+/// When the message consists of three or fewer emoji-only characters, the
+/// bubble background is hidden so the emoji appear at a larger visual size.
+///
+/// See also:
+///
+///  * [StreamMessageReactions], which renders reactions around the bubble.
+///  * [StreamMessageText], which renders the markdown message text.
+///  * [DefaultStreamMessageItem], which hosts this widget.
+class StreamMessageContent extends StatefulWidget {
+  /// Creates a message content widget for the given [message].
+  const StreamMessageContent({
+    super.key,
+    required this.message,
+    this.header,
+    this.errorBadge,
+    this.footer,
+    this.replies,
+    this.attachmentBuilders,
+    this.onLinkTap,
+    this.onMentionTap,
+    this.onAnyMentionTap,
+    this.onReactionTap,
+    this.onReactionLongPress,
+    this.onQuotedMessageTap,
+    this.reactionSorting,
+    this.showTranslatedText = true,
+    this.excludeTextFromSemantics = false,
+  });
+
+  /// The message to display.
+  final Message message;
+
+  /// Whether the rendered message text stays out of the semantics tree.
+  ///
+  /// Set this when an enclosing row already announces the text as part of a
+  /// composed phrase — [StreamMessageItem] passes `true` whenever it labels the
+  /// row — so a screen reader hears the message once instead of once per
+  /// inline span. It covers the text and the deleted placeholder only: the
+  /// attachments, the poll, the quoted message and the reaction chips stay
+  /// reachable either way.
+  ///
+  /// Left `false` (the default) the text announces itself, which is what a
+  /// bubble outside such a row needs.
+  final bool excludeTextFromSemantics;
+
+  /// Optional header widget displayed above the message content column.
+  ///
+  /// Typically a [StreamMessageHeader] containing pinned, reminder,
+  /// or show-in-channel annotations.
+  final Widget? header;
+
+  /// Optional error badge widget overlaid on the message bubble.
+  ///
+  /// When non-null, the badge is positioned at the top-end corner of the
+  /// bubble using a [Stack] with [PositionedDirectional].
+  final Widget? errorBadge;
+
+  /// Optional footer widget displayed below the message content column.
+  ///
+  /// Typically a [StreamMessageFooter] containing the author name, timestamp,
+  /// and sending status.
+  final Widget? footer;
+
+  /// Optional replies indicator widget displayed below the bubble.
+  ///
+  /// Typically a [core.StreamMessageReplies] showing reply count and
+  /// participant avatars.
+  final Widget? replies;
+
+  /// Custom attachment builders for rendering message attachments.
+  ///
+  /// When non-null, these builders are passed to [StreamMessageAttachments]
+  /// and take priority over the default builders.
+  final List<StreamAttachmentWidgetBuilder>? attachmentBuilders;
+
+  /// Called when a link is tapped in the rendered message text.
+  ///
+  /// If null, tapping a link has no effect.
+  final MarkdownTapLinkCallback? onLinkTap;
+
+  /// Called when a user-type `@mention` is tapped in the rendered message
+  /// text.
+  ///
+  /// Only fires for user mentions; to handle every mention kind in one
+  /// callback, use [onAnyMentionTap] instead. When both are set,
+  /// [onAnyMentionTap] takes precedence.
+  ///
+  /// If null, tapping a user mention has no effect.
+  final core.MarkdownTapMentionCallback? onMentionTap;
+
+  /// Called when a mention of any kind is tapped in the rendered message
+  /// text.
+  ///
+  /// Receives the [core.MentionType] decoded from the URL scheme along with
+  /// the display text and the URL-decoded id payload. Takes precedence over
+  /// [onMentionTap] when both are set.
+  ///
+  /// If null, the renderer falls back to [onMentionTap] for user mentions
+  /// only.
+  final core.MarkdownTapAnyMentionCallback? onAnyMentionTap;
+
+  /// Called when a reaction chip is tapped, with the tapped [Reaction].
+  ///
+  /// Reports `null` when the tap does not map to a single reaction (a
+  /// clustered or overflow chip). If null, tapping reactions has no effect.
+  final ValueSetter<Reaction?>? onReactionTap;
+
+  /// Called when a reaction chip is long-pressed, with the pressed [Reaction].
+  ///
+  /// Reports `null` when the long press does not map to a single reaction (a
+  /// clustered or overflow chip). If null, the chips register no long-press
+  /// gesture, leaving it to an ancestor.
+  final ValueSetter<Reaction?>? onReactionLongPress;
+
+  /// Called when the quoted message is tapped.
+  ///
+  /// If null, tapping the quoted message has no effect.
+  final void Function(Message quotedMessage)? onQuotedMessageTap;
+
+  /// Controls how reaction groups are sorted when displayed.
+  ///
+  /// Passed through to [StreamMessageReactions.sorting].
+  final Comparator<ReactionGroup>? reactionSorting;
+
+  /// Whether [message] should display its translation when [Message.i18n]
+  /// has one for the current user's language.
+  ///
+  /// Passed through to [StreamMessageText.showTranslatedText].
+  final bool showTranslatedText;
+
+  @override
+  State<StreamMessageContent> createState() => _StreamMessageContentState();
+}
+
+class _StreamMessageContentState extends State<StreamMessageContent> {
+  // Tracks the rendered width of the attachments to constrain the bubble.
+  double? widthLimit;
+  late final attachmentsKey = GlobalKey(debugLabel: 'StreamMessageAttachments');
+
+  // Measures the attachment width after layout and constrains the bubble.
+  void _updateWidthLimit() {
+    if (!mounted) return;
+
+    final attachmentContext = attachmentsKey.currentContext;
+    final renderBox = attachmentContext?.findRenderObject() as RenderBox?;
+    // The attachments subtree may have been detached between scheduling this
+    // post-frame callback and it firing. Reading [RenderBox.size] without
+    // checking [RenderBox.hasSize] throws `RenderBox was not laid out`.
+    if (renderBox == null || !renderBox.hasSize) return;
+    final attachmentsWidth = renderBox.size.width;
+
+    if (attachmentsWidth == 0) return;
+    if (widthLimit == attachmentsWidth) return;
+    setState(() => widthLimit = attachmentsWidth);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateWidthLimit());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spacing = context.streamSpacing;
+    final crossAxisAlignment = core.StreamMessageLayout.crossAxisAlignmentOf(context);
+
+    // Only a row that speaks its own composed label has already said what the
+    // bubble contains; without one the bubble is all a reader has.
+    final excluding = widget.excludeTextFromSemantics;
+
+    // A deleted message keeps its metadata: the design shows the timestamp and
+    // the delivery status below the placeholder, same as any other message.
+    if (widget.message.isDeleted) {
+      return core.StreamMessageContent(
+        header: widget.header,
+        footer: widget.footer,
+        // The composed row label already speaks the placeholder, so announcing
+        // it here as well would repeat it.
+        child: ExcludeSemantics(excluding: excluding, child: const StreamMessageDeleted()),
+      );
+    }
+
+    return core.StreamMessageContent(
+      header: widget.header,
+      footer: widget.footer,
+      child: core.StreamColumn(
+        mainAxisSize: .min,
+        crossAxisAlignment: crossAxisAlignment,
+        children: [
+          StreamMessageReactions(
+            message: widget.message,
+            sorting: widget.reactionSorting,
+            onReactionTap: widget.onReactionTap,
+            onReactionLongPress: widget.onReactionLongPress,
+            child: Builder(
+              builder: (context) {
+                final bubbleContent = ConstrainedBox(
+                  constraints: const BoxConstraints().copyWith(maxWidth: widthLimit),
+                  child: core.StreamColumn(
+                    mainAxisSize: .min,
+                    spacing: spacing.xs,
+                    crossAxisAlignment: .start,
+                    children: [
+                      if (widget.message.quotedMessage case final quotedMessage?)
+                        StreamQuotedMessage(
+                          quotedMessage: quotedMessage,
+                          replyMessage: widget.message,
+                          onTap: switch (widget.onQuotedMessageTap) {
+                            final onTap? => () => onTap(quotedMessage),
+                            _ => null,
+                          },
+                        ),
+                      StreamMessageAttachments(
+                        key: attachmentsKey,
+                        message: widget.message,
+                        attachmentBuilders: widget.attachmentBuilders,
+                      ),
+                      if (widget.message.text case final text? when text.isNotEmpty)
+                        // The composed row label speaks the message text, so
+                        // the rendered markdown stays out of the semantics tree
+                        // and the row is announced as one phrase.
+                        //
+                        // This deliberately costs the inline link and mention
+                        // spans their own semantics nodes, so a screen reader
+                        // can read a link but not focus or activate it. The
+                        // alternative — a focus stop per span, each repeating
+                        // text the row just spoke — makes every message far
+                        // more tedious to move through than it makes the rare
+                        // link easier to reach. `explicitChildNodes` keeps the
+                        // parts worth a stop of their own — polls, quotes and
+                        // attachments — reachable.
+                        ExcludeSemantics(
+                          excluding: excluding,
+                          child: StreamMessageText(
+                            message: widget.message,
+                            onLinkTap: widget.onLinkTap,
+                            onMentionTap: widget.onMentionTap,
+                            onAnyMentionTap: widget.onAnyMentionTap,
+                            showTranslatedText: widget.showTranslatedText,
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+
+                final bubble = core.StreamMessageBubble(child: bubbleContent);
+
+                if (widget.errorBadge case final errorBadge?) {
+                  return Stack(
+                    clipBehavior: .none,
+                    children: [
+                      bubble,
+                      PositionedDirectional(top: 8, end: -12, child: errorBadge),
+                    ],
+                  );
+                }
+
+                return bubble;
+              },
+            ),
+          ),
+          if (widget.replies case final replies?) replies,
+        ],
+      ),
+    );
+  }
+}

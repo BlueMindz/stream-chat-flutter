@@ -2,6 +2,9 @@
 *.class
 *.log
 *.pyc
+/sample_app/stream-chat-test-mock-server/
+/sample_app/allure-results/
+/sample_app/allurectl
 *.swp
 .DS_Store
 .atom/
@@ -34,6 +37,7 @@ coverage_helper_test.dart
 **/doc/api/
 pubspec.lock
 pubspec_overrides.yaml
+devtools_options.yaml
 flutter_export_environment.sh
 generated_plugin_registrant.*
 GeneratedPluginRegistrant.*
@@ -66,16 +70,20 @@ GeneratedPluginRegistrant.*
 **/ios/**/xcuserdata
 **/ios/.generated/
 **/ios/Flutter/App.framework
+**/ios/Flutter/ephemeral
 **/ios/Flutter/Flutter.framework
 **/ios/Flutter/Flutter.podspec
 **/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/Signing.xcconfig
 **/ios/Flutter/app.flx
 **/ios/Flutter/app.zip
 **/ios/Flutter/flutter_assets/
 **/ios/Flutter/flutter_export_environment.sh
 **/ios/ServiceDefinitions.json
 **/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/Flutter/ephemeral/**
 Podfile.lock
+**/xcshareddata/swiftpm/Package.resolved
 
 # Exceptions to iOS rules
 !**/ios/**/default.mode1v3

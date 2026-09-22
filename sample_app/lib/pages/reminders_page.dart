@@ -3,9 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sample_app/routes/routes.dart';
-import 'package:sample_app/widgets/reminder_dialog.dart';
 import 'package:stream_chat_flutter/stream_chat_flutter.dart';
+
+import '../routes/routes.dart';
+import '../widgets/reminder_dialog.dart';
 
 class RemindersPage extends StatefulWidget {
   const RemindersPage({super.key});
@@ -15,20 +16,21 @@ class RemindersPage extends StatefulWidget {
 }
 
 class _RemindersPageState extends State<RemindersPage> {
-  late final controller = StreamMessageReminderListController(
-    client: StreamChat.of(context).client,
-  )..eventListener = (event) {
-      if (event.type == EventType.connectionRecovered ||
-          event.type == EventType.notificationReminderDue) {
-        // This will create the query filter with the updated current date
-        // and time, so that the reminders list is updated with the new
-        // reminders that are due.
-        onFilterChanged(_currentFilter);
-      }
+  late final controller =
+      StreamMessageReminderListController(
+          client: StreamChat.of(context).client,
+        )
+        ..eventListener = (event) {
+          if (event.type == EventType.connectionRecovered || event.type == EventType.notificationReminderDue) {
+            // This will create the query filter with the updated current date
+            // and time, so that the reminders list is updated with the new
+            // reminders that are due.
+            onFilterChanged(_currentFilter);
+          }
 
-      // Returning false as we also want the controller to handle the event.
-      return false;
-    };
+          // Returning false as we also want the controller to handle the event.
+          return false;
+        };
 
   @override
   void dispose() {
@@ -46,8 +48,6 @@ class _RemindersPageState extends State<RemindersPage> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = StreamChatTheme.of(context);
-
     return NestedScrollView(
       headerSliverBuilder: (_, __) => [
         SliverPadding(
@@ -70,8 +70,6 @@ class _RemindersPageState extends State<RemindersPage> {
           separatorBuilder: (_, __, ___) => const Divider(height: 1),
           itemBuilder: (context, reminders, index) {
             final reminder = reminders[index];
-            final theme = StreamChatTheme.of(context);
-
             return Slidable(
               groupTag: 'reminder-actions',
               endActionPane: ActionPane(
@@ -79,11 +77,11 @@ class _RemindersPageState extends State<RemindersPage> {
                 motion: const BehindMotion(),
                 children: [
                   CustomSlidableAction(
-                    backgroundColor: theme.colorTheme.inputBg,
-                    child: StreamSvgIcon(
+                    backgroundColor: context.streamColorScheme.backgroundSurface,
+                    child: Icon(
+                      context.streamIcons.edit,
                       size: 24,
-                      icon: StreamSvgIcons.edit,
-                      color: theme.colorTheme.accentPrimary,
+                      color: context.streamColorScheme.accentPrimary,
                     ),
                     onPressed: (_) async {
                       final rem = await showDialog<ReminderOption>(
@@ -103,11 +101,11 @@ class _RemindersPageState extends State<RemindersPage> {
                     },
                   ),
                   CustomSlidableAction(
-                    backgroundColor: theme.colorTheme.inputBg,
-                    child: StreamSvgIcon(
+                    backgroundColor: context.streamColorScheme.backgroundSurface,
+                    child: Icon(
+                      context.streamIcons.delete,
                       size: 24,
-                      icon: StreamSvgIcons.delete,
-                      color: theme.colorTheme.accentError,
+                      color: context.streamColorScheme.accentError,
                     ),
                     onPressed: (context) {
                       final client = StreamChat.of(context).client;
@@ -139,22 +137,12 @@ class _RemindersPageState extends State<RemindersPage> {
               ),
             );
           },
-          emptyBuilder: (context) {
-            final chatThemeData = StreamChatTheme.of(context);
-            return Center(
-              child: StreamScrollViewEmptyWidget(
-                emptyIcon: Icon(
-                  size: 48,
-                  Icons.bookmark_border_rounded,
-                  color: theme.colorTheme.textLowEmphasis,
-                ),
-                emptyTitle: Text(
-                  'No reminders yet',
-                  style: chatThemeData.textTheme.headline,
-                ),
-              ),
-            );
-          },
+          emptyBuilder: (context) => const Center(
+            child: StreamScrollViewEmptyWidget(
+              emptyIcon: Icon(Icons.bookmark_border_rounded),
+              emptyTitle: Text('No reminders yet'),
+            ),
+          ),
           loadMoreErrorBuilder: (context, error) => ListTile(
             onTap: controller.retry,
             title: Text(error.message),
@@ -177,20 +165,20 @@ class _RemindersPageState extends State<RemindersPage> {
                 Icon(
                   size: 48,
                   Icons.bookmark_border_rounded,
-                  color: theme.colorTheme.textLowEmphasis,
+                  color: context.streamColorScheme.textSecondary,
                 ),
                 Text(
                   'Error loading reminders',
-                  style: theme.textTheme.headline,
+                  style: context.streamTextTheme.metadataDefault,
                 ),
                 FilledButton(
                   onPressed: controller.doInitialLoad,
                   style: FilledButton.styleFrom(
-                    backgroundColor: theme.colorTheme.accentPrimary,
+                    backgroundColor: context.streamColorScheme.accentPrimary,
                   ),
                   child: Text(
                     'Retry loading',
-                    style: theme.textTheme.body.copyWith(
+                    style: context.streamTextTheme.bodyDefault.copyWith(
                       color: Colors.white,
                     ),
                   ),
@@ -238,12 +226,10 @@ class MessageRemindersFilterSelection extends StatefulWidget {
   final ValueSetter<MessageRemindersFilter> onSelected;
 
   @override
-  State<MessageRemindersFilterSelection> createState() =>
-      _MessageRemindersFilterSelectionState();
+  State<MessageRemindersFilterSelection> createState() => _MessageRemindersFilterSelectionState();
 }
 
-class _MessageRemindersFilterSelectionState
-    extends State<MessageRemindersFilterSelection> {
+class _MessageRemindersFilterSelectionState extends State<MessageRemindersFilterSelection> {
   final _filterKeys = <MessageRemindersFilter, GlobalKey>{};
 
   @override
@@ -283,8 +269,6 @@ class _MessageRemindersFilterSelectionState
 
   @override
   Widget build(BuildContext context) {
-    final theme = StreamChatTheme.of(context);
-
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -297,16 +281,16 @@ class _MessageRemindersFilterSelectionState
               key: _filterKeys[filter],
               showCheckmark: false,
               label: Text(filter.label),
-              labelStyle: theme.textTheme.footnote.copyWith(
+              labelStyle: context.streamTextTheme.captionDefault.copyWith(
                 color: switch (isSelected) {
                   true => Colors.white,
-                  false => theme.colorTheme.textHighEmphasis,
+                  false => context.streamColorScheme.textPrimary,
                 },
               ),
               selected: isSelected,
               onSelected: (_) => widget.onSelected.call(filter),
-              backgroundColor: theme.colorTheme.inputBg,
-              selectedColor: theme.colorTheme.accentPrimary,
+              backgroundColor: context.streamColorScheme.backgroundSurface,
+              selectedColor: context.streamColorScheme.accentPrimary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -367,13 +351,11 @@ class MessageReminderChannelName extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = StreamChatTheme.of(context);
-
     return Text(
       maxLines: 1,
       '# ${channelName ?? context.translations.noTitleText}',
       overflow: TextOverflow.ellipsis,
-      style: theme.textTheme.headlineBold,
+      style: context.streamTextTheme.headingMd,
     );
   }
 }
@@ -388,13 +370,11 @@ class MessageReminderMessageText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = StreamChatTheme.of(context);
-
     return Text(
       maxLines: 2,
       message?.text ?? context.translations.noTitleText,
       overflow: TextOverflow.ellipsis,
-      style: theme.textTheme.body,
+      style: context.streamTextTheme.bodyDefault,
     );
   }
 }
@@ -418,10 +398,9 @@ class SavedForLaterIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = StreamChatTheme.of(context);
     return Icon(
       Icons.bookmark_rounded,
-      color: theme.colorTheme.accentPrimary,
+      color: context.streamColorScheme.accentPrimary,
     );
   }
 }
@@ -492,15 +471,14 @@ class _TimedReminderIndicatorState extends State<TimedReminderIndicator> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = StreamChatTheme.of(context);
-
     final remindAtDuration = Jiffy.parseFromDateTime(_lastRemindAt);
     final isOverdue = remindAtDuration.isBefore(Jiffy.now());
 
     final fromNow = remindAtDuration.fromNow(withPrefixAndSuffix: false);
+    final colorScheme = context.streamColorScheme;
     final (color, label) = switch (isOverdue) {
-      true => (theme.colorTheme.accentError, 'Overdue by $fromNow'),
-      false => (theme.colorTheme.accentPrimary, 'Due in $fromNow'),
+      true => (colorScheme.accentError, 'Overdue by $fromNow'),
+      false => (colorScheme.accentPrimary, 'Due in $fromNow'),
     };
 
     return Container(
@@ -511,7 +489,7 @@ class _TimedReminderIndicatorState extends State<TimedReminderIndicator> {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       child: Text(
         label,
-        style: theme.textTheme.footnoteBold.copyWith(color: Colors.white),
+        style: context.streamTextTheme.captionEmphasis.copyWith(color: Colors.white),
       ),
     );
   }

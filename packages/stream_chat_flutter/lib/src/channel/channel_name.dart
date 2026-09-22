@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter/stream_chat_flutter.dart';
+import '../../stream_chat_flutter.dart';
 
 /// {@template channelName}
 /// Displays the current [Channel] name using a [Text] widget.
@@ -87,8 +87,7 @@ class _NameGenerator extends StatelessWidget {
               }
             });
 
-            final exceedingMembers =
-                otherMembers.length - currentMembers.length;
+            final exceedingMembers = otherMembers.length - currentMembers.length;
             channelName =
                 '${currentMembers.map((e) => e.user?.name).join(', ')} '
                 '${exceedingMembers > 0 ? '+ $exceedingMembers' : ''}';

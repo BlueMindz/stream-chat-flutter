@@ -1,7 +1,7 @@
 // coverage:ignore-file
 import 'package:drift/drift.dart';
 
-/// Represents a [ChannelQueries] table in [MoorChatDatabase].
+/// Represents a [ChannelQueries] table in [DriftChatDatabase].
 @DataClassName('ChannelQueryEntity')
 class ChannelQueries extends Table {
   /// The unique hash of this query
@@ -12,7 +12,7 @@ class ChannelQueries extends Table {
 
   @override
   Set<Column> get primaryKey => {
-        queryHash,
-        channelCid,
-      };
+    queryHash,
+    channelCid,
+  };
 }

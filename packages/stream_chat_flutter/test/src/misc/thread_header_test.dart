@@ -27,14 +27,13 @@ void main() {
       when(() => channel.name).thenReturn('test');
       when(() => channel.nameStream).thenAnswer((i) => Stream.value('test'));
       when(() => channelState.unreadCount).thenReturn(1);
-      when(() => channelState.unreadCountStream)
-          .thenAnswer((i) => Stream.value(1));
+      when(() => channelState.unreadCountStream).thenAnswer((i) => Stream.value(1));
       when(() => channelState.membersStream).thenAnswer(
         (i) => Stream.value([
           Member(
             userId: 'user-id',
             user: User(id: 'user-id'),
-          )
+          ),
         ]),
       );
       when(() => channelState.members).thenReturn([
@@ -43,34 +42,87 @@ void main() {
           user: User(id: 'user-id'),
         ),
       ]);
-      when(() => client.wsConnectionStatusStream)
-          .thenAnswer((_) => Stream.value(ConnectionStatus.connecting));
+      when(() => client.wsConnectionStatusStream).thenAnswer((_) => Stream.value(ConnectionStatus.connecting));
       when(() => clientState.totalUnreadCount).thenAnswer((i) => 1);
-      when(() => clientState.totalUnreadCountStream)
-          .thenAnswer((i) => Stream.value(1));
+      when(() => clientState.totalUnreadCountStream).thenAnswer((i) => Stream.value(1));
 
-      await tester.pumpWidget(MaterialApp(
-        home: StreamChat(
-          client: client,
-          child: StreamChannel(
-            channel: channel,
-            child: Scaffold(
-              body: StreamThreadHeader(
-                parent: Message(),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StreamChat(
+            client: client,
+            child: StreamChannel(
+              channel: channel,
+              child: Scaffold(
+                body: StreamThreadHeader(
+                  parent: Message(replyCount: 1),
+                  subtitle: const Text('1 reply'),
+                ),
               ),
             ),
           ),
         ),
-      ));
+      );
 
       // wait for the initial state to be rendered.
       await tester.pumpAndSettle();
 
-      expect(find.text('with '), findsOneWidget);
-      expect(find.byType(StreamChannelName), findsOneWidget);
-      expect(find.byType(StreamBackButton), findsOneWidget);
-      expect(find.text('1'), findsOneWidget);
-      expect(find.text('Thread Reply'), findsOneWidget);
+      expect(find.text('1 reply'), findsOneWidget);
+      expect(find.text('Thread'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'onBackPressed replaces the default back button pop',
+    (WidgetTester tester) async {
+      final client = MockClient();
+      final clientState = MockClientState();
+      final channel = MockChannel();
+      final channelState = MockChannelState();
+
+      when(() => client.state).thenReturn(clientState);
+      when(() => clientState.currentUser).thenReturn(OwnUser(id: 'user-id'));
+      when(() => clientState.channels).thenReturn({channel.cid!: channel});
+      when(() => clientState.totalUnreadCount).thenReturn(0);
+      when(() => clientState.totalUnreadCountStream).thenAnswer((_) => Stream.value(0));
+      when(() => client.wsConnectionStatusStream).thenAnswer((_) => Stream.value(ConnectionStatus.connected));
+
+      when(() => channel.state).thenReturn(channelState);
+      when(() => channel.client).thenReturn(client);
+      when(() => channel.lastMessageAt).thenReturn(null);
+      when(() => channel.isMuted).thenReturn(false);
+      when(() => channel.isMutedStream).thenAnswer((_) => Stream.value(false));
+      when(() => channel.name).thenReturn('test');
+      when(() => channel.nameStream).thenAnswer((_) => Stream.value('test'));
+
+      when(() => channelState.members).thenReturn([]);
+      when(() => channelState.membersStream).thenAnswer((_) => Stream.value([]));
+      when(() => channelState.unreadCount).thenReturn(0);
+      when(() => channelState.unreadCountStream).thenAnswer((_) => Stream.value(0));
+
+      var backPressed = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StreamChat(
+            client: client,
+            child: StreamChannel(
+              channel: channel,
+              child: Scaffold(
+                body: StreamThreadHeader(
+                  parent: Message(replyCount: 1),
+                  onBackPressed: () => backPressed = true,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(StreamBackButton));
+
+      expect(backPressed, true);
     },
   );
 
@@ -99,14 +151,13 @@ void main() {
         'name': 'test',
       });
       when(() => channelState.unreadCount).thenReturn(1);
-      when(() => channelState.unreadCountStream)
-          .thenAnswer((i) => Stream.value(1));
+      when(() => channelState.unreadCountStream).thenAnswer((i) => Stream.value(1));
       when(() => channelState.membersStream).thenAnswer(
         (i) => Stream.value([
           Member(
             userId: 'user-id',
             user: User(id: 'user-id'),
-          )
+          ),
         ]),
       );
       when(() => channelState.members).thenReturn([
@@ -117,28 +168,28 @@ void main() {
       ]);
 
       var tapped = false;
-      await tester.pumpWidget(MaterialAppWrapper(
-        home: StreamChat(
-          client: client,
-          child: StreamChannel(
-            channel: channel,
-            child: Scaffold(
-              body: StreamThreadHeader(
-                parent: Message(),
-                subtitle: const Text('subtitle'),
-                leading: const Text('leading'),
-                title: const Text('title'),
-                onTitleTap: () {
-                  tapped = true;
-                },
-                actions: const [
-                  Text('action'),
-                ],
+      await tester.pumpWidget(
+        MaterialAppWrapper(
+          home: StreamChat(
+            client: client,
+            child: StreamChannel(
+              channel: channel,
+              child: Scaffold(
+                body: StreamThreadHeader(
+                  parent: Message(),
+                  subtitle: const Text('subtitle'),
+                  leading: const Text('leading'),
+                  title: GestureDetector(
+                    onTap: () => tapped = true,
+                    child: const Text('title'),
+                  ),
+                  trailing: const Text('action'),
+                ),
               ),
             ),
           ),
         ),
-      ));
+      );
 
       // wait for the initial state to be rendered.
       await tester.pumpAndSettle();

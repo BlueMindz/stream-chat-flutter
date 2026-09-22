@@ -36,9 +36,7 @@ List<Draft> generateDrafts({
   final baseId = startId ?? 123;
 
   return List.generate(count, (index) {
-    final text = texts != null && index < texts.length
-        ? texts[index]
-        : 'Draft ${index + 1}';
+    final text = texts != null && index < texts.length ? texts[index] : 'Draft ${index + 1}';
 
     return generateDraft(
       channelCid: 'messaging:${baseId + index}',
@@ -86,22 +84,26 @@ void main() {
         ..drafts = drafts
         ..next = '';
 
-      when(() => client.queryDrafts(
-            filter: any(named: 'filter'),
-            sort: any(named: 'sort'),
-            pagination: any(named: 'pagination'),
-          )).thenAnswer((_) async => response);
+      when(
+        () => client.queryDrafts(
+          filter: any(named: 'filter'),
+          sort: any(named: 'sort'),
+          pagination: any(named: 'pagination'),
+        ),
+      ).thenAnswer((_) async => response);
 
       final controller = StreamDraftListController(client: client);
 
       await controller.doInitialLoad();
       await pumpEventQueue();
 
-      verify(() => client.queryDrafts(
-            filter: any(named: 'filter'),
-            sort: any(named: 'sort'),
-            pagination: any(named: 'pagination'),
-          )).called(1);
+      verify(
+        () => client.queryDrafts(
+          filter: any(named: 'filter'),
+          sort: any(named: 'sort'),
+          pagination: any(named: 'pagination'),
+        ),
+      ).called(1);
 
       expect(controller.value, isA<Success<String, Draft>>());
       expect(controller.value.asSuccess.items, equals(drafts));
@@ -109,11 +111,13 @@ void main() {
 
     test('handles API exceptions by transitioning to error state', () async {
       final exception = Exception('API unavailable');
-      when(() => client.queryDrafts(
-            filter: any(named: 'filter'),
-            sort: any(named: 'sort'),
-            pagination: any(named: 'pagination'),
-          )).thenThrow(exception);
+      when(
+        () => client.queryDrafts(
+          filter: any(named: 'filter'),
+          sort: any(named: 'sort'),
+          pagination: any(named: 'pagination'),
+        ),
+      ).thenThrow(exception);
 
       final controller = StreamDraftListController(client: client);
 
@@ -142,11 +146,13 @@ void main() {
         ..drafts = additionalDrafts
         ..next = '';
 
-      when(() => client.queryDrafts(
-            filter: any(named: 'filter'),
-            sort: any(named: 'sort'),
-            pagination: any(named: 'pagination'),
-          )).thenAnswer((_) async => response);
+      when(
+        () => client.queryDrafts(
+          filter: any(named: 'filter'),
+          sort: any(named: 'sort'),
+          pagination: any(named: 'pagination'),
+        ),
+      ).thenAnswer((_) async => response);
 
       final controller = StreamDraftListController.fromValue(
         PagedValue<String, Draft>(
@@ -171,9 +177,9 @@ void main() {
 
       for (final draft in mergedDrafts) {
         expect(
-          controller.value.asSuccess.items.any((d) =>
-              d.channelCid == draft.channelCid &&
-              d.message.text == draft.message.text),
+          controller.value.asSuccess.items.any(
+            (d) => d.channelCid == draft.channelCid && d.message.text == draft.message.text,
+          ),
           isTrue,
         );
       }
@@ -181,17 +187,18 @@ void main() {
       expect(controller.value.asSuccess.nextPageKey, isNull);
     });
 
-    test('loadMore preserves existing items when API throws exception',
-        () async {
+    test('loadMore preserves existing items when API throws exception', () async {
       const nextKey = 'next_page_token';
       final existingDrafts = generateDrafts();
       final exception = Exception('Network error');
 
-      when(() => client.queryDrafts(
-            filter: any(named: 'filter'),
-            sort: any(named: 'sort'),
-            pagination: any(named: 'pagination'),
-          )).thenThrow(exception);
+      when(
+        () => client.queryDrafts(
+          filter: any(named: 'filter'),
+          sort: any(named: 'sort'),
+          pagination: any(named: 'pagination'),
+        ),
+      ).thenThrow(exception);
 
       final controller = StreamDraftListController.fromValue(
         PagedValue<String, Draft>(
@@ -331,9 +338,7 @@ void main() {
         equals(allDrafts.length - 1),
       );
 
-      final remainingDraftTexts = [
-        ...controller.value.asSuccess.items.map((d) => d.message.text)
-      ];
+      final remainingDraftTexts = [...controller.value.asSuccess.items.map((d) => d.message.text)];
 
       expect(remainingDraftTexts, contains('Thread Draft 2'));
       expect(remainingDraftTexts, isNot(contains('Thread Draft 1')));
@@ -393,11 +398,13 @@ void main() {
         ..drafts = drafts
         ..next = '';
 
-      when(() => client.queryDrafts(
-            filter: any(named: 'filter'),
-            sort: any(named: 'sort'),
-            pagination: any(named: 'pagination'),
-          )).thenAnswer((_) async => queryResponse);
+      when(
+        () => client.queryDrafts(
+          filter: any(named: 'filter'),
+          sort: any(named: 'sort'),
+          pagination: any(named: 'pagination'),
+        ),
+      ).thenAnswer((_) async => queryResponse);
 
       final controller = StreamDraftListController.fromValue(
         PagedValue<String, Draft>(items: drafts),
@@ -432,11 +439,13 @@ void main() {
         ..drafts = drafts
         ..next = '';
 
-      when(() => client.queryDrafts(
-            filter: any(named: 'filter'),
-            sort: any(named: 'sort'),
-            pagination: any(named: 'pagination'),
-          )).thenAnswer((_) async => queryResponse);
+      when(
+        () => client.queryDrafts(
+          filter: any(named: 'filter'),
+          sort: any(named: 'sort'),
+          pagination: any(named: 'pagination'),
+        ),
+      ).thenAnswer((_) async => queryResponse);
 
       final controller = StreamDraftListController.fromValue(
         PagedValue<String, Draft>(items: drafts),
@@ -473,11 +482,13 @@ void main() {
       final drafts = generateDrafts();
       var queryCallCount = 0;
 
-      when(() => client.queryDrafts(
-            filter: any(named: 'filter'),
-            sort: any(named: 'sort'),
-            pagination: any(named: 'pagination'),
-          )).thenAnswer((_) async {
+      when(
+        () => client.queryDrafts(
+          filter: any(named: 'filter'),
+          sort: any(named: 'sort'),
+          pagination: any(named: 'pagination'),
+        ),
+      ).thenAnswer((_) async {
         queryCallCount++;
         return QueryDraftsResponse()
           ..drafts = drafts
@@ -512,11 +523,13 @@ void main() {
         ..drafts = drafts
         ..next = '';
 
-      when(() => client.queryDrafts(
-            filter: any(named: 'filter'),
-            sort: any(named: 'sort'),
-            pagination: any(named: 'pagination'),
-          )).thenAnswer((_) async => queryResponse);
+      when(
+        () => client.queryDrafts(
+          filter: any(named: 'filter'),
+          sort: any(named: 'sort'),
+          pagination: any(named: 'pagination'),
+        ),
+      ).thenAnswer((_) async => queryResponse);
 
       final controller = StreamDraftListController.fromValue(
         PagedValue<String, Draft>(items: drafts),
@@ -569,11 +582,13 @@ void main() {
         ..drafts = drafts
         ..next = '';
 
-      when(() => client.queryDrafts(
-            filter: any(named: 'filter'),
-            sort: any(named: 'sort'),
-            pagination: any(named: 'pagination'),
-          )).thenAnswer((_) async => response);
+      when(
+        () => client.queryDrafts(
+          filter: any(named: 'filter'),
+          sort: any(named: 'sort'),
+          pagination: any(named: 'pagination'),
+        ),
+      ).thenAnswer((_) async => response);
 
       final controller = StreamDraftListController.fromValue(
         PagedValue<String, Draft>(items: drafts),
@@ -599,11 +614,13 @@ void main() {
 
       final apiCalls = <Map<String, dynamic>>[];
 
-      when(() => client.queryDrafts(
-            filter: any(named: 'filter'),
-            sort: any(named: 'sort'),
-            pagination: any(named: 'pagination'),
-          )).thenAnswer((invocation) async {
+      when(
+        () => client.queryDrafts(
+          filter: any(named: 'filter'),
+          sort: any(named: 'sort'),
+          pagination: any(named: 'pagination'),
+        ),
+      ).thenAnswer((invocation) async {
         apiCalls.add({
           'filter': invocation.namedArguments[const Symbol('filter')],
           'sort': invocation.namedArguments[const Symbol('sort')],
@@ -647,18 +664,22 @@ void main() {
 
         final apiCalls = <Map<String, dynamic>>[];
 
-        when(() => client.queryDrafts(
-              filter: any(named: 'filter'),
-              sort: any(named: 'sort'),
-              pagination: any(named: 'pagination'),
-            )).thenAnswer((invocation) {
+        when(
+          () => client.queryDrafts(
+            filter: any(named: 'filter'),
+            sort: any(named: 'sort'),
+            pagination: any(named: 'pagination'),
+          ),
+        ).thenAnswer((invocation) {
           apiCalls.add({
             'filter': invocation.namedArguments[const Symbol('filter')],
             'sort': invocation.namedArguments[const Symbol('sort')],
           });
-          return Future.value(QueryDraftsResponse()
-            ..drafts = drafts
-            ..next = '');
+          return Future.value(
+            QueryDraftsResponse()
+              ..drafts = drafts
+              ..next = '',
+          );
         });
 
         final controller = StreamDraftListController(
@@ -688,10 +709,104 @@ void main() {
 
   group('Disposal', () {
     test('dispose cancels subscriptions without errors', () {
-      final controller = StreamDraftListController(client: client)
-        ..doInitialLoad();
+      final controller = StreamDraftListController(client: client)..doInitialLoad();
 
       expect(controller.dispose, returnsNormally);
     });
+
+    // Regression tests for FLU-529: disposing a controller while a network
+    // request is in-flight must not throw "used after being disposed".
+    test(
+      'disposing during doInitialLoad does not throw when response arrives late',
+      () async {
+        final completer = Completer<QueryDraftsResponse>();
+        when(
+          () => client.queryDrafts(
+            filter: any(named: 'filter'),
+            sort: any(named: 'sort'),
+            pagination: any(named: 'pagination'),
+          ),
+        ).thenAnswer((_) => completer.future);
+
+        final controller = StreamDraftListController(client: client);
+        // Start the load but do NOT await — we want to dispose first.
+        final loadFuture = controller.doInitialLoad();
+        controller.dispose();
+
+        // Resolve the in-flight request after the controller is disposed.
+        final response = QueryDraftsResponse()
+          ..drafts = generateDrafts()
+          ..next = '';
+        completer.complete(response);
+
+        // The future should resolve cleanly with no assertion/exception.
+        await expectLater(loadFuture, completes);
+      },
+    );
+
+    test(
+      'disposing during loadMore does not throw when response arrives late',
+      () async {
+        const nextPageKey = 'page_2';
+        final existingDrafts = generateDrafts();
+
+        // Set up the controller already in a paged success state.
+        final controller = StreamDraftListController.fromValue(
+          PagedValue<String, Draft>(items: existingDrafts, nextPageKey: nextPageKey),
+          client: client,
+        );
+
+        final completer = Completer<QueryDraftsResponse>();
+        when(
+          () => client.queryDrafts(
+            filter: any(named: 'filter'),
+            sort: any(named: 'sort'),
+            pagination: any(named: 'pagination'),
+          ),
+        ).thenAnswer((_) => completer.future);
+
+        final loadMoreFuture = controller.loadMore(nextPageKey);
+        controller.dispose();
+
+        final response = QueryDraftsResponse()
+          ..drafts = generateDrafts(count: 1, startId: 999)
+          ..next = '';
+        completer.complete(response);
+
+        await expectLater(loadMoreFuture, completes);
+      },
+    );
+
+    test(
+      'event subscription is not created when disposed before response arrives',
+      () async {
+        final completer = Completer<QueryDraftsResponse>();
+        // Use a fresh mock client to track `on()` calls per-test.
+        final localClient = MockClient();
+        // Stub `on()` only if needed after dispose — we will verify it is NOT called.
+        when(localClient.on).thenAnswer((_) => const Stream.empty());
+        when(
+          () => localClient.queryDrafts(
+            filter: any(named: 'filter'),
+            sort: any(named: 'sort'),
+            pagination: any(named: 'pagination'),
+          ),
+        ).thenAnswer((_) => completer.future);
+
+        final controller = StreamDraftListController(client: localClient);
+        final loadFuture = controller.doInitialLoad();
+        controller.dispose();
+
+        final response = QueryDraftsResponse()
+          ..drafts = generateDrafts()
+          ..next = '';
+        completer.complete(response);
+        await loadFuture;
+
+        // `on()` is only called to set up the event subscription; if the guard
+        // works, it must not have been reached after dispose.
+        verifyNever(localClient.on);
+      },
+    );
   });
 }

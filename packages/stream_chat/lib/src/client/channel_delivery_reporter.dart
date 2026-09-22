@@ -1,18 +1,20 @@
 import 'package:logging/logging.dart';
 import 'package:rate_limiter/rate_limiter.dart';
-import 'package:stream_chat/src/client/channel.dart';
-import 'package:stream_chat/src/core/models/message.dart';
-import 'package:stream_chat/src/core/models/message_delivery.dart';
-import 'package:stream_chat/src/core/util/message_rules.dart';
 import 'package:synchronized/synchronized.dart';
+
+import '../core/models/message.dart';
+import '../core/models/message_delivery.dart';
+import '../core/util/message_rules.dart';
+import 'channel/channel.dart';
 
 /// A callback that sends delivery receipts for multiple channels.
 ///
 /// Each [MessageDeliveryInfo] represents an acknowledgment that the current
 /// user has received a message.
-typedef MarkChannelsDelivered = Future<void> Function(
-  Iterable<MessageDelivery> deliveries,
-);
+typedef MarkChannelsDelivered =
+    Future<void> Function(
+      Iterable<MessageDelivery> deliveries,
+    );
 
 /// Manages the delivery reporting for channel messages.
 ///
@@ -28,14 +30,13 @@ class ChannelDeliveryReporter {
   ///
   /// The optional [logger] logs warnings and errors during operation.
   ChannelDeliveryReporter({
-    Logger? logger,
+    this._logger,
     required this.onMarkChannelsDelivered,
-    Duration throttleDuration = const Duration(seconds: 1),
-  })  : _logger = logger,
-        _markAsDeliveredThrottleDuration = throttleDuration;
+    this._throttleDuration = const Duration(seconds: 1),
+  });
 
   final Logger? _logger;
-  final Duration _markAsDeliveredThrottleDuration;
+  final Duration _throttleDuration;
 
   /// The callback invoked to send delivery receipts.
   ///
@@ -43,7 +44,7 @@ class ChannelDeliveryReporter {
   final MarkChannelsDelivered onMarkChannelsDelivered;
 
   final _deliveryCandidatesLock = Lock();
-  final _deliveryCandidates = <String /* cid */, Message /* message */ >{};
+  final _deliveryCandidates = <String /* cid */, Message /* message */>{};
 
   /// Submits [channels] for delivery reporting.
   ///
@@ -147,7 +148,7 @@ class ChannelDeliveryReporter {
   late final _throttledMarkCandidatesAsDelivered = Throttle(
     leading: false,
     _markCandidatesAsDelivered,
-    _markAsDeliveredThrottleDuration,
+    _throttleDuration,
   );
 
   static const _maxCandidatesPerBatch = 100;

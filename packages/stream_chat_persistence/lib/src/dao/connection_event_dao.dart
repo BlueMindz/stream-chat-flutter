@@ -1,51 +1,59 @@
 import 'package:drift/drift.dart';
 import 'package:stream_chat/stream_chat.dart';
-import 'package:stream_chat_persistence/src/db/drift_chat_database.dart';
-import 'package:stream_chat_persistence/src/entity/connection_events.dart';
+import '../db/drift_chat_database.dart';
+import '../entity/connection_events.dart';
 
-import 'package:stream_chat_persistence/src/mapper/mapper.dart';
+import '../mapper/mapper.dart';
 
 part 'connection_event_dao.g.dart';
 
 /// The Data Access Object for operations in [ConnectionEvents] table.
 @DriftAccessor(tables: [ConnectionEvents])
-class ConnectionEventDao extends DatabaseAccessor<DriftChatDatabase>
-    with _$ConnectionEventDaoMixin {
+class ConnectionEventDao extends DatabaseAccessor<DriftChatDatabase> with _$ConnectionEventDaoMixin {
   /// Creates a new connection event dao instance
   ConnectionEventDao(super.db);
 
   /// Get the latest stored connection event
   Future<Event?> get connectionEvent => select(connectionEvents)
       .map((eventEntity) => eventEntity.toEvent())
-      .getSingleOrNull();
+      .getSingleOrNull()
+      // A row carrying only a checkpoint is not a connection event.
+      .then((event) => event?.type == EventType.any ? null : event);
 
   /// Get the latest stored lastSyncAt
-  Future<DateTime?> get lastSyncAt =>
-      select(connectionEvents).getSingleOrNull().then((r) => r?.lastSyncAt);
+  Future<DateTime?> get lastSyncAt => select(connectionEvents).getSingleOrNull().then((r) => r?.lastSyncAt);
 
   /// Update stored connection event with latest data
   Future<int> updateConnectionEvent(Event event) => transaction(() async {
-        final connectionInfo = await select(connectionEvents).getSingleOrNull();
-        return into(connectionEvents).insertOnConflictUpdate(
-          ConnectionEventEntity(
-            id: 1,
-            type: event.type,
-            lastSyncAt: connectionInfo?.lastSyncAt,
-            lastEventAt: event.createdAt,
-            totalUnreadCount:
-                event.totalUnreadCount ?? connectionInfo?.totalUnreadCount,
-            ownUser: event.me?.toJson() ?? connectionInfo?.ownUser,
-            unreadChannels:
-                event.unreadChannels ?? connectionInfo?.unreadChannels,
-          ),
-        );
-      });
+    final connectionInfo = await select(connectionEvents).getSingleOrNull();
+    return into(connectionEvents).insertOnConflictUpdate(
+      ConnectionEventEntity(
+        id: 1,
+        type: event.type,
+        lastSyncAt: connectionInfo?.lastSyncAt,
+        lastEventAt: event.createdAt,
+        totalUnreadCount: event.totalUnreadCount ?? connectionInfo?.totalUnreadCount,
+        ownUser: event.me?.toJson() ?? connectionInfo?.ownUser,
+        unreadChannels: event.unreadChannels ?? connectionInfo?.unreadChannels,
+      ),
+    );
+  });
 
   /// Update stored lastSyncAt with latest data
-  Future<int> updateLastSyncAt(DateTime lastSyncAt) async =>
-      (update(connectionEvents)..where((tbl) => tbl.id.equals(1))).write(
-        ConnectionEventsCompanion(
-          lastSyncAt: Value(lastSyncAt),
-        ),
-      );
+  ///
+  /// Inserts the row if the database was reset, so the checkpoint is not lost.
+  Future<int> updateLastSyncAt(DateTime lastSyncAt) => transaction(() async {
+    final connectionInfo = await select(connectionEvents).getSingleOrNull();
+    return into(connectionEvents).insertOnConflictUpdate(
+      ConnectionEventEntity(
+        id: 1,
+        type: connectionInfo?.type ?? EventType.any,
+        lastSyncAt: lastSyncAt,
+        lastEventAt: connectionInfo?.lastEventAt,
+        totalUnreadCount: connectionInfo?.totalUnreadCount,
+        ownUser: connectionInfo?.ownUser,
+        unreadChannels: connectionInfo?.unreadChannels,
+      ),
+    );
+  });
 }

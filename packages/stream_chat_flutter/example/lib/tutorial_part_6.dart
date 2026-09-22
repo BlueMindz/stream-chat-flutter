@@ -4,37 +4,35 @@ import 'package:stream_chat_flutter/stream_chat_flutter.dart';
 
 /// Sixth step of the [tutorial](https://getstream.io/chat/flutter/tutorial/)
 ///
-/// The Flutter SDK comes with a fully designed set of widgets which you can
-/// customize to fit with your application style and typography.
-/// Changing the theme of Chat widgets works in a very similar way that
-/// [MaterialApp] and [Theme] do.
+/// The Flutter SDK ships fully designed widgets that you can theme to match
+/// your app. Theming works in two layers:
 ///
-/// All chat widgets use their own default styling out of the box. There are
-/// two ways to change the styling:
+/// 1. Design tokens — a [StreamTheme] registered as a [ThemeData] extension.
+///    Set a brand color here and Stream derives the rest of its semantic
+///    palette from the swatch automatically.
+/// 2. Per-widget overrides — a [StreamChatThemeData] passed via
+///    [StreamChat.themeData]. Tweak individual components without touching
+///    the rest of the theme.
 ///
-/// 1. Initialize the [StreamChatTheme] from your existing [MaterialApp] style
-/// 2. Construct a custom theme and provide all the customizations needed
+/// First, we register a [StreamTheme] on both [MaterialApp.theme] and
+/// [MaterialApp.darkTheme] with a custom green brand swatch. Message
+/// bubbles, sending indicators, unread badges, the composer cursor, and
+/// other accents pick up the new tone in one go.
 ///
-/// First, we create a new Material [Theme] and pick [Colors.green] as the
-/// swatch color. The theme is then passed to [MaterialApp] as usual.
-///
-/// Then, we create a new [StreamChatTheme] from the green theme we just
-/// created. After saving the app you will see that several widgets have
-/// been updated with the new color.
-///
-/// We also change the message color posted by the current user.
-///
-/// You can perform these more granular style changes using
-/// [StreamChatTheme.copyWith].
+/// On top of that, we build a [StreamChatThemeData] override for
+/// [StreamChatThemeData.channelListItemTheme]: bold titles and a
+/// light-green tile background that reuses `greenBrand.shade100`, the
+/// same shade Stream uses for outgoing message bubbles, so the channel
+/// list and the message list share the same green tone.
 Future<void> main() async {
   final client = StreamChatClient(
-    's2dxdhpxd94g',
+    'b67pax5b2wdq',
     logLevel: Level.INFO,
   );
 
   await client.connectUser(
-    User(id: 'super-band-9'),
-    '''eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoic3VwZXItYmFuZC05In0.0L6lGoeLwkz0aZRUcpZKsvaXtNEDHBcezVTZ0oPq40A''',
+    User(id: 'tutorial-flutter'),
+    '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidHV0b3JpYWwtZmx1dHRlciJ9.S-MJpoSwDiqyXpUURgO5wVqJ4vKlIVFLSEyrFYCOE1c''',
   );
 
   runApp(
@@ -50,50 +48,43 @@ class MyApp extends StatelessWidget {
     required this.client,
   });
 
+  /// Instance of [StreamChatClient] we created earlier. This contains
+  /// information about our application and connection state.
   final StreamChatClient client;
 
   @override
   Widget build(BuildContext context) {
-    final themeData = ThemeData(
-      colorScheme: ColorScheme.fromSwatch(
-        accentColor: Colors.green,
+    final greenBrand = StreamColorSwatch.fromColor(Colors.green);
+    final greenBrandDark = StreamColorSwatch.fromColor(Colors.green, brightness: Brightness.dark);
+    final customTheme = StreamChatThemeData(
+      channelListItemTheme: StreamChannelListItemThemeData(
+        titleStyle: const TextStyle(fontWeight: FontWeight.bold),
+        backgroundColor: WidgetStateProperty.all(greenBrand.shade100),
       ),
     );
-    final defaultTheme = StreamChatThemeData.fromTheme(themeData);
-    final colorTheme = defaultTheme.colorTheme;
-    final customTheme = StreamChatThemeData(
-      channelPreviewTheme: StreamChannelPreviewThemeData(
-        avatarTheme: StreamAvatarThemeData(
-          borderRadius: BorderRadius.circular(8),
-        ),
-      ),
-      messageListViewTheme: const StreamMessageListViewThemeData(
-        backgroundColor: Colors.grey,
-        backgroundImage: DecorationImage(
-          image: AssetImage('assets/background_doodle.png'),
-          fit: BoxFit.cover,
-        ),
-      ),
-      ownMessageTheme: const StreamMessageThemeData(
-        urlAttachmentTitleMaxLine: 1,
-      ),
-      otherMessageTheme: StreamMessageThemeData(
-        messageBackgroundColor: colorTheme.textHighEmphasis,
-        messageTextStyle: TextStyle(
-          color: colorTheme.barsBg,
-        ),
-        avatarTheme: StreamAvatarThemeData(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        urlAttachmentTitleMaxLine: 1,
-      ),
-    ).merge(defaultTheme);
 
     return MaterialApp(
-      theme: themeData,
+      theme: ThemeData(
+        brightness: Brightness.light,
+        extensions: [
+          StreamTheme(
+            brightness: Brightness.light,
+            colorScheme: StreamColorScheme.light(brand: greenBrand),
+          ),
+        ],
+      ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        extensions: [
+          StreamTheme(
+            brightness: Brightness.dark,
+            colorScheme: StreamColorScheme.dark(brand: greenBrandDark),
+          ),
+        ],
+      ),
       builder: (context, child) => StreamChat(
         client: client,
-        streamChatThemeData: customTheme,
+        themeData: customTheme,
         child: child,
       ),
       home: const ChannelListPage(),
@@ -101,6 +92,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+/// Displays the list of channels for the current user.
 class ChannelListPage extends StatefulWidget {
   const ChannelListPage({
     super.key,
@@ -129,7 +121,11 @@ class _ChannelListPageState extends State<ChannelListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.streamColorScheme;
+
     return Scaffold(
+      backgroundColor: colorScheme.backgroundApp,
+      appBar: const StreamChannelListHeader(),
       body: StreamChannelListView(
         controller: _listController,
         onChannelTap: (channel) {
@@ -147,6 +143,7 @@ class _ChannelListPageState extends State<ChannelListPage> {
   }
 }
 
+/// Displays the list of messages inside the channel.
 class ChannelPage extends StatelessWidget {
   const ChannelPage({
     super.key,
@@ -154,49 +151,70 @@ class ChannelPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.streamColorScheme;
+
     return Scaffold(
+      backgroundColor: colorScheme.backgroundApp,
       appBar: const StreamChannelHeader(),
       body: Column(
         children: <Widget>[
           Expanded(
             child: StreamMessageListView(
               threadBuilder: (_, parentMessage) => ThreadPage(
-                parent: parentMessage,
+                parent: parentMessage!,
               ),
             ),
           ),
-          const StreamMessageInput(),
+          StreamMessageComposer(),
         ],
       ),
     );
   }
 }
 
-class ThreadPage extends StatelessWidget {
+/// Displays the thread replies for a parent message.
+class ThreadPage extends StatefulWidget {
   const ThreadPage({
     super.key,
-    this.parent,
+    required this.parent,
   });
 
-  final Message? parent;
+  /// The root message this thread is replying to.
+  final Message parent;
+
+  @override
+  State<ThreadPage> createState() => _ThreadPageState();
+}
+
+class _ThreadPageState extends State<ThreadPage> {
+  late final _controller = StreamMessageComposerController(
+    message: Message(parentId: widget.parent.id),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.streamColorScheme;
+
     return Scaffold(
+      backgroundColor: colorScheme.backgroundApp,
       appBar: StreamThreadHeader(
-        parent: parent!,
+        parent: widget.parent,
       ),
       body: Column(
         children: <Widget>[
           Expanded(
             child: StreamMessageListView(
-              parentMessage: parent,
+              parentMessage: widget.parent,
             ),
           ),
-          StreamMessageInput(
-            messageInputController: StreamMessageInputController(
-              message: Message(parentId: parent!.id),
-            ),
+          StreamMessageComposer(
+            messageComposerController: _controller,
           ),
         ],
       ),

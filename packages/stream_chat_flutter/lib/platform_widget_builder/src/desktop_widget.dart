@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
-import 'package:stream_chat_flutter/platform_widget_builder/src/desktop_widget_base.dart';
-import 'package:stream_chat_flutter/src/misc/empty_widget.dart';
+
+import '../../src/misc/empty_widget.dart';
+import 'desktop_widget_base.dart';
 
 /// A widget that will only be built for the specified desktop Platforms.
 ///
@@ -26,14 +27,11 @@ class DesktopWidget extends DesktopWidgetBase<Widget, Widget, Widget> {
   final PlatformBuilder<Widget?>? linux;
 
   @override
-  Widget createMacosWidget(BuildContext context) =>
-      macOS?.call(context) ?? const Empty();
+  Widget createMacosWidget(BuildContext context) => macOS?.call(context) ?? const Empty();
 
   @override
-  Widget createWindowsWidget(BuildContext context) =>
-      windows?.call(context) ?? const Empty();
+  Widget createWindowsWidget(BuildContext context) => windows?.call(context) ?? const Empty();
 
   @override
-  Widget createLinuxWidget(BuildContext context) =>
-      linux?.call(context) ?? const Empty();
+  Widget createLinuxWidget(BuildContext context) => linux?.call(context) ?? const Empty();
 }

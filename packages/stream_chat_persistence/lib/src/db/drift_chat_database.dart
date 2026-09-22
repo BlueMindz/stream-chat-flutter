@@ -1,18 +1,19 @@
 import 'package:drift/drift.dart';
 import 'package:stream_chat/stream_chat.dart';
-import 'package:stream_chat_persistence/src/converter/converter.dart';
-import 'package:stream_chat_persistence/src/dao/dao.dart';
-import 'package:stream_chat_persistence/src/entity/entity.dart';
+import '../converter/converter.dart';
+import '../dao/dao.dart';
+import '../entity/entity.dart';
 
 export 'shared/shared_db.dart';
 
 part 'drift_chat_database.g.dart';
 
-/// A chat database implemented using moor
+/// A chat database implemented using drift
 @DriftDatabase(
   tables: [
     Channels,
     DraftMessages,
+    Locations,
     Messages,
     PinnedMessages,
     Polls,
@@ -23,6 +24,7 @@ part 'drift_chat_database.g.dart';
     Members,
     Reads,
     ChannelQueries,
+    ChannelQueriesMetadata,
     ConnectionEvents,
   ],
   daos: [
@@ -30,6 +32,7 @@ part 'drift_chat_database.g.dart';
     ChannelDao,
     MessageDao,
     DraftMessageDao,
+    LocationDao,
     PinnedMessageDao,
     PinnedMessageReactionDao,
     MemberDao,
@@ -55,22 +58,26 @@ class DriftChatDatabase extends _$DriftChatDatabase {
 
   // you should bump this number whenever you change or add a table definition.
   @override
-  int get schemaVersion => 27;
+  int get schemaVersion => 1000 + 35;
+
+  // Store DateTime as ISO-8601 text to preserve sub-second precision.
+  @override
+  DriftDatabaseOptions get options => const DriftDatabaseOptions(storeDateTimeAsText: true);
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        beforeOpen: (details) async {
-          await customStatement('PRAGMA foreign_keys = ON');
-        },
-        onUpgrade: (migrator, from, to) async {
-          if (from != to) {
-            for (final table in allTables) {
-              await migrator.deleteTable(table.actualTableName);
-            }
-            await migrator.createAll();
-          }
-        },
-      );
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+    onUpgrade: (migrator, from, to) async {
+      if (from != to) {
+        for (final table in allTables) {
+          await migrator.deleteTable(table.actualTableName);
+        }
+        await migrator.createAll();
+      }
+    },
+  );
 
   /// Deletes all the tables
   Future<void> flush() async {

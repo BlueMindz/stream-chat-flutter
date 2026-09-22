@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:stream_chat/stream_chat.dart';
-import 'package:stream_chat_persistence/src/db/drift_chat_database.dart';
+import 'db/drift_chat_database.dart';
 
 /// Various connection modes on which [StreamChatPersistenceClient] can work
 enum ConnectionMode {
@@ -25,7 +25,7 @@ class StreamChatPersistenceClient extends ChatPersistenceClient {
   /// Creates a new instance of the stream chat persistence client
   StreamChatPersistenceClient({
     /// Connection mode on which the client will work
-    ConnectionMode connectionMode = ConnectionMode.regular,
+    this._connectionMode = ConnectionMode.regular,
     Level logLevel = Level.WARNING,
 
     /// Whether to use an experimental storage implementation on the web
@@ -33,9 +33,8 @@ class StreamChatPersistenceClient extends ChatPersistenceClient {
     /// Otherwise, falls back to the local storage based implementation.
     bool webUseExperimentalIndexedDb = false,
     LogHandlerFunction? logHandlerFunction,
-  })  : _connectionMode = connectionMode,
-        _webUseIndexedDbIfSupported = webUseExperimentalIndexedDb,
-        _logger = Logger.detached('💽')..level = logLevel {
+  }) : _webUseIndexedDbIfSupported = webUseExperimentalIndexedDb,
+       _logger = Logger.detached('💽')..level = logLevel {
     _logger.onRecord.listen(logHandlerFunction ?? _defaultLogHandler);
   }
 
@@ -72,12 +71,11 @@ class StreamChatPersistenceClient extends ChatPersistenceClient {
   Future<DriftChatDatabase> _defaultDatabaseProvider(
     String userId,
     ConnectionMode mode,
-  ) =>
-      SharedDB.constructDatabase(
-        userId,
-        connectionMode: mode,
-        webUseIndexedDbIfSupported: _webUseIndexedDbIfSupported,
-      );
+  ) => SharedDB.constructDatabase(
+    userId,
+    connectionMode: mode,
+    webUseIndexedDbIfSupported: _webUseIndexedDbIfSupported,
+  );
 
   @override
   bool get isConnected => db != null;
@@ -97,8 +95,7 @@ class StreamChatPersistenceClient extends ChatPersistenceClient {
       );
     }
     _logger.info('connect');
-    db = databaseProvider?.call(userId, _connectionMode) ??
-        await _defaultDatabaseProvider(userId, _connectionMode);
+    db = databaseProvider?.call(userId, _connectionMode) ?? await _defaultDatabaseProvider(userId, _connectionMode);
   }
 
   @override
@@ -212,6 +209,32 @@ class StreamChatPersistenceClient extends ChatPersistenceClient {
   }
 
   @override
+  Future<void> deleteMessagesFromUser({
+    String? cid,
+    required String userId,
+    bool hardDelete = false,
+    DateTime? deletedAt,
+  }) async {
+    assert(_debugIsConnected, '');
+    _logger.info('deleteMessagesFromUser');
+
+    // Delete from both messages and pinned_messages tables
+    await Future.wait(
+      [
+        db!.messageDao.deleteMessagesByUser,
+        db!.pinnedMessageDao.deleteMessagesByUser,
+      ].map(
+        (f) => f.call(
+          cid: cid,
+          userId: userId,
+          hardDelete: hardDelete,
+          deletedAt: deletedAt,
+        ),
+      ),
+    );
+  }
+
+  @override
   Future<Draft?> getDraftMessageByCid(
     String cid, {
     String? parentId,
@@ -222,6 +245,20 @@ class StreamChatPersistenceClient extends ChatPersistenceClient {
       cid,
       parentId: parentId,
     );
+  }
+
+  @override
+  Future<List<Location>> getLocationsByCid(String cid) async {
+    assert(_debugIsConnected, '');
+    _logger.info('getLocationsByCid');
+    return db!.locationDao.getLocationsByCid(cid);
+  }
+
+  @override
+  Future<Location?> getLocationByMessageId(String messageId) async {
+    assert(_debugIsConnected, '');
+    _logger.info('getLocationByMessageId');
+    return db!.locationDao.getLocationByMessageId(messageId);
   }
 
   @override
@@ -261,48 +298,160 @@ class StreamChatPersistenceClient extends ChatPersistenceClient {
     );
   }
 
+  /// Drift-backed implementation of
+  /// [ChatPersistenceClient.getChannelStates].
+  @Deprecated('Use queryChannelStates instead')
   @override
   Future<List<ChannelState>> getChannelStates({
     Filter? filter,
     SortOrder<ChannelState>? channelStateSort,
+    int? messageLimit,
+    PaginationParams? paginationParams,
+  }) async {
+    final res = await queryChannelStates(
+      filter: filter,
+      sort: channelStateSort,
+      messageLimit: messageLimit,
+      paginationParams: paginationParams,
+    );
+    return res.channels;
+  }
+
+  /// Drift-backed implementation of
+  /// [ChatPersistenceClient.queryChannelStates].
+  @override
+  Future<QueryChannelsResponse> queryChannelStates({
+    Filter? filter,
+    SortOrder<ChannelState>? sort,
+    String? predefinedFilter,
+    Map<String, Object?>? filterValues,
+    Map<String, Object?>? sortValues,
+    int? messageLimit,
     PaginationParams? paginationParams,
   }) async {
     assert(_debugIsConnected, '');
-    _logger.info('getChannelStates');
+    _logger.info('queryChannelStates');
+    if (predefinedFilter != null) {
+      final (channelModels, resolvedFilter, resolvedSort) = await db!.channelQueryDao
+          .getChannelsAndSpecByPredefinedFilter(
+            predefinedFilter,
+            filterValues: filterValues,
+            sortValues: sortValues,
+          );
 
-    final channels = await db!.channelQueryDao.getChannels(filter: filter);
+      final channels = await _getChannelStatesPage(
+        channelModels,
+        resolvedSort,
+        paginationParams,
+        messageLimit: messageLimit,
+      );
+      final spec = resolvedFilter == null
+          ? null
+          : PredefinedFilter(
+              name: predefinedFilter,
+              filter: resolvedFilter,
+              sort: resolvedSort,
+            );
 
-    final channelStates = await Future.wait(
-      channels.map((e) => getChannelStateByCid(e.cid)),
+      return QueryChannelsResponse()
+        ..channels = channels
+        ..predefinedFilter = spec;
+    }
+
+    final channelModels = await db!.channelQueryDao.getChannels(filter: filter);
+    final channels = await _getChannelStatesPage(
+      channelModels,
+      sort,
+      paginationParams,
+      messageLimit: messageLimit,
     );
-
-    // Sort the channel states
-    if (channelStateSort != null && channelStateSort.isNotEmpty) {
-      channelStates.sort(channelStateSort.compare);
-    }
-
-    // Apply offset
-    if (paginationParams?.offset case final paginationOffset?) {
-      final clampedOffset = paginationOffset.clamp(0, channelStates.length);
-      channelStates.removeRange(0, clampedOffset);
-    }
-
-    // Apply limit
-    if (paginationParams?.limit case final paginationLimit?) {
-      return channelStates.take(paginationLimit).toList();
-    }
-
-    return channelStates;
+    return QueryChannelsResponse()..channels = channels;
   }
 
+  // Wraps channel models in sort envelopes, attaches memberships when the
+  // sort needs them, sorts, slices the requested page, and hydrates only the
+  // page with full channel state.
+  Future<List<ChannelState>> _getChannelStatesPage(
+    List<ChannelModel> channelModels,
+    SortOrder<ChannelState>? channelStateSort,
+    PaginationParams? paginationParams, {
+    int? messageLimit,
+  }) async {
+    // 1) Wrap each model in a sort envelope. No state loaded yet.
+    var envelopes = channelModels.map((m) => ChannelState(channel: m)).toList(growable: false);
+
+    // 2) If sort uses `pinnedAt`, preload the current user's memberships in
+    //    one batched query and attach them to the envelopes.
+    final clientUserId = userId;
+    if (clientUserId != null && _sortRequiresMembership(channelStateSort)) {
+      envelopes = await _attachMemberships(envelopes, clientUserId);
+    }
+
+    // 3) Sort using the comparator — on envelopes instead of fully-hydrated
+    //    states.
+    if (channelStateSort != null && channelStateSort.isNotEmpty) {
+      envelopes.sort(channelStateSort.compare);
+    }
+
+    // 4) Slice the page.
+    final total = envelopes.length;
+    final offset = (paginationParams?.offset ?? 0).clamp(0, total);
+    final limit = paginationParams?.limit ?? (total - offset);
+    final pagedCids = envelopes.skip(offset).take(limit).map((s) => s.channel!.cid).toList();
+
+    // 5) Hydrate ONLY the page.
+    final messagePagination = PaginationParams(
+      // Default limit is set to 25 in backend.
+      limit: messageLimit ?? 25,
+    );
+    return Future.wait(pagedCids.map((cid) => getChannelStateByCid(cid, messagePagination: messagePagination)));
+  }
+
+  /// Drift-backed implementation of
+  /// [ChatPersistenceClient.updateChannelQueries].
+  @Deprecated('Use saveChannelQueries instead')
   @override
   Future<void> updateChannelQueries(
     Filter? filter,
     List<String> cids, {
     bool clearQueryCache = false,
   }) {
+    return saveChannelQueries(
+      cids: cids,
+      filter: filter,
+      clearQueryCache: clearQueryCache,
+    );
+  }
+
+  /// Drift-backed implementation of
+  /// [ChatPersistenceClient.saveChannelQueries].
+  @override
+  Future<void> saveChannelQueries({
+    required List<String> cids,
+    Filter? filter,
+    SortOrder<ChannelState>? sort,
+    String? predefinedFilter,
+    Filter? resolvedFilter,
+    SortOrder<ChannelState>? resolvedSort,
+    Map<String, Object?>? filterValues,
+    Map<String, Object?>? sortValues,
+    bool clearQueryCache = false,
+  }) {
     assert(_debugIsConnected, '');
-    _logger.info('updateChannelQueries');
+    _logger.info('saveChannelQueries');
+    if (predefinedFilter != null) {
+      return db!.channelQueryDao.updateChannelQueriesByPredefinedFilter(
+        predefinedFilter,
+        cids,
+        filter: resolvedFilter ?? const Filter.empty(),
+        sort: resolvedSort ?? const [],
+        filterValues: filterValues,
+        sortValues: sortValues,
+        clearQueryCache: clearQueryCache,
+      );
+    }
+    // Standard path's DAO hash currently keys on `filter` only; `sort` is
+    // accepted at the public API but not consumed here.
     return db!.channelQueryDao.updateChannelQueries(
       filter,
       cids,
@@ -395,6 +544,13 @@ class StreamChatPersistenceClient extends ChatPersistenceClient {
   }
 
   @override
+  Future<void> updateLocations(List<Location> locations) async {
+    assert(_debugIsConnected, '');
+    _logger.info('updateLocations');
+    return db!.locationDao.updateLocations(locations);
+  }
+
+  @override
   Future<void> deletePinnedMessageReactionsByMessageId(
     List<String> messageIds,
   ) {
@@ -445,6 +601,20 @@ class StreamChatPersistenceClient extends ChatPersistenceClient {
   }
 
   @override
+  Future<void> deleteLocationsByCid(String cid) {
+    assert(_debugIsConnected, '');
+    _logger.info('deleteLocationsByCid');
+    return db!.locationDao.deleteLocationsByCid(cid);
+  }
+
+  @override
+  Future<void> deleteLocationsByMessageIds(List<String> messageIds) {
+    assert(_debugIsConnected, '');
+    _logger.info('deleteLocationsByMessageIds');
+    return db!.locationDao.deleteLocationsByMessageIds(messageIds);
+  }
+
+  @override
   Future<void> updateChannelThreads(
     String cid,
     Map<String, List<Message>> threads,
@@ -480,5 +650,22 @@ class StreamChatPersistenceClient extends ChatPersistenceClient {
       await db!.disconnect();
       db = null;
     }
+  }
+
+  bool _sortRequiresMembership(SortOrder<ChannelState>? sort) =>
+      sort?.any((opt) => opt.field == ChannelSortKey.pinnedAt) ?? false;
+
+  Future<List<ChannelState>> _attachMemberships(
+    List<ChannelState> envelopes,
+    String currentUserId,
+  ) async {
+    final cids = envelopes.map((s) => s.channel?.cid).whereType<String>().toList(growable: false);
+    final memberships = await db!.memberDao.getMembershipsForChannels(
+      cids,
+      currentUserId,
+    );
+    return [
+      for (final s in envelopes) s.copyWith(membership: memberships[s.channel?.cid]),
+    ];
   }
 }

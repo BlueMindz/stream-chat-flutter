@@ -4,8 +4,8 @@
 
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
-import 'package:stream_chat_flutter/scrollable_positioned_list/src/viewport.dart';
-import 'package:stream_chat_flutter/scrollable_positioned_list/src/wrapping.dart';
+import 'viewport.dart';
+import 'wrapping.dart';
 
 /// {@template unbounded_custom_scroll_view}
 /// A version of [CustomScrollView] that allows does not constrict the extents
@@ -28,9 +28,9 @@ class UnboundedCustomScrollView extends CustomScrollView {
     super.semanticChildCount,
     super.dragStartBehavior,
     super.keyboardDismissBehavior,
-  })  : _shrinkWrap = shrinkWrap,
-        _anchor = anchor,
-        super(shrinkWrap: false);
+  }) : _shrinkWrap = shrinkWrap,
+       _anchor = anchor,
+       super(shrinkWrap: false);
 
   final bool _shrinkWrap;
 

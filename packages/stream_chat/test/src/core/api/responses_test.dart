@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:stream_chat/src/core/models/call_payload.dart';
 import 'package:stream_chat/stream_chat.dart';
 import 'package:test/test.dart';
 
@@ -3305,8 +3304,7 @@ void main() {
       const jsonExample = '''
       {"reactions": [{"message_id": "4637f7e4-a06b-42db-ba5a-8d8270dd926f","user_id": "c1c9b454-2bcc-402d-8bb0-2f3706ce1680","user": {"id": "c1c9b454-2bcc-402d-8bb0-2f3706ce1680","role": "user","created_at": "2020-01-28T22:17:30.83015Z","updated_at": "2020-01-28T22:17:31.19435Z","banned": false,"online": false,"image": "https://randomuser.me/api/portraits/women/2.jpg","name": "Mia Denys"},"type": "love","score": 1,"created_at": "2020-01-28T22:17:31.128376Z","updated_at": "2020-01-28T22:17:31.128376Z"}]}
       ''';
-      final response =
-          QueryReactionsResponse.fromJson(json.decode(jsonExample));
+      final response = QueryReactionsResponse.fromJson(json.decode(jsonExample));
       expect(response.reactions, isA<List<Reaction>>());
     });
 
@@ -3413,14 +3411,12 @@ void main() {
           }]
           }
       ''';
-      final response =
-          SearchMessagesResponse.fromJson(json.decode(jsonExample));
+      final response = SearchMessagesResponse.fromJson(json.decode(jsonExample));
       expect(response.results, isA<List<GetMessageResponse>>());
     });
 
     test('ListDevicesResponse', () {
-      const jsonExample =
-          '''{"devices":[{"push_provider":"firebase","id":"test"}],"duration":"0.35ms"}''';
+      const jsonExample = '''{"devices":[{"push_provider":"firebase","id":"test"}],"duration":"0.35ms"}''';
       final response = ListDevicesResponse.fromJson(json.decode(jsonExample));
       expect(response.devices, isA<List<Device>>());
     });
@@ -3518,8 +3514,7 @@ void main() {
     test('ConnectGuestUserResponse', () {
       const jsonExample =
           '''{"user":{"id":"guest-ac612aee-25fe-49fb-b1af-969e41f452a0-wild-breeze-7","role":"guest","created_at":"2020-02-03T10:19:01.538434Z","updated_at":"2020-02-03T10:19:01.539543Z","banned":false,"online":false},"access_token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiZ3Vlc3QtYWM2MTJhZWUtMjVmZS00OWZiLWIxYWYtOTY5ZTQxZjQ1MmEwLXdpbGQtYnJlZXplLTcifQ.mmoFGu7oJjpFsp7nFN78UbIpO7gowbuIbyoppsuvbXA","duration":"4.66ms"}''';
-      final response =
-          ConnectGuestUserResponse.fromJson(json.decode(jsonExample));
+      final response = ConnectGuestUserResponse.fromJson(json.decode(jsonExample));
       expect(response.user, isA<User>());
       expect(response.accessToken, isA<String>());
     });
@@ -3551,8 +3546,7 @@ void main() {
                     "updated_at": "2020-01-28T22:17:31.092262Z",
                     "mentioned_users": []
                 }],"duration":"4.66ms"}''';
-      final response =
-          GetMessagesByIdResponse.fromJson(json.decode(jsonExample));
+      final response = GetMessagesByIdResponse.fromJson(json.decode(jsonExample));
       expect(response.messages, isA<List<Message>>());
     });
 
@@ -4364,37 +4358,6 @@ void main() {
       expect(response.message, isA<Message>());
     });
 
-    test('CallTokenPayload', () {
-      const jsonExample = '''
-      {"duration": "3ms",
-      "agora_app_id":"test",
-      "agora_uid": 12,
-      "token": "token"}
-      ''';
-
-      // ignore: deprecated_member_use_from_same_package
-      final response = CallTokenPayload.fromJson(json.decode(jsonExample));
-      expect(response.agoraAppId, isA<String>());
-      expect(response.agoraUid, isA<int>());
-      expect(response.token, isA<String>());
-    }, skip: 'Deprecated, Will be removed in the next major version');
-
-    test('CreateCallPayload', () {
-      const jsonExample = '''
-      {"call": 
-      {"id":"test",
-      "provider": "test",
-      "agora": {"channel":"test"},
-      "hms":{"room_id":"test", "room_name":"test"}
-      }}
-      ''';
-
-      // ignore: deprecated_member_use_from_same_package
-      final response = CreateCallPayload.fromJson(json.decode(jsonExample));
-      // ignore: deprecated_member_use_from_same_package
-      expect(response.call, isA<CallPayload>());
-    }, skip: 'Deprecated, Will be removed in the next major version');
-
     test('UserBlockResponse', () {
       const jsonExample = '''
       {
@@ -4457,7 +4420,8 @@ void main() {
           },
           "user2": {
             "chat_level": "none"
-          }
+          },
+          "user3": null
         },
         "user_channel_preferences": {
           "user1": {
@@ -4482,7 +4446,10 @@ void main() {
       );
 
       expect(response.userPreferences, isA<Map<String, PushPreference>>());
+      // user3 had a `null` value in the response (no user-global prefs were
+      // touched by the upsert) — should be filtered outs.
       expect(response.userPreferences, hasLength(2));
+      expect(response.userPreferences.containsKey('user3'), isFalse);
 
       // Test user1 preferences
       final user1Prefs = response.userPreferences['user1']!;
@@ -4506,8 +4473,7 @@ void main() {
 
       final channel1Prefs = user1ChannelPrefs['channel1']!;
       expect(channel1Prefs.chatLevel, ChatLevel.all);
-      expect(
-          channel1Prefs.disabledUntil, DateTime.parse('2024-12-31T23:59:59Z'));
+      expect(channel1Prefs.disabledUntil, DateTime.parse('2024-12-31T23:59:59Z'));
 
       final channel2Prefs = user1ChannelPrefs['channel2']!;
       expect(channel2Prefs.chatLevel, ChatLevel.none);
@@ -4518,6 +4484,292 @@ void main() {
 
       final channel3Prefs = user2ChannelPrefs['channel3']!;
       expect(channel3Prefs.chatLevel, ChatLevel.mentions);
+    });
+
+    test('ListUserGroupsResponse', () {
+      const jsonExample = '''
+      {
+        "user_groups": [
+          {
+            "id": "g1",
+            "name": "Group 1",
+            "description": "First group",
+            "team_id": "team-1",
+            "created_by": "user-1",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-02T00:00:00Z"
+          },
+          {
+            "id": "g2",
+            "name": "Group 2",
+            "created_at": "2024-02-01T00:00:00Z",
+            "updated_at": "2024-02-02T00:00:00Z"
+          }
+        ],
+        "duration": "0.35ms"
+      }''';
+      final response = ListUserGroupsResponse.fromJson(json.decode(jsonExample));
+      expect(response.userGroups, isA<List<UserGroup>>());
+      expect(response.userGroups, hasLength(2));
+
+      final first = response.userGroups.first;
+      expect(first.id, 'g1');
+      expect(first.name, 'Group 1');
+      expect(first.description, 'First group');
+      expect(first.teamId, 'team-1');
+      expect(first.createdBy, 'user-1');
+      expect(first.members, isNull);
+      expect(first.createdAt, DateTime.parse('2024-01-01T00:00:00Z'));
+      expect(first.updatedAt, DateTime.parse('2024-01-02T00:00:00Z'));
+
+      final last = response.userGroups.last;
+      expect(last.id, 'g2');
+      expect(last.name, 'Group 2');
+      expect(last.description, isNull);
+      expect(last.teamId, isNull);
+      expect(last.createdBy, isNull);
+    });
+
+    test('SearchUserGroupsResponse', () {
+      const jsonExample = '''
+      {
+        "user_groups": [
+          {
+            "id": "g1",
+            "name": "Group 1",
+            "description": "First group",
+            "team_id": "team-1",
+            "created_by": "user-1",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-02T00:00:00Z"
+          }
+        ],
+        "duration": "0.35ms"
+      }''';
+      final response = SearchUserGroupsResponse.fromJson(json.decode(jsonExample));
+      expect(response.userGroups, isA<List<UserGroup>>());
+      expect(response.userGroups, hasLength(1));
+
+      final group = response.userGroups.first;
+      expect(group.id, 'g1');
+      expect(group.name, 'Group 1');
+      expect(group.description, 'First group');
+      expect(group.teamId, 'team-1');
+      expect(group.createdBy, 'user-1');
+      expect(group.members, isNull);
+      expect(group.createdAt, DateTime.parse('2024-01-01T00:00:00Z'));
+      expect(group.updatedAt, DateTime.parse('2024-01-02T00:00:00Z'));
+    });
+
+    test('GetUserGroupResponse', () {
+      const jsonExample = '''
+      {
+        "user_group": {
+          "id": "g1",
+          "name": "Group 1",
+          "description": "First group",
+          "team_id": "team-1",
+          "created_by": "user-1",
+          "members": [
+            {
+              "group_id": "g1",
+              "user_id": "user-1",
+              "is_admin": true,
+              "created_at": "2024-01-03T00:00:00Z"
+            }
+          ],
+          "created_at": "2024-01-01T00:00:00Z",
+          "updated_at": "2024-01-02T00:00:00Z"
+        },
+        "duration": "0.35ms"
+      }''';
+      final response = GetUserGroupResponse.fromJson(json.decode(jsonExample));
+      expect(response.userGroup, isA<UserGroup>());
+
+      final group = response.userGroup;
+      expect(group.id, 'g1');
+      expect(group.name, 'Group 1');
+      expect(group.description, 'First group');
+      expect(group.teamId, 'team-1');
+      expect(group.createdBy, 'user-1');
+      expect(group.createdAt, DateTime.parse('2024-01-01T00:00:00Z'));
+      expect(group.updatedAt, DateTime.parse('2024-01-02T00:00:00Z'));
+
+      expect(group.members, isA<List<UserGroupMember>>());
+      expect(group.members, hasLength(1));
+      final member = group.members!.first;
+      expect(member.groupId, 'g1');
+      expect(member.userId, 'user-1');
+      expect(member.isAdmin, isTrue);
+      expect(member.createdAt, DateTime.parse('2024-01-03T00:00:00Z'));
+    });
+
+    test('CreateUserGroupResponse', () {
+      const jsonExample = '''
+      {
+        "user_group": {
+          "id": "g1",
+          "name": "Group 1",
+          "description": "First group",
+          "team_id": "team-1",
+          "created_by": "user-1",
+          "created_at": "2024-01-01T00:00:00Z",
+          "updated_at": "2024-01-02T00:00:00Z"
+        },
+        "duration": "0.35ms"
+      }''';
+      final response = CreateUserGroupResponse.fromJson(json.decode(jsonExample));
+      expect(response.userGroup, isA<UserGroup>());
+
+      final group = response.userGroup;
+      expect(group.id, 'g1');
+      expect(group.name, 'Group 1');
+      expect(group.description, 'First group');
+      expect(group.teamId, 'team-1');
+      expect(group.createdBy, 'user-1');
+      expect(group.members, isNull);
+      expect(group.createdAt, DateTime.parse('2024-01-01T00:00:00Z'));
+      expect(group.updatedAt, DateTime.parse('2024-01-02T00:00:00Z'));
+    });
+
+    test('UpdateUserGroupResponse', () {
+      const jsonExample = '''
+      {
+        "user_group": {
+          "id": "g1",
+          "name": "Renamed Group",
+          "description": "Updated description",
+          "team_id": "team-1",
+          "created_by": "user-1",
+          "created_at": "2024-01-01T00:00:00Z",
+          "updated_at": "2024-01-03T00:00:00Z"
+        },
+        "duration": "0.35ms"
+      }''';
+      final response = UpdateUserGroupResponse.fromJson(json.decode(jsonExample));
+      expect(response.userGroup, isA<UserGroup>());
+
+      final group = response.userGroup;
+      expect(group.id, 'g1');
+      expect(group.name, 'Renamed Group');
+      expect(group.description, 'Updated description');
+      expect(group.teamId, 'team-1');
+      expect(group.createdBy, 'user-1');
+      expect(group.members, isNull);
+      expect(group.createdAt, DateTime.parse('2024-01-01T00:00:00Z'));
+      expect(group.updatedAt, DateTime.parse('2024-01-03T00:00:00Z'));
+    });
+
+    test('AddUserGroupMembersResponse', () {
+      const jsonExample = '''
+      {
+        "user_group": {
+          "id": "g1",
+          "name": "Group 1",
+          "team_id": "team-1",
+          "created_by": "user-1",
+          "members": [
+            {
+              "group_id": "g1",
+              "user_id": "user-1",
+              "is_admin": false,
+              "created_at": "2024-01-03T00:00:00Z"
+            },
+            {
+              "group_id": "g1",
+              "user_id": "user-2",
+              "is_admin": true,
+              "created_at": "2024-01-03T00:00:00Z"
+            }
+          ],
+          "created_at": "2024-01-01T00:00:00Z",
+          "updated_at": "2024-01-03T00:00:00Z"
+        },
+        "duration": "0.35ms"
+      }''';
+      final response = AddUserGroupMembersResponse.fromJson(json.decode(jsonExample));
+      expect(response.userGroup, isA<UserGroup>());
+
+      final group = response.userGroup;
+      expect(group.id, 'g1');
+      expect(group.name, 'Group 1');
+      expect(group.teamId, 'team-1');
+      expect(group.createdBy, 'user-1');
+      expect(group.createdAt, DateTime.parse('2024-01-01T00:00:00Z'));
+      expect(group.updatedAt, DateTime.parse('2024-01-03T00:00:00Z'));
+
+      expect(group.members, hasLength(2));
+      expect(group.members!.first.userId, 'user-1');
+      expect(group.members!.first.isAdmin, isFalse);
+      expect(group.members!.last.userId, 'user-2');
+      expect(group.members!.last.isAdmin, isTrue);
+    });
+
+    test('RemoveUserGroupMembersResponse', () {
+      const jsonExample = '''
+      {
+        "user_group": {
+          "id": "g1",
+          "name": "Group 1",
+          "team_id": "team-1",
+          "created_by": "user-1",
+          "members": [],
+          "created_at": "2024-01-01T00:00:00Z",
+          "updated_at": "2024-01-04T00:00:00Z"
+        },
+        "duration": "0.35ms"
+      }''';
+      final response = RemoveUserGroupMembersResponse.fromJson(json.decode(jsonExample));
+      expect(response.userGroup, isA<UserGroup>());
+
+      final group = response.userGroup;
+      expect(group.id, 'g1');
+      expect(group.name, 'Group 1');
+      expect(group.teamId, 'team-1');
+      expect(group.createdBy, 'user-1');
+      expect(group.members, isEmpty);
+      expect(group.createdAt, DateTime.parse('2024-01-01T00:00:00Z'));
+      expect(group.updatedAt, DateTime.parse('2024-01-04T00:00:00Z'));
+    });
+
+    test('SearchRolesResponse', () {
+      const jsonExample = '''
+      {
+        "roles": [
+          {
+            "name": "admin",
+            "custom": false,
+            "scopes": [".app"],
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-02T00:00:00Z"
+          },
+          {
+            "name": "custom_moderator",
+            "custom": true,
+            "scopes": [".app", "messaging"],
+            "created_at": "2024-01-03T00:00:00Z",
+            "updated_at": "2024-01-04T00:00:00Z"
+          }
+        ],
+        "duration": "0.35ms"
+      }''';
+      final response = SearchRolesResponse.fromJson(json.decode(jsonExample));
+      expect(response.roles, isA<List<Role>>());
+      expect(response.roles, hasLength(2));
+
+      final first = response.roles.first;
+      expect(first.name, 'admin');
+      expect(first.custom, isFalse);
+      expect(first.scopes, ['.app']);
+      expect(first.createdAt, DateTime.parse('2024-01-01T00:00:00Z'));
+      expect(first.updatedAt, DateTime.parse('2024-01-02T00:00:00Z'));
+
+      final last = response.roles.last;
+      expect(last.name, 'custom_moderator');
+      expect(last.custom, isTrue);
+      expect(last.scopes, ['.app', 'messaging']);
+      expect(last.createdAt, DateTime.parse('2024-01-03T00:00:00Z'));
+      expect(last.updatedAt, DateTime.parse('2024-01-04T00:00:00Z'));
     });
   });
 }

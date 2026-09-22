@@ -3,8 +3,8 @@ import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:stream_chat/stream_chat.dart' hide Success;
-import 'package:stream_chat_flutter_core/src/paged_value_notifier.dart';
-import 'package:stream_chat_flutter_core/src/stream_channel_list_event_handler.dart';
+import 'paged_value_notifier.dart';
+import 'stream_channel_list_event_handler.dart';
 
 /// The default channel page limit to load.
 const defaultChannelPagedLimit = 10;
@@ -38,6 +38,15 @@ class StreamChannelListController extends PagedValueNotifier<int, Channel> {
   ///
   /// * `sort` is the sorting used for the channels matching the filters.
   ///
+  /// * `predefinedFilter` is the name of the server-defined filter. If set, it
+  /// takes precedence over [filter] and [channelStateSort].
+  ///
+  /// `* filterValues` are the values used to interpolate placeholders in the
+  /// [predefinedFilter] filter definition on the server.
+  ///
+  /// * `sortValues` are the values used to interpolate placeholders in the
+  /// [predefinedFilter] sort definition on the server.
+  ///
   /// * `presence` sets whether you'll receive user presence updates via the
   /// websocket events.
   ///
@@ -51,12 +60,16 @@ class StreamChannelListController extends PagedValueNotifier<int, Channel> {
     StreamChannelListEventHandler? eventHandler,
     this.filter,
     this.channelStateSort = defaultChannelListSort,
+    this.predefinedFilter,
+    this.filterValues,
+    this.sortValues,
     this.presence = true,
     this.limit = defaultChannelPagedLimit,
     this.messageLimit,
     this.memberLimit,
-  })  : _eventHandler = eventHandler ?? StreamChannelListEventHandler(),
-        super(const PagedValue.loading());
+  }) : _eventHandler = eventHandler ?? StreamChannelListEventHandler(),
+       _resolvedChannelStateSort = channelStateSort,
+       super(const PagedValue.loading());
 
   /// Creates a [StreamChannelListController] from the passed [value].
   StreamChannelListController.fromValue(
@@ -65,11 +78,15 @@ class StreamChannelListController extends PagedValueNotifier<int, Channel> {
     StreamChannelListEventHandler? eventHandler,
     this.filter,
     this.channelStateSort = defaultChannelListSort,
+    this.predefinedFilter,
+    this.filterValues,
+    this.sortValues,
     this.presence = true,
     this.limit = defaultChannelPagedLimit,
     this.messageLimit,
     this.memberLimit,
-  }) : _eventHandler = eventHandler ?? StreamChannelListEventHandler();
+  }) : _eventHandler = eventHandler ?? StreamChannelListEventHandler(),
+       _resolvedChannelStateSort = channelStateSort;
 
   /// The client to use for the channels list.
   final StreamChatClient client;
@@ -95,6 +112,28 @@ class StreamChannelListController extends PagedValueNotifier<int, Channel> {
   /// Direction can be ascending or descending.
   final SortOrder<ChannelState>? channelStateSort;
 
+  /// The sort actually applied to incoming events. Seeded from
+  /// [channelStateSort] and overwritten whenever a query response carries a
+  /// resolved [PredefinedFilter.sort], so event-driven inserts keep matching
+  /// the server-resolved order even when callers only specify
+  /// [predefinedFilter].
+  SortOrder<ChannelState>? _resolvedChannelStateSort;
+
+  /// Identifier of a server-side predefined filter to query channels with.
+  ///
+  /// When set, the server resolves the preset and returns the materialized
+  /// channels. [filterValues] and [sortValues] interpolate placeholders in
+  /// the preset definition.
+  final String? predefinedFilter;
+
+  /// Values used to interpolate placeholders in the [predefinedFilter]
+  /// filter definition on the server.
+  final Map<String, Object?>? filterValues;
+
+  /// Values used to interpolate placeholders in the [predefinedFilter]
+  /// sort definition on the server.
+  final Map<String, Object?>? sortValues;
+
   /// If true you’ll receive user presence updates via the websocket events
   final bool presence;
 
@@ -110,17 +149,26 @@ class StreamChannelListController extends PagedValueNotifier<int, Channel> {
 
   @override
   set value(PagedValue<int, Channel> newValue) {
-    super.value = switch (channelStateSort) {
+    super.value = switch (_resolvedChannelStateSort) {
       null => newValue,
       final channelSort => newValue.maybeMap(
-          orElse: () => newValue,
-          (success) => success.copyWith(
-            items: success.items.sortedByCompare(
-              (it) => it.state!.channelState,
-              channelSort.compare,
-            ),
+        orElse: () => newValue,
+        (success) => success.copyWith(
+          items: success.items.sortedByCompare(
+            // A channel loses its state when it is disposed — e.g. a client
+            // disconnect/logout or a channel-removal event racing an
+            // in-flight query — so sort stateless channels last instead of
+            // null-asserting on them.
+            (it) => it.state?.channelState,
+            (a, b) => switch ((a, b)) {
+              (null, null) => 0,
+              (null, _) => 1,
+              (_, null) => -1,
+              (final a?, final b?) => channelSort.compare(a, b),
+            },
           ),
         ),
+      ),
     };
   }
 
@@ -131,14 +179,19 @@ class StreamChannelListController extends PagedValueNotifier<int, Channel> {
       _kDefaultBackendPaginationLimit,
     );
     try {
-      await for (final channels in client.queryChannels(
+      await for (final result in client.queryChannelsWithResult(
         filter: filter,
-        channelStateSort: channelStateSort,
+        channelStateSort: _resolvedChannelStateSort,
+        predefinedFilter: predefinedFilter,
+        filterValues: filterValues,
+        sortValues: sortValues,
         memberLimit: memberLimit,
         messageLimit: messageLimit,
         presence: presence,
         paginationParams: PaginationParams(limit: limit),
       )) {
+        _resolveSort(result);
+        final channels = result.channels;
         final nextKey = channels.length < limit ? null : channels.length;
         value = PagedValue(
           items: channels,
@@ -146,6 +199,7 @@ class StreamChannelListController extends PagedValueNotifier<int, Channel> {
         );
       }
       // start listening to events
+      if (disposed) return;
       _subscribeToChannelListEvents();
     } on StreamChatError catch (error) {
       value = PagedValue.error(error);
@@ -160,14 +214,18 @@ class StreamChannelListController extends PagedValueNotifier<int, Channel> {
     final previousValue = value.asSuccess;
 
     try {
-      await for (final channels in client.queryChannels(
+      await for (final result in client.queryChannelsWithResult(
         filter: filter,
-        channelStateSort: channelStateSort,
+        channelStateSort: _resolvedChannelStateSort,
+        predefinedFilter: predefinedFilter,
+        filterValues: filterValues,
+        sortValues: sortValues,
         memberLimit: memberLimit,
         messageLimit: messageLimit,
         presence: presence,
         paginationParams: PaginationParams(limit: limit, offset: nextPageKey),
       )) {
+        final channels = result.channels;
         final previousItems = previousValue.items;
         final newItems = previousItems + channels;
         final nextKey = channels.length < limit ? null : newItems.length;
@@ -182,6 +240,20 @@ class StreamChannelListController extends PagedValueNotifier<int, Channel> {
       final chatError = StreamChatError(error.toString());
       value = previousValue.copyWith(error: chatError);
     }
+  }
+
+  void _resolveSort(QueryChannelsResult result) {
+    final predefinedFilter = result.predefinedFilter;
+    // Update the active sort only when predefinedFilter is present,
+    // otherwise use the initially set sort.
+    if (predefinedFilter == null) return;
+    _resolvedChannelStateSort = predefinedFilter.effectiveSort;
+  }
+
+  @override
+  Future<void> refresh({bool resetValue = true}) {
+    if (resetValue) _resolvedChannelStateSort = channelStateSort;
+    return super.refresh(resetValue: resetValue);
   }
 
   /// Replaces the previously loaded channels with the passed [channels].
@@ -249,7 +321,7 @@ class StreamChannelListController extends PagedValueNotifier<int, Channel> {
       if (eventListener?.call(event) ?? false) return;
 
       final eventType = event.type;
-      if (eventType == EventType.channelDeleted) {
+      if (eventType == EventType.channelDeleted || eventType == EventType.notificationChannelDeleted) {
         _eventHandler.onChannelDeleted(event, this);
       } else if (eventType == EventType.channelHidden) {
         _eventHandler.onChannelHidden(event, this);
@@ -269,8 +341,7 @@ class StreamChannelListController extends PagedValueNotifier<int, Channel> {
         _eventHandler.onNotificationMessageNew(event, this);
       } else if (eventType == EventType.notificationRemovedFromChannel) {
         _eventHandler.onNotificationRemovedFromChannel(event, this);
-      } else if (eventType == 'user.presence.changed' ||
-          eventType == EventType.userUpdated) {
+      } else if (eventType == EventType.userPresenceChanged || eventType == EventType.userUpdated) {
         _eventHandler.onUserPresenceChanged(event, this);
       } else if (eventType == EventType.memberUpdated) {
         _eventHandler.onMemberUpdated(event, this);

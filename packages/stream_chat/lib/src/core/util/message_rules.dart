@@ -1,6 +1,7 @@
-import 'package:stream_chat/src/client/channel.dart';
-import 'package:stream_chat/src/core/models/message.dart';
-import 'package:stream_chat/src/core/models/own_user.dart';
+import '../../client/channel/channel.dart';
+import '../../client/channel/channel_capability_check.dart';
+import '../models/message.dart';
+import '../models/own_user.dart';
 
 /// Provides validation rules for message operations.
 ///
@@ -19,11 +20,21 @@ class MessageRules {
   /// * A poll
   static bool canUpload(Message message) {
     final hasText = message.text?.trim().isNotEmpty == true;
-    final hasAttachments = message.attachments.isNotEmpty;
-    final hasQuotedMessage = message.quotedMessageId != null;
-    final hasPoll = message.pollId != null;
+    if (hasText) return true;
 
-    return hasText || hasAttachments || hasQuotedMessage || hasPoll;
+    final hasAttachments = message.attachments.isNotEmpty;
+    if (hasAttachments) return true;
+
+    final hasQuotedMessage = message.quotedMessageId != null;
+    if (hasQuotedMessage) return true;
+
+    final hasSharedLocation = message.sharedLocation != null;
+    if (hasSharedLocation) return true;
+
+    final hasPoll = message.pollId != null;
+    if (hasPoll) return true;
+
+    return false;
   }
 
   /// Whether the [message] can update the channel's last message timestamp.
@@ -58,7 +69,8 @@ class MessageRules {
   /// Returns `false` for the current user's own messages, messages from muted
   /// users, silent/shadowed/ephemeral messages, thread-only replies, restricted
   /// messages, and messages already read. Also returns `false` if the channel
-  /// is muted or doesn't support read events.
+  /// is muted, or doesn't support read events unless
+  /// [Channel.usesLocalUnreadCount] is enabled for the channel.
   static bool canCountAsUnread(
     Message message,
     Channel channel,
@@ -70,8 +82,12 @@ class MessageRules {
     // Don't count if the user has disabled read receipts.
     if (!currentUser.isReadReceiptsEnabled) return false;
 
-    // Don't count if the channel doesn't support read receipts.
-    if (!channel.canUseReadReceipts) return false;
+    // Don't count if the channel doesn't support read receipts, unless local
+    // unread tracking owns the count for this channel (see
+    // [Channel.usesLocalUnreadCount]).
+    if (!channel.canUseReadReceipts && !channel.usesLocalUnreadCount) {
+      return false;
+    }
 
     // Don't count if the channel is muted.
     if (channel.isMuted) return false;

@@ -25,8 +25,8 @@ void main() {
         home: Scaffold(
           body: StreamChat(
             client: client,
-            streamChatConfigData: configData,
-            streamChatThemeData: StreamChatThemeData.light(),
+            configData: configData,
+            themeData: StreamChatThemeData(),
             child: Center(
               child: StreamDraftMessagePreviewText(
                 textStyle: textStyle,
@@ -49,6 +49,59 @@ void main() {
       await pumpDraftMessagePreview(tester, draftMessage);
 
       expect(find.text('Draft: This is a draft message'), findsOneWidget);
+    });
+  });
+
+  group('Accessibility label (formatDraftMessageSemanticsLabel)', () {
+    testWidgets('text draft — "Draft, {body}"', (tester) async {
+      final handle = tester.ensureSemantics();
+      final draftMessage = DraftMessage(text: 'Reply in progress');
+
+      await pumpDraftMessagePreview(tester, draftMessage);
+
+      expect(find.bySemanticsLabel('Draft\nReply in progress'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('attachment draft — "Draft, {type}, {caption}"', (tester) async {
+      final handle = tester.ensureSemantics();
+      final draftMessage = DraftMessage(
+        text: 'Beach day',
+        attachments: [Attachment(type: AttachmentType.image)],
+      );
+
+      await pumpDraftMessagePreview(tester, draftMessage);
+
+      expect(find.bySemanticsLabel('Draft\nPhoto\nBeach day'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('multi-attachment draft — "Draft, {count} {type}, {caption}"', (tester) async {
+      final handle = tester.ensureSemantics();
+      final draftMessage = DraftMessage(
+        text: 'Beach day',
+        attachments: [
+          Attachment(type: AttachmentType.image),
+          Attachment(type: AttachmentType.image),
+        ],
+      );
+
+      await pumpDraftMessagePreview(tester, draftMessage);
+
+      expect(find.bySemanticsLabel('Draft\n2 photos\nBeach day'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('poll draft — "Draft, Poll, {name}"', (tester) async {
+      final handle = tester.ensureSemantics();
+      final draftMessage = DraftMessage(
+        poll: Poll(id: 'p1', name: "What's for lunch?", options: const []),
+      );
+
+      await pumpDraftMessagePreview(tester, draftMessage);
+
+      expect(find.bySemanticsLabel("Draft\nPoll\nWhat's for lunch?"), findsOneWidget);
+      handle.dispose();
     });
   });
 

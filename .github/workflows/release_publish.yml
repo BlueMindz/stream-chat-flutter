@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 📚 Checkout branch
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.BOT_GITHUB_API_TOKEN }}
@@ -29,7 +29,7 @@ jobs:
         uses: dart-lang/setup-dart@v1
 
       - name: 🐦 Install Flutter
-        uses: subosito/flutter-action@v2
+        uses: ./.github/actions/setup-flutter
 
       - name: 📦 Install Tools
         run: flutter pub global activate melos
@@ -60,7 +60,7 @@ jobs:
           echo "prerelease=$is_prerelease" >> "$GITHUB_OUTPUT"
 
       - name: 🚀 Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           tag_name: ${{ steps.extract_version.outputs.tag }}

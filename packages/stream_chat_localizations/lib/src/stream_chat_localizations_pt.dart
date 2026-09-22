@@ -1,9 +1,14 @@
+// ignore_for_file: lines_longer_than_80_chars
+
 part of 'stream_chat_localizations.dart';
 
 /// The translations for Portuguese (`pt`).
 class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   /// Create an instance of the translation bundle for Portuguese.
   const StreamChatLocalizationsPt({super.localeName = 'pt'});
+
+  @override
+  AccessibilityTranslations get accessibility => _AccessibilityTranslationsPt(localeName: localeName);
 
   @override
   String get launchUrlError => 'O URL não pôde ser aberto';
@@ -40,6 +45,9 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   String get threadReplyLabel => 'Responder na conversa';
 
   @override
+  String get threadLabel => 'Conversa';
+
+  @override
   String get onlyVisibleToYouText => 'Visível apenas para você';
 
   @override
@@ -47,10 +55,9 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
 
   @override
   String attachmentsUploadProgressText({
-    required int remaining,
+    required int completed,
     required int total,
-  }) =>
-      'Tranferência em andamento $remaining/$total ...';
+  }) => 'Enviados $completed de $total ...';
 
   @override
   String pinnedByUserText({
@@ -63,14 +70,13 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   }
 
   @override
-  String get emptyMessagesText => 'Não há mensagens';
+  String get emptyMessagesText => 'Ainda não há mensagens';
 
   @override
   String get genericErrorText => 'Ocorreu um problema';
 
   @override
-  String get loadingMessagesError =>
-      'Ocorreu um problema ao carregar a mensagem';
+  String get loadingMessagesError => 'Ocorreu um problema ao carregar a mensagem';
 
   @override
   String resultCountText(int count) => '$count resultados';
@@ -109,8 +115,7 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   String get reconnectingLabel => 'Reconectando...';
 
   @override
-  String get alsoSendAsDirectMessageLabel =>
-      'Enviar também como mensagem direta';
+  String get alsoSendAsDirectMessageLabel => 'Enviar também como mensagem direta';
 
   @override
   String get addACommentOrSendLabel => 'Adicionar um comnetário ou enviar';
@@ -119,10 +124,19 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   String get searchGifLabel => 'Pesquisar GIFs';
 
   @override
-  String get writeAMessageLabel => 'Escrever uma mensagem';
+  String get writeAMessageLabel => 'Enviar uma mensagem';
 
   @override
   String get instantCommandsLabel => 'Comandos instantâneos';
+
+  @override
+  String get commandUnavailableWhileEditingError => 'Not available while editing';
+
+  @override
+  String get commandUnavailableWhileQuotingError => 'Not available while replying';
+
+  @override
+  String get commandUnavailableError => 'Command not available';
 
   @override
   String fileTooLargeAfterCompressionError(double limitInMB) =>
@@ -136,8 +150,13 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
       'O tamanho máximo dos arquivos é de $limitInMB MB.';
 
   @override
-  String get couldNotReadBytesFromFileError =>
-      'Não foi possível ler os bytes do arquivo.';
+  String fileTypeNotSupportedError(String? extension) {
+    if (extension != null) return "Os arquivos '.$extension' não são suportados para upload.";
+    return 'Este tipo de arquivo não é suportado para upload.';
+  }
+
+  @override
+  String get couldNotReadBytesFromFileError => 'Não foi possível ler os bytes do arquivo.';
 
   @override
   String get addAFileLabel => 'Adicionar um arquivo';
@@ -164,12 +183,29 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   String get somethingWentWrongError => 'Algo deu errado';
 
   @override
-  String get addMoreFilesLabel => 'Adicionar mais arquivos';
+  String get connectionErrorTitle => 'Sem conexão com a Internet';
+
+  @override
+  String get connectionErrorDescription => 'Verifique sua conexão com a Internet';
+
+  @override
+  String get slowConnectionErrorTitle => 'Conexão com a Internet lenta';
+
+  @override
+  String get slowConnectionErrorDescription => 'Parece haver um problema com sua conexão com a Internet';
+
+  @override
+  String get genericErrorTitle => 'Erro';
+
+  @override
+  String get genericErrorDescription => 'Ops, algo deu errado';
+
+  @override
+  String get addMoreFilesLabel => 'Adicionar mais';
 
   @override
   String get enablePhotoAndVideoAccessMessage =>
-      'Por favor, permita o acesso às suas fotos'
-      '\ne vídeos para que possa compartilhar com sua rede.';
+      'Por favor, permita o acesso às suas fotos e vídeos para que possa compartilhar com sua rede.';
 
   @override
   String get allowGalleryAccessMessage => 'Permitir acesso à sua galeria';
@@ -178,35 +214,31 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   String get flagMessageLabel => 'Denunciar mensagem';
 
   @override
-  String get flagMessageQuestion => 'Gostaria de enviar esta mensagem ao'
-      '\nmoderador para maior investigação?';
+  String get flagMessageQuestion => 'Gostaria de enviar esta mensagem ao moderador para maior investigação?';
 
   @override
-  String get flagLabel => 'DENUNCIAR';
+  String get flagLabel => 'Denunciar';
 
   @override
-  String get cancelLabel => 'CANCELAR';
+  String get cancelLabel => 'Cancelar';
 
   @override
   String get flagMessageSuccessfulLabel => 'Mensagem denunciada';
 
   @override
-  String get flagMessageSuccessfulText =>
-      'Esta mensagem foi enviada a um moderador.';
+  String get flagMessageSuccessfulText => 'Esta mensagem foi enviada a um moderador.';
 
   @override
-  String get deleteLabel => 'APAGAR';
+  String get deleteLabel => 'Apagar';
 
   @override
   String get deleteMessageLabel => 'Apagar mensagem';
 
   @override
-  String get deleteMessageQuestion =>
-      'Você tem certeza que deseja apagar essa\nmensagem permanentemente?';
+  String get deleteMessageQuestion => 'Você tem certeza que deseja apagar essa mensagem permanentemente?';
 
   @override
-  String get operationCouldNotBeCompletedText =>
-      'A operação não pode ser completada.';
+  String get operationCouldNotBeCompletedText => 'A operação não pode ser completada.';
 
   @override
   String get replyLabel => 'Resposta';
@@ -237,6 +269,9 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
 
   @override
   String get photosLabel => 'Fotos';
+
+  @override
+  String get photosAndVideosLabel => 'Fotos e vídeos';
 
   String _getDay(DateTime dateTime) {
     final now = DateTime.now();
@@ -276,8 +311,7 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   String get letsStartChattingLabel => 'Vamos começar a conversar!';
 
   @override
-  String get sendingFirstMessageLabel =>
-      'Que tal enviar sua primeira mensagem a um amigo?';
+  String get sendingFirstMessageLabel => 'Que tal enviar sua primeira mensagem a um amigo?';
 
   @override
   String get startAChatLabel => 'Iniciar uma conversa';
@@ -289,11 +323,10 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   String get deleteConversationLabel => 'Apagar a conversa';
 
   @override
-  String get deleteConversationQuestion =>
-      'Tem certeza que deseja apagar essa conversa?';
+  String get deleteConversationQuestion => 'Tem certeza que deseja apagar essa conversa?';
 
   @override
-  String get streamChatLabel => 'Stream Chat';
+  String get streamChatLabel => 'Conversas';
 
   @override
   String get searchingForNetworkText => 'Pesquisando rede';
@@ -317,6 +350,16 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   }
 
   @override
+  String membersCountWithOnlineText({
+    required int memberCount,
+    required int onlineCount,
+  }) {
+    final members = membersCountText(memberCount);
+    if (onlineCount <= 0) return members;
+    return '$members, ${watchersCountText(onlineCount)}';
+  }
+
+  @override
   String get viewInfoLabel => 'Ver informação';
 
   @override
@@ -329,8 +372,7 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   String get leaveConversationLabel => 'Sair da conversa';
 
   @override
-  String get leaveConversationQuestion =>
-      'Tem certeza que deseja sair dessa conversa?';
+  String get leaveConversationQuestion => 'Tem certeza que deseja sair dessa conversa?';
 
   @override
   String get showInChatLabel => 'Mostrar no chat';
@@ -366,8 +408,7 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   String galleryPaginationText({
     required int currentPage,
     required int totalPages,
-  }) =>
-      '${currentPage + 1} de $totalPages';
+  }) => '${currentPage + 1} de $totalPages';
 
   @override
   String get fileText => 'Arquivo';
@@ -376,12 +417,16 @@ class StreamChatLocalizationsPt extends GlobalStreamChatLocalizations {
   String get replyToMessageLabel => 'Responder à mensagem';
 
   @override
-  String attachmentLimitExceedError(int limit) => '''
+  String attachmentLimitExceedError(int limit) =>
+      '''
 Não é possível adicionar mais de $limit arquivos de uma vez
   ''';
 
   @override
-  String get slowModeOnLabel => 'Modo lento ativado';
+  String slowModeOnLabel(int cooldownTimeOut) => 'Modo lento, aguarde ${cooldownTimeOut}s\u2026';
+
+  @override
+  String get commandUsernameLabel => '@username';
 
   @override
   String get downloadLabel => 'Download';
@@ -393,6 +438,12 @@ Não é possível adicionar mais de $limit arquivos de uma vez
     } else {
       return 'Silenciar usuário';
     }
+  }
+
+  @override
+  String toggleBlockUnblockUserText({required bool isBlocked}) {
+    if (isBlocked) return 'Desbloquear usuário';
+    return 'Bloquear usuário';
   }
 
   @override
@@ -432,15 +483,13 @@ Não é possível adicionar mais de $limit arquivos de uma vez
   }
 
   @override
-  String get linkDisabledDetails =>
-      'O envio de links não é permitido nesta conversa.';
+  String get linkDisabledDetails => 'O envio de links não é permitido nesta conversa.';
 
   @override
   String get linkDisabledError => 'Os links estão desativados';
 
   @override
-  String get sendMessagePermissionError =>
-      'Você não tem permissão para enviar mensagens';
+  String get sendMessagePermissionError => 'Você não tem permissão para enviar mensagens';
 
   @override
   String get viewLibrary => 'Ver biblioteca';
@@ -449,8 +498,17 @@ Não é possível adicionar mais de $limit arquivos de uma vez
   String unreadMessagesSeparatorText() => 'Novas mensagens';
 
   @override
-  String get enableFileAccessMessage =>
-      'Ative o acesso aos arquivos' '\npara poder compartilhá-los com amigos.';
+  String unreadMessagesSeparatorLabel({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count mensagem não lida',
+      other: '$count mensagens não lidas',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String get enableFileAccessMessage => 'Ative o acesso aos arquivos para poder compartilhá-los com amigos.';
 
   @override
   String get allowFileAccessMessage => 'Permitir acesso aos arquivos';
@@ -475,7 +533,10 @@ Não é possível adicionar mais de $limit arquivos de uma vez
   }
 
   @override
-  String get questionsLabel => 'Perguntas';
+  String questionLabel({bool isPlural = false}) {
+    if (isPlural) return 'Perguntas';
+    return 'Pergunta';
+  }
 
   @override
   String get askAQuestionLabel => 'Fazer uma pergunta';
@@ -558,15 +619,17 @@ Não é possível adicionar mais de $limit arquivos de uma vez
   String get enterYourCommentLabel => 'Inserir seu comentário';
 
   @override
-  String get endVoteConfirmationText =>
-      'Tem certeza de que deseja encerrar a votação?';
+  String get endVoteConfirmationTitle => 'Tem certeza de que deseja encerrar a votação?';
+
+  @override
+  String get endVoteConfirmationMessage =>
+      'Deseja encerrar esta enquete agora? Ninguém mais poderá votar nesta enquete.';
 
   @override
   String get deletePollOptionLabel => 'Excluir opção';
 
   @override
-  String get deletePollOptionQuestion =>
-      'Tem certeza de que deseja excluir esta opção?';
+  String get deletePollOptionQuestion => 'Tem certeza de que deseja excluir esta opção?';
 
   @override
   String get createLabel => 'Criar';
@@ -603,17 +666,30 @@ Não é possível adicionar mais de $limit arquivos de uma vez
   String get pollResultsLabel => 'Resultados da votação';
 
   @override
+  String get pollVotesLabel => 'Votos';
+
+  @override
   String showAllVotesLabel({int? count}) {
     if (count == null) return 'Mostrar todos os votos';
     return 'Mostrar todos os $count votos';
   }
 
   @override
+  String get viewAllLabel => 'Ver tudo';
+
+  @override
   String voteCountLabel({int? count}) => switch (count) {
-        null || < 1 => '0 votos',
-        1 => '1 voto',
-        _ => '$count votos',
-      };
+    null || < 1 => '0 votos',
+    1 => '1 voto',
+    _ => '$count votos',
+  };
+
+  @override
+  String totalVoteCountLabel({int? count}) => switch (count) {
+    null || < 1 => '0 votos no total',
+    1 => '1 voto no total',
+    _ => '$count votos no total',
+  };
 
   @override
   String get noPollVotesLabel => 'Não há votos no momento';
@@ -631,18 +707,19 @@ Não é possível adicionar mais de $limit arquivos de uma vez
   }
 
   @override
+  String get loadingLabel => 'Carregando...';
+
+  @override
   String get slideToCancelLabel => 'Deslize para cancelar';
 
   @override
-  String get holdToRecordLabel =>
-      'Mantenha pressionado para gravar, solte para enviar';
+  String get holdToRecordLabel => 'Mantenha pressionado para gravar, solte para enviar';
 
   @override
   String get sendAnywayLabel => 'Enviar mesmo assim';
 
   @override
-  String get moderatedMessageBlockedText =>
-      'Mensagem bloqueada pelas políticas de moderação';
+  String get moderatedMessageBlockedText => 'Mensagem bloqueada pelas políticas de moderação';
 
   @override
   String get moderationReviewModalTitle => 'Tem certeza?';
@@ -667,6 +744,21 @@ Não é possível adicionar mais de $limit arquivos de uma vez
   String get videoAttachmentText => 'Vídeo';
 
   @override
+  String get fileAttachmentText => 'Arquivo';
+
+  @override
+  String get linkAttachmentText => 'Link';
+
+  @override
+  String filesAttachmentCountText(int count) => count == 1 ? 'Arquivo' : '$count arquivos';
+
+  @override
+  String photosAttachmentCountText(int count) => count == 1 ? 'Foto' : '$count fotos';
+
+  @override
+  String videosAttachmentCountText(int count) => count == 1 ? 'Vídeo' : '$count vídeos';
+
+  @override
   String get pollYouVotedText => 'Você votou';
 
   @override
@@ -680,4 +772,508 @@ Não é possível adicionar mais de $limit arquivos de uma vez
 
   @override
   String get draftLabel => 'Rascunho';
+
+  @override
+  String locationLabel({bool isLive = false}) {
+    if (isLive) return 'Localização ao Vivo';
+    return 'Localização';
+  }
+
+  @override
+  String get noConversationsYetText => 'Ainda não há conversas';
+
+  @override
+  String get replyToStartThreadText => 'Responda a uma mensagem para iniciar uma thread';
+
+  @override
+  String get sendMessageToStartConversationText => 'Envie uma mensagem para iniciar a conversa';
+
+  @override
+  String get savedForLaterLabel => 'Guardado para depois';
+
+  @override
+  String get repliedToThreadAnnotationLabel => 'Respondeu a uma thread';
+
+  @override
+  String get alsoSentInChannelAnnotationLabel => 'Também enviado no canal';
+
+  @override
+  String get viewLabel => 'Ver';
+
+  @override
+  String get reminderSetLabel => 'Lembrete definido';
+
+  @override
+  String reminderAtText(String time) => 'Hoje às $time';
+
+  @override
+  String get translatedLabel => 'Traduzido';
+
+  @override
+  String get originalLabel => 'Original';
+
+  @override
+  String get showOriginalLabel => 'Ver original';
+
+  @override
+  String get showTranslationLabel => 'Ver tradução';
+
+  @override
+  String translatedFromLanguageText(String languageCode) => 'Traduzido de ${_languageNamePt(languageCode)}';
+
+  @override
+  String get createPollPromptLabel => 'Crie uma enquete e deixe todos votarem!';
+
+  @override
+  String get takePhotoAndShareLabel => 'Tire uma foto e compartilhe';
+
+  @override
+  String get takeVideoAndShareLabel => 'Grave um vídeo e compartilhe';
+
+  @override
+  String get openCameraLabel => 'Abrir câmera';
+
+  @override
+  String get selectFilesToShareLabel => 'Selecione arquivos para compartilhar';
+
+  @override
+  String get openFilesLabel => 'Abrir arquivos';
+
+  @override
+  String get unsupportedAttachmentLabel => 'Anexo não suportado';
+
+  @override
+  String get confirmLabel => 'CONFIRMAR';
+
+  @override
+  String get emptyReactionsText => 'Ainda não há reações';
+
+  @override
+  String get loadingReactionsError => 'Erro ao carregar as reações';
+
+  @override
+  String get tapToRemoveReactionLabel => 'Toque para remover';
+
+  @override
+  String reactionsCountText(int count) => '$count reações';
+
+  @override
+  String get justNowLabel => 'Agora mesmo';
+
+  @override
+  String replyToUserLabel(String userName) => 'Responder a $userName';
+
+  @override
+  String get multipleAnswersDescription => 'Selecionar mais de uma opção';
+
+  @override
+  String maximumVotesPerPersonDescription([Range<int>? range]) {
+    final (:min, :max) = range ?? (min: 2, max: 10);
+    return 'Escolha entre $min\u2013$max opções';
+  }
+
+  @override
+  String get anonymousPollDescription => 'Ocultar quem votou';
+
+  @override
+  String get suggestAnOptionDescription => 'Permitir que outros adicionem opções';
+
+  @override
+  String get addACommentDescription => 'Permitir que outros adicionem comentários';
+
+  @override
+  String get notifyChannelText => 'Notificar todos neste canal';
+
+  @override
+  String get notifyHereText => 'Notificar todos os membros online neste canal';
+
+  @override
+  String notifyRoleText(String role) => 'Notificar todos os membros $role';
 }
+
+class _AccessibilityTranslationsPt extends AccessibilityTranslations {
+  const _AccessibilityTranslationsPt({super.localeName = 'pt'});
+
+  @override
+  String get sendMessageTooltip => 'Enviar mensagem';
+
+  @override
+  String get saveEditTooltip => 'Salvar edição';
+
+  @override
+  String get sendCommandTooltip => 'Enviar comando';
+
+  @override
+  String slowModeTooltip({required int seconds}) {
+    if (seconds == 1) return 'Modo lento: 1 segundo';
+    return 'Modo lento: $seconds segundos';
+  }
+
+  @override
+  String get recordVoiceRecordingLabel => 'Gravar mensagem de voz';
+
+  @override
+  String get cancelRecordingTooltip => 'Cancelar gravação';
+
+  @override
+  String get stopRecordingTooltip => 'Parar gravação';
+
+  @override
+  String get sendRecordingTooltip => 'Enviar gravação';
+
+  @override
+  String recordingDurationLabel({required Duration duration}) => 'Duração da gravação, ${formatDuration(duration)}';
+
+  @override
+  String voiceRecordingPreviewPlayLabel({required Duration duration}) =>
+      'Reproduzir gravação de voz, ${formatDuration(duration)}';
+
+  @override
+  String voiceRecordingPreviewPauseLabel({required Duration duration}) =>
+      'Pausar gravação de voz, ${formatDuration(duration)}';
+
+  @override
+  String get attachmentPickerTooltip => 'Alternar seletor de anexos';
+
+  @override
+  String get attachmentPickerOpenHint => 'toque duas vezes para abrir o seletor de anexos';
+
+  @override
+  String get attachmentPickerCloseHint => 'toque duas vezes para fechar o seletor de anexos';
+
+  @override
+  String get attachmentPickerOpenTapHint => 'abrir seletor de anexos';
+
+  @override
+  String get attachmentPickerCloseTapHint => 'fechar seletor de anexos';
+
+  @override
+  String get attachmentPickerOpenedAnnouncement => 'Seletor de anexos aberto';
+
+  @override
+  String get attachmentPickerClosedAnnouncement => 'Seletor de anexos fechado';
+
+  @override
+  String voiceRecordingAttachmentLabel({Duration? duration}) {
+    if (duration == null) return 'Mensagem de voz';
+    return 'Mensagem de voz, ${formatDuration(duration)}';
+  }
+
+  @override
+  String videoAttachmentLabel({String? title}) {
+    if (title == null || title.isEmpty) return 'Vídeo';
+    return 'Vídeo, $title';
+  }
+
+  @override
+  String get gifAttachmentLabel => 'GIF';
+
+  @override
+  String imageAttachmentLabel({String? title}) {
+    if (title == null || title.isEmpty) return 'Foto';
+    return 'Foto, $title';
+  }
+
+  @override
+  String attachmentPositionLabel({required int index, required int total}) => '$index de $total';
+
+  @override
+  String get outgoingReplyToOwnMessageLabel => 'Você respondeu à sua própria mensagem';
+
+  @override
+  String outgoingReplyToMessageLabel({required String authorName}) => 'Você respondeu à mensagem de $authorName';
+
+  @override
+  String incomingReplyToOwnMessageLabel({required String replierName}) => '$replierName respondeu à sua mensagem';
+
+  @override
+  String incomingReplyToMessageLabel({required String replierName, required String authorName}) =>
+      '$replierName respondeu à mensagem de $authorName';
+
+  @override
+  String get voiceRecordingPlayTooltip => 'Reproduzir';
+
+  @override
+  String get voiceRecordingPauseTooltip => 'Pausar';
+
+  @override
+  String get voiceRecordingLoadingTooltip => 'Carregando';
+
+  @override
+  String get channelInfoLabel => 'Informações do canal';
+
+  @override
+  String get messageActionsLabel => 'Ações da mensagem';
+
+  @override
+  String galleryImageLabel({DateTime? createdAt}) {
+    if (createdAt == null) return 'Foto';
+    return 'Foto, ${formatDateTime(createdAt)}';
+  }
+
+  @override
+  String galleryVideoLabel({
+    DateTime? createdAt,
+    Duration? duration,
+  }) {
+    final parts = <String>[
+      'Vídeo',
+      if (duration != null) formatDuration(duration),
+      if (createdAt != null) formatDateTime(createdAt),
+    ];
+    return parts.join(', ');
+  }
+
+  @override
+  String get selectMediaTapHint => 'selecionar';
+
+  @override
+  String get deselectMediaTapHint => 'desmarcar';
+
+  @override
+  String get outgoingMessagePreviewLabel => 'Você';
+
+  @override
+  String incomingMessagePreviewLabel({String? senderName}) {
+    return senderName ?? 'Mensagem';
+  }
+
+  @override
+  String outgoingMessageLabel({required String body}) => 'Você disse, $body';
+
+  @override
+  String incomingMessageLabel({required String senderName, required String body}) => '$senderName disse, $body';
+
+  @override
+  String outgoingDeletedMessageLabel({required String body}) => 'Você, $body';
+
+  @override
+  String incomingDeletedMessageLabel({required String senderName, required String body}) => '$senderName, $body';
+
+  @override
+  String get pollPreviewLabel => 'Enquete';
+
+  @override
+  String get draftPreviewLabel => 'Rascunho';
+
+  @override
+  String get messageSendingStatusLabel => 'Enviando';
+
+  @override
+  String get messageSentStatusLabel => 'Enviado';
+
+  @override
+  String get messageDeliveredStatusLabel => 'Entregue';
+
+  @override
+  String get messageReadStatusLabel => 'Lido';
+
+  @override
+  String get messageFailedStatusLabel => 'Falha ao enviar a mensagem';
+
+  @override
+  String unreadMessagesLabel({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count mensagem não lida',
+      other: '$count mensagens não lidas',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String get channelGroupLabel => 'Grupo';
+
+  @override
+  String get systemMessagePreviewLabel => 'Sistema';
+
+  @override
+  String get channelMutedLabel => 'silenciado';
+
+  @override
+  String get channelPinnedLabel => 'fixado';
+
+  @override
+  String get savePollTooltip => 'Salvar enquete';
+
+  @override
+  String removePollOptionTooltip({String? optionText}) {
+    final trimmed = optionText?.trim();
+    if (trimmed == null || trimmed.isEmpty) return 'Remover opção';
+    return 'Remover opção $trimmed';
+  }
+
+  @override
+  String get recordingStartedAnnouncement =>
+      'Gravação iniciada. Deslize para a esquerda para cancelar. Deslize para cima para bloquear.';
+
+  @override
+  String get recordingLockedAnnouncement => 'Gravação bloqueada';
+
+  @override
+  String get recordingStoppedAnnouncement => 'Gravação parada';
+
+  @override
+  String get recordingCancelledAnnouncement => 'Gravação cancelada';
+
+  @override
+  String get recordingCompletedAnnouncement => 'Gravação concluída';
+
+  @override
+  String get imageAttachmentAddedAnnouncement => 'Foto adicionada';
+
+  @override
+  String get imageAttachmentRemovedAnnouncement => 'Foto removida';
+
+  @override
+  String get videoAttachmentAddedAnnouncement => 'Vídeo adicionado';
+
+  @override
+  String get videoAttachmentRemovedAnnouncement => 'Vídeo removido';
+
+  @override
+  String get gifAttachmentAddedAnnouncement => 'GIF adicionado';
+
+  @override
+  String get gifAttachmentRemovedAnnouncement => 'GIF removido';
+
+  @override
+  String get fileAttachmentAddedAnnouncement => 'Arquivo adicionado';
+
+  @override
+  String get fileAttachmentRemovedAnnouncement => 'Arquivo removido';
+
+  @override
+  String get voiceRecordingAttachmentAddedAnnouncement => 'Mensagem de voz adicionada';
+
+  @override
+  String get voiceRecordingAttachmentRemovedAnnouncement => 'Mensagem de voz removida';
+
+  @override
+  String get attachmentAddedAnnouncement => 'Anexo adicionado';
+
+  @override
+  String get attachmentRemovedAnnouncement => 'Anexo removido';
+
+  @override
+  String attachmentsAddedAnnouncement({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count anexo adicionado',
+      other: '$count anexos adicionados',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String attachmentsRemovedAnnouncement({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count anexo removido',
+      other: '$count anexos removidos',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String formatRecentDateTime(DateTime date) {
+    if (date.isWithinLastMinute) return 'Agora mesmo';
+
+    final localDate = date.toLocal();
+    final jiffyDate = Jiffy.parseFromDateTime(localDate);
+    final time = jiffyDate.jm;
+
+    if (localDate.isToday) return 'Hoje às $time';
+    if (localDate.isYesterday) return 'Ontem às $time';
+    if (localDate.isWithinLastWeek) return '${jiffyDate.EEEE} às $time';
+    if (localDate.isInSameYear) {
+      return '${jiffyDate.format(pattern: 'd MMM')} às $time';
+    }
+    return '${jiffyDate.format(pattern: 'd MMM yyyy')} às $time';
+  }
+
+  @override
+  String formatDateTime(DateTime dateTime) {
+    final jiffy = Jiffy.parseFromDateTime(dateTime);
+    return '${jiffy.EEEE}, ${jiffy.yMMMMd}, ${jiffy.jm}';
+  }
+
+  @override
+  String formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    final parts = <String>[
+      if (hours > 0) Intl.plural(hours, one: '$hours hora', other: '$hours horas', locale: localeName),
+      if (minutes > 0) Intl.plural(minutes, one: '$minutes minuto', other: '$minutes minutos', locale: localeName),
+      if (seconds > 0 || (hours == 0 && minutes == 0))
+        Intl.plural(seconds, one: '$seconds segundo', other: '$seconds segundos', locale: localeName),
+    ];
+    return parts.join(', ');
+  }
+}
+
+// Display name for each language code Stream Chat's translation API
+// supports (`Message.i18n['language']`). Falls back to the uppercased code
+// itself for anything unrecognized.
+String _languageNamePt(String code) => _languageNamesPt[code] ?? code.toUpperCase();
+
+const _languageNamesPt = <String, String>{
+  'af': 'Africâner',
+  'sq': 'Albanês',
+  'am': 'Amárico',
+  'ar': 'Árabe',
+  'az': 'Azerbaijano',
+  'bn': 'Bengali',
+  'bs': 'Bósnio',
+  'bg': 'Búlgaro',
+  'zh': 'Chinês (simplificado)',
+  'zh-TW': 'Chinês (tradicional)',
+  'hr': 'Croata',
+  'cs': 'Tcheco',
+  'da': 'Dinamarquês',
+  'fa-AF': 'Dari',
+  'nl': 'Holandês',
+  'en': 'Inglês',
+  'et': 'Estoniano',
+  'fi': 'Finlandês',
+  'fr': 'Francês',
+  'fr-CA': 'Francês (Canadá)',
+  'ka': 'Georgiano',
+  'de': 'Alemão',
+  'el': 'Grego',
+  'ht': 'Crioulo haitiano',
+  'ha': 'Hauçá',
+  'he': 'Hebraico',
+  'hi': 'Hindi',
+  'hu': 'Húngaro',
+  'id': 'Indonésio',
+  'it': 'Italiano',
+  'ja': 'Japonês',
+  'ko': 'Coreano',
+  'lv': 'Letão',
+  'lt': 'Lituano',
+  'ms': 'Malaio',
+  'no': 'Norueguês',
+  'fa': 'Persa',
+  'ps': 'Pachto',
+  'pl': 'Polonês',
+  'pt': 'Português',
+  'ro': 'Romeno',
+  'ru': 'Russo',
+  'sr': 'Sérvio',
+  'sk': 'Eslovaco',
+  'sl': 'Esloveno',
+  'so': 'Somali',
+  'es': 'Espanhol',
+  'es-MX': 'Espanhol (México)',
+  'sw': 'Swahili',
+  'sv': 'Sueco',
+  'tl': 'Tagalo',
+  'ta': 'Tâmil',
+  'th': 'Tailandês',
+  'tr': 'Turco',
+  'uk': 'Ucraniano',
+  'ur': 'Urdu',
+  'vi': 'Vietnamita',
+};

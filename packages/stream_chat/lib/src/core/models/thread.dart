@@ -1,13 +1,14 @@
 import 'package:equatable/equatable.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:stream_chat/src/core/models/channel_model.dart';
-import 'package:stream_chat/src/core/models/comparable_field.dart';
-import 'package:stream_chat/src/core/models/draft.dart';
-import 'package:stream_chat/src/core/models/message.dart';
-import 'package:stream_chat/src/core/models/read.dart';
-import 'package:stream_chat/src/core/models/thread_participant.dart';
-import 'package:stream_chat/src/core/models/user.dart';
-import 'package:stream_chat/src/core/util/serializer.dart';
+
+import '../util/serializer.dart';
+import 'channel_model.dart';
+import 'comparable_field.dart';
+import 'draft.dart';
+import 'message.dart';
+import 'read.dart';
+import 'thread_participant.dart';
+import 'user.dart';
 
 part 'thread.g.dart';
 
@@ -44,12 +45,12 @@ class Thread extends Equatable implements ComparableFieldProvider {
     this.read = const [],
     this.draft,
     this.extraData = const {},
-  })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   /// Create a new instance from a json
-  factory Thread.fromJson(Map<String, dynamic> json) => _$ThreadFromJson(
-      Serializer.moveToExtraDataFromRoot(json, topLevelFields));
+  factory Thread.fromJson(Map<String, dynamic> json) =>
+      _$ThreadFromJson(Serializer.moveToExtraDataFromRoot(json, topLevelFields));
 
   /// The active participant count in the thread.
   final int? activeParticipantCount;
@@ -109,8 +110,7 @@ class Thread extends Equatable implements ComparableFieldProvider {
   final Map<String, Object?> extraData;
 
   /// Serialize to json
-  Map<String, dynamic> toJson() =>
-      Serializer.moveFromExtraDataToRoot(_$ThreadToJson(this));
+  Map<String, dynamic> toJson() => Serializer.moveFromExtraDataToRoot(_$ThreadToJson(this));
 
   /// Creates a copy of [Thread] with specified attributes overridden.
   Thread copyWith({
@@ -133,29 +133,27 @@ class Thread extends Equatable implements ComparableFieldProvider {
     List<Read>? read,
     Object? draft = _nullConst,
     Map<String, Object?>? extraData,
-  }) =>
-      Thread(
-        activeParticipantCount:
-            activeParticipantCount ?? this.activeParticipantCount,
-        channel: channel ?? this.channel,
-        channelCid: channelCid ?? this.channelCid,
-        createdAt: createdAt ?? this.createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-        deletedAt: deletedAt ?? this.deletedAt,
-        createdByUserId: createdByUserId ?? this.createdByUserId,
-        createdBy: createdBy ?? this.createdBy,
-        title: title ?? this.title,
-        parentMessageId: parentMessageId ?? this.parentMessageId,
-        parentMessage: parentMessage ?? this.parentMessage,
-        replyCount: replyCount ?? this.replyCount,
-        participantCount: participantCount ?? this.participantCount,
-        threadParticipants: threadParticipants ?? this.threadParticipants,
-        lastMessageAt: lastMessageAt ?? this.lastMessageAt,
-        latestReplies: latestReplies ?? this.latestReplies,
-        read: read ?? this.read,
-        draft: draft == _nullConst ? this.draft : draft as Draft?,
-        extraData: extraData ?? this.extraData,
-      );
+  }) => Thread(
+    activeParticipantCount: activeParticipantCount ?? this.activeParticipantCount,
+    channel: channel ?? this.channel,
+    channelCid: channelCid ?? this.channelCid,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    deletedAt: deletedAt ?? this.deletedAt,
+    createdByUserId: createdByUserId ?? this.createdByUserId,
+    createdBy: createdBy ?? this.createdBy,
+    title: title ?? this.title,
+    parentMessageId: parentMessageId ?? this.parentMessageId,
+    parentMessage: parentMessage ?? this.parentMessage,
+    replyCount: replyCount ?? this.replyCount,
+    participantCount: participantCount ?? this.participantCount,
+    threadParticipants: threadParticipants ?? this.threadParticipants,
+    lastMessageAt: lastMessageAt ?? this.lastMessageAt,
+    latestReplies: latestReplies ?? this.latestReplies,
+    read: read ?? this.read,
+    draft: draft == _nullConst ? this.draft : draft as Draft?,
+    extraData: extraData ?? this.extraData,
+  );
 
   /// Merge this thread with the [other] thread.
   Thread merge(Thread? other) {
@@ -209,25 +207,25 @@ class Thread extends Equatable implements ComparableFieldProvider {
 
   @override
   List<Object?> get props => [
-        activeParticipantCount,
-        channelCid,
-        channel,
-        createdAt,
-        updatedAt,
-        deletedAt,
-        createdByUserId,
-        createdBy,
-        title,
-        parentMessageId,
-        parentMessage,
-        replyCount,
-        participantCount,
-        threadParticipants,
-        lastMessageAt,
-        latestReplies,
-        read,
-        draft,
-      ];
+    activeParticipantCount,
+    channelCid,
+    channel,
+    createdAt,
+    updatedAt,
+    deletedAt,
+    createdByUserId,
+    createdBy,
+    title,
+    parentMessageId,
+    parentMessage,
+    replyCount,
+    participantCount,
+    threadParticipants,
+    lastMessageAt,
+    latestReplies,
+    read,
+    draft,
+  ];
 
   @override
   ComparableField? getComparableField(String sortKey) {
@@ -269,8 +267,7 @@ extension type const ThreadSortKey(String key) implements String {
   static const participantCount = ThreadSortKey('participant_count');
 
   /// Sort threads by their active participant count.
-  static const activeParticipantCount =
-      ThreadSortKey('active_participant_count');
+  static const activeParticipantCount = ThreadSortKey('active_participant_count');
 
   /// Sort threads by their parent message id.
   static const parentMessageId = ThreadSortKey('parent_message_id');

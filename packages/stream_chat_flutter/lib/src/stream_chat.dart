@@ -2,57 +2,98 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_portal/flutter_portal.dart';
-import 'package:stream_chat_flutter/src/misc/empty_widget.dart';
-import 'package:stream_chat_flutter/src/video/vlc/vlc_manager.dart';
-import 'package:stream_chat_flutter/stream_chat_flutter.dart';
 
-/// {@template streamChat}
-/// Widget used to provide information about the chat to the widget tree
+import '../stream_chat_flutter.dart';
+import 'misc/empty_widget.dart';
+import 'utils/network_error_text.dart';
+
+/// Provides chat state and configuration to the descendant widget tree.
 ///
-/// class MyApp extends StatelessWidget {
-///   final StreamChatClient client;
+/// Wrap your app (or a chat-bearing subtree) with [StreamChat] to expose the
+/// [StreamChatClient], theme, and configuration to chat widgets below. Access
+/// the state from descendants with [StreamChat.of] or [StreamChat.maybeOf].
 ///
-///   MyApp(this.client);
+/// {@tool snippet}
 ///
-///   @override
-///   Widget build(BuildContext context) {
-///     return MaterialApp(
-///       home: Container(
-///         child: StreamChat(
-///           client: client,
-///           child: ChannelListPage(),
-///         ),
-///       ),
-///     );
-///   }
-/// }
+/// ```dart
+/// MaterialApp(
+///   home: StreamChat(
+///     client: client,
+///     child: const ChannelListPage(),
+///   ),
+/// )
+/// ```
+/// {@end-tool}
 ///
-/// Use [StreamChat.of] to get the current [StreamChatState] instance.
-/// {@endtemplate}
+/// See also:
+///
+///  * [themeData], which controls chat widget styling via [StreamChatThemeData].
+///  * [configData], which controls non-theme UI behaviour via [StreamChatConfigurationData].
+///  * [StreamChatCore], the non-UI logic wrapper mounted below this widget.
 class StreamChat extends StatefulWidget {
-  /// {@macro streamChat}
+  /// Creates a [StreamChat] that exposes [client] and chat configuration to
+  /// the descendant widget tree.
   const StreamChat({
     super.key,
     required this.client,
     required this.child,
-    this.streamChatThemeData,
-    this.streamChatConfigData,
+    this.themeData,
+    this.configData,
+    this.componentBuilders,
     this.onBackgroundEventReceived,
-    this.backgroundKeepAlive = const Duration(minutes: 1),
+    this.backgroundKeepAlive = const Duration(seconds: 15),
     this.connectivityStream,
   });
 
-  /// Client to do chat operations with
+  /// The [StreamChatClient] used by descendant widgets to perform chat
+  /// operations.
   final StreamChatClient client;
 
-  /// Child which inherits details
+  /// The subtree below this widget.
+  ///
+  /// May be `null` when [StreamChat] is mounted without UI — for example in
+  /// tests or when the chat client should run in the background only.
   final Widget? child;
 
-  /// Theme to pass on
-  final StreamChatThemeData? streamChatThemeData;
+  /// Theme overrides applied to descendant chat widgets.
+  ///
+  /// If `null`, a default [StreamChatThemeData] is used.
+  final StreamChatThemeData? themeData;
 
-  /// Non-theme related UI configuration options.
-  final StreamChatConfigurationData? streamChatConfigData;
+  /// Non-theme UI configuration options for descendant chat widgets.
+  ///
+  /// If `null`, a default [StreamChatConfigurationData] is used.
+  final StreamChatConfigurationData? configData;
+
+  /// Custom component builders for overriding default UI components.
+  ///
+  /// When provided, a [StreamComponentFactory] is inserted into the widget
+  /// tree below the theme and above [StreamChatCore], allowing all descendant
+  /// widgets to resolve custom builders.
+  ///
+  /// {@tool snippet}
+  ///
+  /// Override the default message item with a custom builder:
+  ///
+  /// ```dart
+  /// StreamChat(
+  ///   client: client,
+  ///   componentBuilders: StreamComponentBuilders(
+  ///     extensions: streamChatComponentBuilders(
+  ///       messageItem: (context, props) {
+  ///         return DefaultStreamMessageItem(
+  ///           props: props.copyWith(
+  ///             actionsBuilder: myActionsBuilder,
+  ///           ),
+  ///         );
+  ///       },
+  ///     ),
+  ///   ),
+  ///   child: MyApp(),
+  /// )
+  /// ```
+  /// {@end-tool}
+  final StreamComponentBuilders? componentBuilders;
 
   /// The amount of time that will pass before disconnecting the client
   /// in the background
@@ -131,7 +172,7 @@ class StreamChat extends StatefulWidget {
   /// See also:
   ///  * [of], which throws if no [StreamChat] is found.
   static StreamChatState? maybeOf(BuildContext context) {
-    return context.findAncestorStateOfType<StreamChatState>();
+    return StreamStateScope.maybeOf<StreamChatState>(context);
   }
 }
 
@@ -141,63 +182,54 @@ class StreamChatState extends State<StreamChat> {
   StreamChatClient get client => widget.client;
 
   /// Gets configuration options from widget
-  StreamChatConfigurationData get streamChatConfigData =>
-      widget.streamChatConfigData ?? StreamChatConfigurationData();
+  StreamChatConfigurationData get configData => widget.configData ?? StreamChatConfigurationData();
+
+  /// Tracks which messages the user has switched back to their original text.
+  ///
+  /// Owned here so the toggle is shared by every message list in the app — a
+  /// channel and its open thread render the same parent message, and both
+  /// should agree on which text it shows. Matches the Swift and Android SDKs,
+  /// which key this state by message id above the individual list.
+  final _translationStore = StreamMessageTranslationStore();
 
   @override
-  void initState() {
-    super.initState();
-    // Ensures that VLC only initializes in real desktop environments
-    if (!isTestEnvironment && isDesktopVideoPlayerSupported) {
-      VlcManager.instance.initialize();
-    }
+  void dispose() {
+    _translationStore.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = _getTheme(context, widget.streamChatThemeData);
-    return Portal(
-      child: StreamChatConfiguration(
-        data: streamChatConfigData,
-        child: StreamChatTheme(
-          data: theme,
-          child: Builder(
-            builder: (context) {
-              final materialTheme = Theme.of(context);
-              final streamTheme = StreamChatTheme.of(context);
-              return Theme(
-                data: materialTheme.copyWith(
-                  primaryIconTheme: streamTheme.primaryIconTheme,
-                  colorScheme: materialTheme.colorScheme.copyWith(
-                    secondary: streamTheme.colorTheme.accentPrimary,
-                  ),
-                ),
-                child: StreamChatCore(
-                  client: client,
-                  onBackgroundEventReceived: widget.onBackgroundEventReceived,
-                  backgroundKeepAlive: widget.backgroundKeepAlive,
-                  connectivityStream: widget.connectivityStream,
-                  child: Builder(
-                    builder: (context) {
-                      return widget.child ?? const Empty();
-                    },
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+    Widget child = StreamChatCore(
+      client: client,
+      onBackgroundEventReceived: widget.onBackgroundEventReceived,
+      backgroundKeepAlive: widget.backgroundKeepAlive,
+      connectivityStream: widget.connectivityStream,
+      child: DefaultStreamChannelBuilders(
+        errorBuilder: _defaultChannelErrorBuilder,
+        loadingBuilder: _defaultChannelLoadingBuilder,
+        child: StreamSnackbarScope(child: widget.child ?? const Empty()),
       ),
     );
-  }
 
-  StreamChatThemeData _getTheme(
-    BuildContext context,
-    StreamChatThemeData? themeData,
-  ) {
-    final appBrightness = Theme.of(context).brightness;
-    final defaultTheme = StreamChatThemeData(brightness: appBrightness);
-    return defaultTheme.merge(themeData);
+    child = StreamMessageTranslations(store: _translationStore, child: child);
+
+    final theme = widget.themeData ?? StreamChatThemeData();
+    child = StreamChatTheme(data: theme, child: child);
+
+    final streamTheme = StreamTheme.of(context);
+    child = Theme(data: Theme.of(context).withExtension(streamTheme), child: child);
+
+    if (widget.componentBuilders case final builders?) {
+      child = StreamComponentFactory(builders: builders, child: child);
+    }
+
+    return StreamStateScope(
+      state: this,
+      child: Portal(
+        child: StreamChatConfiguration(data: configData, child: child),
+      ),
+    );
   }
 
   /// The current user
@@ -208,12 +240,56 @@ class StreamChatState extends State<StreamChat> {
 
   @override
   void didChangeDependencies() {
-    final currentLocale =
-        Localizations.localeOf(context).toString().toLowerCase();
+    final currentLocale = Localizations.localeOf(context).toString().toLowerCase();
     final availableLocales = Jiffy.getSupportedLocales();
-    if (availableLocales.contains(currentLocale)) {
-      Jiffy.setLocale(currentLocale);
-    }
+    if (availableLocales.contains(currentLocale)) Jiffy.setLocale(currentLocale);
     super.didChangeDependencies();
   }
+}
+
+extension on ThemeData {
+  /// Returns a copy of this [ThemeData] with [extension] added, replacing any
+  /// existing extension of the same runtime [Type].
+  ThemeData withExtension(ThemeExtension<dynamic> extension) {
+    // Trailing position is load-bearing: ThemeData.copyWith rebuilds the
+    // extensions map keyed by Type with last-wins semantics, so [extension]
+    // must come after the spread to win its slot when one is already present.
+    return copyWith(extensions: [...extensions.values, extension]);
+  }
+}
+
+// Installed by [StreamChat] as the default [StreamChannel] loading state, so
+// app-provided channels show a themed indicator on the app background.
+Widget _defaultChannelLoadingBuilder(BuildContext context) {
+  return Material(
+    color: context.streamColorScheme.backgroundApp,
+    child: const Center(
+      child: StreamScrollViewLoadingWidget(),
+    ),
+  );
+}
+
+// Installed by [StreamChat] as the default [StreamChannel] error state, so
+// app-provided channels show a themed, localized widget instead of a raw error.
+// Both builders are stable top-level tear-offs so DefaultStreamChannelBuilders
+// can compare them by identity in updateShouldNotify.
+Widget _defaultChannelErrorBuilder(
+  BuildContext context,
+  Object error,
+  StackTrace? stackTrace,
+) {
+  final translations = context.translations;
+  final text = resolveNetworkErrorText(context, error);
+
+  return Material(
+    color: context.streamColorScheme.backgroundApp,
+    child: Center(
+      child: StreamScrollViewErrorWidget(
+        errorTitle: Text(text.title),
+        errorSubtitle: Text(text.description),
+        retryButtonText: Text(translations.tryAgainLabel),
+        onRetryPressed: () => StreamChannel.of(context).retry(),
+      ),
+    ),
+  );
 }

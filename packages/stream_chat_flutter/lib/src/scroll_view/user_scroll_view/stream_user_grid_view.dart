@@ -1,19 +1,15 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_error_widget.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_load_more_error.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_load_more_indicator.dart';
-import 'package:stream_chat_flutter/src/scroll_view/stream_scroll_view_loading_widget.dart';
-import 'package:stream_chat_flutter/stream_chat_flutter.dart';
+
+import '../../../stream_chat_flutter.dart';
+import '../../utils/network_error_text.dart';
 
 /// Default grid delegate  for [StreamUserGridView].
-const defaultUserGridViewDelegate =
-    SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4);
+const defaultUserGridViewDelegate = SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 4);
 
 /// Signature for the item builder that creates the children of the
 /// [StreamUserGridView].
-typedef StreamUserGridViewIndexedWidgetBuilder
-    = StreamScrollViewIndexedWidgetBuilder<User, StreamUserGridTile>;
+typedef StreamUserGridViewIndexedWidgetBuilder = StreamScrollViewIndexedWidgetBuilder<User, StreamUserGridTile>;
 
 /// A [GridView] that shows a grid of [User]s,
 /// it uses [StreamUserGridTile] as a default item.
@@ -342,38 +338,25 @@ class StreamUserGridView extends StatelessWidget {
             ) ??
             streamUserGridTile;
       },
-      emptyBuilder: (context) {
-        final chatThemeData = StreamChatTheme.of(context);
-        return emptyBuilder?.call(context) ??
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: StreamScrollViewEmptyWidget(
-                  emptyIcon: StreamSvgIcon(
-                    size: 148,
-                    icon: StreamSvgIcons.user,
-                    color: chatThemeData.colorTheme.disabled,
-                  ),
-                  emptyTitle: Text(
-                    context.translations.noUsersLabel,
-                    style: chatThemeData.textTheme.headline,
-                  ),
-                ),
-              ),
-            );
-      },
-      loadMoreErrorBuilder: (context, error) =>
-          StreamScrollViewLoadMoreError.grid(
+      emptyBuilder: (context) =>
+          emptyBuilder?.call(context) ??
+          Center(
+            child: StreamScrollViewEmptyWidget(
+              emptyIcon: Icon(context.streamIcons.user),
+              emptyTitle: Text(context.translations.noUsersLabel),
+            ),
+          ),
+      loadMoreErrorBuilder: (context, error) => StreamScrollViewLoadMoreError.grid(
         onTap: controller.retry,
         error: Text(
           context.translations.loadingUsersError,
           textAlign: TextAlign.center,
         ),
       ),
-      loadMoreIndicatorBuilder: (context) => const Center(
+      loadMoreIndicatorBuilder: (context) => Center(
         child: Padding(
-          padding: EdgeInsets.all(16),
-          child: StreamScrollViewLoadMoreIndicator(),
+          padding: const EdgeInsets.all(16),
+          child: StreamLoadingSpinner(),
         ),
       ),
       loadingBuilder: (context) =>
@@ -381,14 +364,19 @@ class StreamUserGridView extends StatelessWidget {
           const Center(
             child: StreamScrollViewLoadingWidget(),
           ),
-      errorBuilder: (context, error) =>
-          errorBuilder?.call(context, error) ??
-          Center(
-            child: StreamScrollViewErrorWidget(
-              errorTitle: Text(context.translations.loadingUsersError),
-              onRetryPressed: controller.refresh,
-            ),
+      errorBuilder: (context, error) {
+        if (errorBuilder?.call(context, error) case final builder?) return builder;
+
+        final translations = context.translations;
+        final text = resolveNetworkErrorText(context, error, fallbackTitle: translations.loadingUsersError);
+
+        return Center(
+          child: StreamScrollViewErrorWidget(
+            errorTitle: Text(text.title),
+            onRetryPressed: controller.refresh,
           ),
+        );
+      },
     );
   }
 }

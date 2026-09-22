@@ -1,9 +1,10 @@
 // coverage:ignore-file
 import 'package:drift/drift.dart';
-import 'package:stream_chat_persistence/src/entity/channels.dart';
+import 'channels.dart';
 
-/// Represents a [Reads] table in [MoorChatDatabase].
+/// Represents a [Reads] table in [DriftChatDatabase].
 @DataClassName('ReadEntity')
+@TableIndex(name: 'idx_reads_channel_cid', columns: {#channelCid})
 class Reads extends Table {
   /// Date of the read event
   DateTimeColumn get lastRead => dateTime()();
@@ -12,8 +13,7 @@ class Reads extends Table {
   TextColumn get userId => text()();
 
   /// The channel cid of which this read belongs
-  TextColumn get channelCid =>
-      text().references(Channels, #cid, onDelete: KeyAction.cascade)();
+  TextColumn get channelCid => text().references(Channels, #cid, onDelete: KeyAction.cascade)();
 
   /// Number of unread messages
   IntColumn get unreadMessages => integer().withDefault(const Constant(0))();
@@ -29,7 +29,7 @@ class Reads extends Table {
 
   @override
   Set<Column> get primaryKey => {
-        userId,
-        channelCid,
-      };
+    userId,
+    channelCid,
+  };
 }

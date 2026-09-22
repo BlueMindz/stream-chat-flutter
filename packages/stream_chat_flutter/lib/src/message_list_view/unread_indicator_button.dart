@@ -1,62 +1,89 @@
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter/src/icons/stream_svg_icon.dart';
-import 'package:stream_chat_flutter/src/misc/empty_widget.dart';
-import 'package:stream_chat_flutter/src/theme/stream_chat_theme.dart';
-import 'package:stream_chat_flutter/src/utils/extensions.dart';
 import 'package:stream_chat_flutter_core/stream_chat_flutter_core.dart';
-import 'package:svg_icon_widget/svg_icon_widget.dart';
+import 'package:stream_core_flutter/chat.dart' as core;
 
-/// Function signature for handling the dismiss action on the unread indicator.
-typedef OnUnreadIndicatorDismissTap = Future<void> Function();
-
-/// Function signature for handling taps on the unread indicator.
-/// [lastReadMessageId] is the ID of the last read message.
-typedef OnUnreadIndicatorTap = Future<void> Function(String? lastReadMessageId);
-
-/// Function signature for building a custom unread indicator.
-///
-/// [unreadCount] is the number of unread messages.
-/// [onTap] is called when the indicator is tapped.
-/// [onDismissTap] is called when the dismiss action is triggered.
-typedef UnreadIndicatorBuilder = Widget Function(
-  int unreadCount,
-  OnUnreadIndicatorTap onTap,
-  OnUnreadIndicatorDismissTap onDismissTap,
-);
+import '../misc/empty_widget.dart';
+import '../utils/extensions.dart';
 
 /// {@template unreadIndicatorButton}
-/// A button that displays the number of unread messages in a channel.
+/// A floating "jump to unread" pill.
 ///
-/// This widget listens to the current user's read state and shows
-/// an indicator when there are unread messages. Users can tap on the
-/// indicator to navigate to the oldest unread message or dismiss it.
+/// By default [UnreadIndicatorButton] listens to the current user's read
+/// state and shows itself whenever there are unread messages, hiding again
+/// once there are none. Users can tap to navigate to the oldest unread
+/// message or dismiss the indicator.
+///
+/// Pass [unreadCount] to opt out of that and drive the pill from the host
+/// instead: the widget then renders unconditionally with the given count and
+/// never subscribes to read state, leaving visibility entirely to the caller.
+/// [StreamMessageListView] uses this mode so the pill can stay on screen with
+/// the count frozen at channel open, rather than tracking the live,
+/// ever-shrinking unread count.
+///
+/// {@tool snippet}
+///
+/// Typical usage inside a message list:
+///
+/// ```dart
+/// UnreadIndicatorButton(
+///   onJumpTap: (lastReadMessageId) async {
+///     // scroll to the unread message
+///   },
+///   onDismissTap: () async {
+///     // mark channel as read
+///   },
+/// )
+/// ```
+/// {@end-tool}
+///
+/// See also:
+///
+///  * [StreamMessageListView], which hosts this widget.
 /// {@endtemplate}
 class UnreadIndicatorButton extends StatelessWidget {
-  /// {@macro unreadIndicatorButton}
+  /// Creates an unread indicator button.
   const UnreadIndicatorButton({
     super.key,
-    required this.onTap,
+    required this.onJumpTap,
     required this.onDismissTap,
-    this.unreadIndicatorBuilder,
+    this.unreadCount,
   });
 
-  /// Callback triggered when the indicator is tapped.
+  /// The unread count to display, when the host owns the pill's visibility.
   ///
-  /// This is typically used to navigate to the oldest unread message.
-  final OnUnreadIndicatorTap onTap;
+  /// When null (the default), the count is read from the current user's read
+  /// state and the pill hides itself while there is nothing unread. When set,
+  /// the widget renders unconditionally with this count and does not
+  /// subscribe to read state at all — the caller decides when to show it.
+  final int? unreadCount;
 
-  /// Callback triggered when the dismiss button is tapped.
+  /// Called when the jump-to-unread area is tapped.
   ///
-  /// This is typically used to mark all messages as read.
-  final OnUnreadIndicatorDismissTap onDismissTap;
+  /// Receives the ID of the last message the current user has read, which can
+  /// be used to scroll to that position. It is `null` when [unreadCount] is
+  /// supplied, since the host owns the boundary in that mode and the widget
+  /// never reads the channel's read state.
+  final Future<void> Function(String? lastReadMessageId) onJumpTap;
 
-  /// Optional builder for customizing the appearance of the unread indicator.
+  /// Called when the dismiss button is tapped.
   ///
-  /// If not provided, a default indicator will be built.
-  final UnreadIndicatorBuilder? unreadIndicatorBuilder;
+  /// Typically used to mark all messages as read.
+  final Future<void> Function() onDismissTap;
+
+  Widget _buildButton(BuildContext context, int count, String? lastReadMessageId) {
+    return core.StreamJumpToUnreadButton(
+      label: context.translations.unreadCountIndicatorLabel(unreadCount: count),
+      onJumpPressed: () => onJumpTap(lastReadMessageId),
+      onDismissPressed: onDismissTap,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (unreadCount case final count?) {
+      return _buildButton(context, count, null);
+    }
+
     final channel = StreamChannel.of(context).channel;
     if (channel.state == null) return const Empty();
 
@@ -64,53 +91,9 @@ class UnreadIndicatorButton extends StatelessWidget {
       initialData: channel.state!.currentUserRead,
       stream: channel.state!.currentUserReadStream,
       builder: (context, currentUserRead) {
-        final unreadCount = currentUserRead.unreadMessages;
-        if (unreadCount <= 0) return const Empty();
-
-        if (unreadIndicatorBuilder case final builder?) {
-          return builder(unreadCount, onTap, onDismissTap);
-        }
-
-        final theme = StreamChatTheme.of(context);
-        final textTheme = theme.textTheme;
-        final colorTheme = theme.colorTheme;
-
-        return Material(
-          elevation: 4,
-          clipBehavior: Clip.antiAlias,
-          color: colorTheme.textLowEmphasis,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: InkWell(
-            onTap: () => onTap(currentUserRead.lastReadMessageId),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 2, 8, 2),
-              child: Row(
-                children: [
-                  Text(
-                    context.translations.unreadCountIndicatorLabel(
-                      unreadCount: unreadCount,
-                    ),
-                    style: textTheme.body.copyWith(color: colorTheme.barsBg),
-                  ),
-                  const SizedBox(width: 12),
-                  IconButton(
-                    iconSize: 24,
-                    icon: const SvgIcon(StreamSvgIcons.close),
-                    padding: const EdgeInsets.all(4),
-                    style: IconButton.styleFrom(
-                      foregroundColor: colorTheme.barsBg,
-                      minimumSize: const Size.square(24),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    onPressed: onDismissTap,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
+        final count = currentUserRead.unreadMessages;
+        if (count <= 0) return const Empty();
+        return _buildButton(context, count, currentUserRead.lastReadMessageId);
       },
     );
   }

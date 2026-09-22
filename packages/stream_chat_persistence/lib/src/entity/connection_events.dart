@@ -1,8 +1,8 @@
 // coverage:ignore-file
 import 'package:drift/drift.dart';
-import 'package:stream_chat_persistence/src/converter/map_converter.dart';
+import '../converter/map_converter.dart';
 
-/// Represents a [ConnectionEvents] table in [MoorChatDatabase].
+/// Represents a [ConnectionEvents] table in [DriftChatDatabase].
 @DataClassName('ConnectionEventEntity')
 class ConnectionEvents extends Table {
   /// event id

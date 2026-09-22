@@ -4,16 +4,16 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:stream_chat_flutter/stream_chat_flutter.dart';
-import 'package:stream_chat_flutter_example/debug/actions/add_user.dart';
-import 'package:stream_chat_flutter_example/debug/actions/ban_user.dart';
-import 'package:stream_chat_flutter_example/debug/actions/mute_user.dart';
-import 'package:stream_chat_flutter_example/debug/actions/remove_shadow_ban.dart';
-import 'package:stream_chat_flutter_example/debug/actions/remove_user.dart';
-import 'package:stream_chat_flutter_example/debug/actions/shadow_ban.dart';
-import 'package:stream_chat_flutter_example/debug/actions/unban_user.dart';
-import 'package:stream_chat_flutter_example/debug/actions/unmute_user.dart';
-import 'package:stream_chat_flutter_example/debug/members.dart';
-import 'package:stream_chat_flutter_example/debug/mutes.dart';
+import 'actions/add_user.dart';
+import 'actions/ban_user.dart';
+import 'actions/mute_user.dart';
+import 'actions/remove_shadow_ban.dart';
+import 'actions/remove_user.dart';
+import 'actions/shadow_ban.dart';
+import 'actions/unban_user.dart';
+import 'actions/unmute_user.dart';
+import 'members.dart';
+import 'mutes.dart';
 
 class DebugChannelPage extends StatefulWidget {
   const DebugChannelPage({super.key});
@@ -39,8 +39,7 @@ class _DebugChannelPageState extends State<DebugChannelPage> {
     _channelSubscription = _channel.state!.channelStateStream.listen((state) {
       setState(() => _channelState = state);
     });
-    _ownUserSubscription =
-        _channel.client.state.currentUserStream.listen((ownUser) {
+    _ownUserSubscription = _channel.client.state.currentUserStream.listen((ownUser) {
       setState(() => _ownUser = ownUser);
     });
   }
@@ -54,10 +53,8 @@ class _DebugChannelPageState extends State<DebugChannelPage> {
 
   @override
   Widget build(BuildContext context) {
-    final members =
-        _channelState?.members ?? _channel.state?.members ?? const [];
-    final mutes =
-        _ownUser?.mutes ?? _channel.client.state.currentUser?.mutes ?? const [];
+    final members = _channelState?.members ?? _channel.state?.members ?? const [];
+    final mutes = _ownUser?.mutes ?? _channel.client.state.currentUser?.mutes ?? const [];
     //SingleChildScrollView
     return Scaffold(
       appBar: AppBar(

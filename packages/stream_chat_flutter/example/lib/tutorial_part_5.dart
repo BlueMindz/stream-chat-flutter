@@ -7,11 +7,12 @@ import 'package:stream_chat_flutter/stream_chat_flutter.dart';
 /// Customizing how messages are rendered is another very common use-case that
 /// the SDK supports easily.
 ///
-/// Replacing the built-in message component with your own is done by passing
-/// it as a builder function to the [StreamMessageListView] widget.
+/// Replacing the built-in message component with your own is done by
+/// passing a `messageBuilder` to [StreamMessageListView].
 ///
-/// The message builder function will get the usual [BuildContext] argument
-/// as well as the [Message] object and its position inside the list.
+/// The builder receives the [BuildContext], the [Message], and the
+/// pre-configured [StreamMessageItemProps] with all list-level callbacks
+/// already wired in.
 ///
 /// If you look at the code you can see that we use [StreamChat.of] to
 /// retrieve the current user so that we can style messages in a different way.
@@ -22,13 +23,13 @@ import 'package:stream_chat_flutter/stream_chat_flutter.dart';
 /// outer scope needed such as messages from the [Channel.state].
 Future<void> main() async {
   final client = StreamChatClient(
-    's2dxdhpxd94g',
+    'b67pax5b2wdq',
     logLevel: Level.INFO,
   );
 
   await client.connectUser(
-    User(id: 'super-band-9'),
-    '''eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoic3VwZXItYmFuZC05In0.0L6lGoeLwkz0aZRUcpZKsvaXtNEDHBcezVTZ0oPq40A''',
+    User(id: 'tutorial-flutter'),
+    '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidHV0b3JpYWwtZmx1dHRlciJ9.S-MJpoSwDiqyXpUURgO5wVqJ4vKlIVFLSEyrFYCOE1c''',
   );
 
   runApp(
@@ -44,6 +45,8 @@ class MyApp extends StatelessWidget {
     required this.client,
   });
 
+  /// Instance of [StreamChatClient] we created earlier. This contains
+  /// information about our application and connection state.
   final StreamChatClient client;
 
   @override
@@ -58,6 +61,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+/// Displays the list of channels for the current user.
 class ChannelListPage extends StatefulWidget {
   const ChannelListPage({
     super.key,
@@ -86,7 +90,11 @@ class _ChannelListPageState extends State<ChannelListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.streamColorScheme;
+
     return Scaffold(
+      backgroundColor: colorScheme.backgroundApp,
+      appBar: const StreamChannelListHeader(),
       body: StreamChannelListView(
         controller: _listController,
         onChannelTap: (channel) {
@@ -104,6 +112,7 @@ class _ChannelListPageState extends State<ChannelListPage> {
   }
 }
 
+/// Displays the list of messages inside the channel with a custom message widget.
 class ChannelPage extends StatelessWidget {
   const ChannelPage({
     super.key,
@@ -111,30 +120,30 @@ class ChannelPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.streamColorScheme;
+
     return Scaffold(
+      backgroundColor: colorScheme.backgroundApp,
       appBar: const StreamChannelHeader(),
       body: Column(
         children: <Widget>[
           Expanded(
             child: StreamMessageListView(
-              messageBuilder: _messageBuilder,
+              messageBuilder: _messageItemBuilder,
             ),
           ),
-          const StreamMessageInput(),
+          StreamMessageComposer(),
         ],
       ),
     );
   }
 
-  Widget _messageBuilder(
+  Widget _messageItemBuilder(
     BuildContext context,
-    MessageDetails details,
-    List<Message> messages,
-    StreamMessageWidget _,
+    Message message,
+    StreamMessageItemProps defaultProps,
   ) {
-    final message = details.message;
-    final isCurrentUser =
-        StreamChat.of(context).currentUser!.id == message.user!.id;
+    final isCurrentUser = StreamChat.of(context).currentUser!.id == message.user!.id;
     final textAlign = isCurrentUser ? TextAlign.right : TextAlign.left;
     final color = isCurrentUser ? Colors.blueGrey : Colors.blue;
 

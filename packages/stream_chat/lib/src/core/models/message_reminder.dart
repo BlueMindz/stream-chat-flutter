@@ -1,9 +1,9 @@
 import 'package:equatable/equatable.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:stream_chat/src/core/models/channel_model.dart';
-import 'package:stream_chat/src/core/models/comparable_field.dart';
-import 'package:stream_chat/src/core/models/message.dart';
-import 'package:stream_chat/src/core/models/user.dart';
+import 'channel_model.dart';
+import 'comparable_field.dart';
+import 'message.dart';
+import 'user.dart';
 
 part 'message_reminder.g.dart';
 
@@ -38,12 +38,11 @@ class MessageReminder extends Equatable implements ComparableFieldProvider {
     this.remindAt,
     DateTime? createdAt,
     DateTime? updatedAt,
-  })  : createdAt = createdAt ?? DateTime.now(),
-        updatedAt = updatedAt ?? DateTime.now();
+  }) : createdAt = createdAt ?? DateTime.now(),
+       updatedAt = updatedAt ?? DateTime.now();
 
   /// Create a new instance from a json
-  factory MessageReminder.fromJson(Map<String, dynamic> json) =>
-      _$MessageReminderFromJson(json);
+  factory MessageReminder.fromJson(Map<String, dynamic> json) => _$MessageReminderFromJson(json);
 
   /// The channel CID where the message exists.
   final String channelCid;
@@ -124,16 +123,16 @@ class MessageReminder extends Equatable implements ComparableFieldProvider {
 
   @override
   List<Object?> get props => [
-        channelCid,
-        channel,
-        messageId,
-        message,
-        userId,
-        user,
-        remindAt,
-        createdAt,
-        updatedAt,
-      ];
+    channelCid,
+    channel,
+    messageId,
+    message,
+    userId,
+    user,
+    remindAt,
+    createdAt,
+    updatedAt,
+  ];
 
   @override
   ComparableField? getComparableField(String sortKey) {

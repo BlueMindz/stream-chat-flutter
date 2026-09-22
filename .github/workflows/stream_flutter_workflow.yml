@@ -2,14 +2,9 @@ name: stream_flutter_workflow
 
 env:
   ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
-  flutter_version: "3.x"
 
 on:
   pull_request:
-    paths:
-      - 'packages/**'
-      - 'sample_app/**'
-      - '.github/workflows/stream_flutter_workflow.yml'
     types:
       - opened
       - reopened
@@ -23,23 +18,50 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
+  # Centralizes every gating decision for this workflow — path filter,
+  # draft state, and push-vs-PR semantics. Downstream jobs only need a
+  # single `if: needs.gate.outputs.should_run == 'true'`. A job skipped
+  # this way reports `success` to branch protection (vs. `on.paths`
+  # filtering, which hangs forever) — see
+  # https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks
+  #
+  # `push` events to master always run the full suite, matching the
+  # previous `on.push.branches: [master]` behavior.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ github.event_name == 'push' || (steps.filter.outputs.relevant == 'true' && github.event.pull_request.draft != true) }}
+    steps:
+      - name: "Git Checkout"
+        uses: actions/checkout@v7
+
+      - name: "Detect Path Changes"
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            relevant:
+              - 'docs/**'
+              - 'packages/**'
+              - 'sample_app/**'
+              - '.github/workflows/stream_flutter_workflow.yml'
+
   analyze:
+    needs: gate
     timeout-minutes: 15
-    if: github.event.pull_request.draft == false
+    if: needs.gate.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: "Git Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: "Install Flutter"
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.flutter_version }}
-          channel: stable
-          cache: true
-          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+      - uses: ./.github/actions/setup-flutter
       - name: "Install Tools"
         run: |
           flutter pub global activate melos
@@ -54,21 +76,16 @@ jobs:
           melos run lint:pub
 
   format:
+    needs: gate
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
+    if: needs.gate.outputs.should_run == 'true'
     timeout-minutes: 15
     steps:
       - name: "Git Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: "Install Flutter"
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.flutter_version }}
-          channel: stable
-          cache: true
-          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+      - uses: ./.github/actions/setup-flutter
       - name: "Install Tools"
         run: |
           flutter pub global activate melos
@@ -81,21 +98,16 @@ jobs:
           ./.github/workflows/scripts/validate-formatting.sh
 
   test:
+    needs: gate
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
+    if: needs.gate.outputs.should_run == 'true'
     timeout-minutes: 30
     steps:
       - name: "Git Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: "Install Flutter"
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.flutter_version }}
-          channel: stable
-          cache: true
-          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+      - uses: ./.github/actions/setup-flutter
       # This step is needed due to https://github.com/actions/runner-images/issues/11279
       - name: Install SQLite3
         run: sudo apt-get update && sudo apt-get install -y sqlite3 libsqlite3-dev
@@ -110,7 +122,7 @@ jobs:
       - name: "Collect Coverage"
         run: melos run coverage:ignore-file --no-select
       - name: "Upload Coverage"
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{secrets.CODECOV_TOKEN}}
           files: packages/*/coverage/lcov.info
@@ -142,8 +154,9 @@ jobs:
 
   build:
     name: build (${{ matrix.platform }})
+    needs: gate
     runs-on: ${{ matrix.os }}
-    if: github.event.pull_request.draft == false
+    if: needs.gate.outputs.should_run == 'true' && github.event_name == 'pull_request'
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -154,40 +167,25 @@ jobs:
             working-directory: sample_app/android
             build-command: bundle exec fastlane build_apk
           - platform: ios
-            os: macos-15 # Requires xcode 15 or later
+            os: xcode-27
             working-directory: sample_app/ios
             build-command: bundle exec fastlane build_ipa no_codesign:true
 
     steps:
       - name: "Git Checkout"
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: "Install Flutter"
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.flutter_version }}
-          channel: stable
-          cache: true
-          cache-key: flutter-:os:-:channel:-:version:-:arch:-:hash:-${{ hashFiles('**/pubspec.lock') }}
+      - uses: ./.github/actions/setup-flutter
+      - uses: ./.github/actions/setup-xcode
+        if: matrix.platform == 'ios'
+      - uses: ./.github/actions/cache-gradle
+        if: matrix.platform == 'android'
       - name: "Install Tools"
         run: flutter pub global activate melos
       - name: "Bootstrap Workspace"
         run: melos bootstrap
-      - name: Setup Ruby and Gems
-        uses: ruby/setup-ruby@v1
-        with:
-          working-directory: ${{ matrix.working-directory }}
-          bundler-cache: true
+      - uses: ./.github/actions/setup-ruby
       - name: "Build ${{ matrix.platform }} App"
         working-directory: ${{ matrix.working-directory }}
         run: ${{ matrix.build-command }}
-
-  draft-build:
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == true
-    timeout-minutes: 1
-
-    steps:
-      - name: Run a one-line script
-        run: echo Draft PR, you are good.

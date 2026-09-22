@@ -5,18 +5,19 @@ import 'dart:math' as math;
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:stream_chat/src/core/error/error.dart';
-import 'package:stream_chat/src/core/http/system_environment_manager.dart';
-import 'package:stream_chat/src/core/http/token_manager.dart';
-import 'package:stream_chat/src/core/models/event.dart';
-import 'package:stream_chat/src/core/models/own_user.dart';
-import 'package:stream_chat/src/core/util/extension.dart';
-import 'package:stream_chat/src/event_type.dart';
-import 'package:stream_chat/src/ws/connect_user_details.dart';
-import 'package:stream_chat/src/ws/connection_status.dart';
-import 'package:stream_chat/src/ws/timer_helper.dart';
 import 'package:web_socket_channel/status.dart' as status;
 import 'package:web_socket_channel/web_socket_channel.dart';
+
+import '../core/error/error.dart';
+import '../core/http/system_environment_manager.dart';
+import '../core/http/token_manager.dart';
+import '../core/models/event.dart';
+import '../core/models/own_user.dart';
+import '../core/util/extension.dart';
+import '../event_type.dart';
+import 'connect_user_details.dart';
+import 'connection_status.dart';
+import 'timer_helper.dart';
 
 /// Typedef which exposes an [Event] as the only parameter.
 typedef EventHandler = void Function(Event);
@@ -24,10 +25,11 @@ typedef EventHandler = void Function(Event);
 /// Typedef used for connecting to a websocket. Method returns a
 /// [WebSocketChannel] and accepts a connection [url] and an optional
 /// [Iterable] of `protocols`.
-typedef WebSocketChannelProvider = WebSocketChannel Function(
-  Uri uri, {
-  Iterable<String>? protocols,
-});
+typedef WebSocketChannelProvider =
+    WebSocketChannel Function(
+      Uri uri, {
+      Iterable<String>? protocols,
+    });
 
 /// A WebSocket connection that reconnects upon failure.
 class WebSocket with TimerHelper {
@@ -39,14 +41,14 @@ class WebSocket with TimerHelper {
     required this.tokenManager,
     this.systemEnvironmentManager,
     this.handler,
-    Logger? logger,
+    this._logger,
     this.webSocketChannelProvider,
     this.reconnectionMonitorInterval = 10,
     this.healthCheckInterval = 20,
     this.reconnectionMonitorTimeout = 40,
     this.maxReconnectAttempts = 6,
     this.queryParameters = const {},
-  }) : _logger = logger;
+  });
 
   ///
   final String apiKey;
@@ -132,8 +134,11 @@ class WebSocket with TimerHelper {
     if (_webSocketChannel != null) {
       _closeWebSocketChannel();
     }
-    _webSocketChannel =
-        webSocketChannelProvider?.call(uri) ?? WebSocketChannel.connect(uri);
+    _webSocketChannel = webSocketChannelProvider?.call(uri) ?? WebSocketChannel.connect(uri);
+    // Connect failures reach onError below; ignore the ready and sink.done
+    // duplicates so they aren't reported as unhandled errors.
+    _webSocketChannel?.ready.ignore();
+    _webSocketChannel?.sink.done.ignore();
     _subscribeToWebSocketChannel();
   }
 
@@ -185,8 +190,8 @@ class WebSocket with TimerHelper {
       'api_key': apiKey,
       'authorization': token.rawValue,
       'stream-auth-type': token.authType.name,
-      if (userAgent != null) 'X-Stream-Client': jsonEncode(userAgent),
       ...queryParameters,
+      if (userAgent != null) 'X-Stream-Client': jsonEncode(userAgent),
     };
 
     final scheme = switch (baseUrl) {
@@ -255,10 +260,44 @@ class WebSocket with TimerHelper {
 
   int _reconnectAttempt = 0;
   bool _reconnectRequestInProgress = false;
+  bool _reconnectEnabled = true;
+
+  /// Whether automatic reconnection is currently enabled.
+  bool get reconnectEnabled => _reconnectEnabled;
+
+  /// Suspends automatic reconnection without tearing down the user session.
+  ///
+  /// While paused, unexpected socket closures (e.g. when the OS closes the
+  /// connection after the app is backgrounded) will not trigger retries.
+  /// Call [resumeReconnect] before re-establishing the connection.
+  void pauseReconnect() {
+    if (!_reconnectEnabled) return;
+    _logger?.info('Pausing reconnection');
+    _reconnectEnabled = false;
+  }
+
+  /// Re-enables automatic reconnection after a previous [pauseReconnect].
+  void resumeReconnect() {
+    if (_reconnectEnabled) return;
+    _logger?.info('Resuming reconnection');
+    _reconnectEnabled = true;
+  }
 
   void _reconnect({bool refreshToken = false}) async {
-    _logger?.info('Retrying connection : $_reconnectAttempt');
     if (_reconnectRequestInProgress) return;
+
+    // Must run before the pause check so the health-check timer can't fire
+    // on a closed sink while we wait.
+    _stopMonitoringEvents();
+    _closeWebSocketChannel();
+
+    if (!_reconnectEnabled) {
+      _logger?.info('Reconnect skipped: paused');
+      _connectionStatus = ConnectionStatus.disconnected;
+      return;
+    }
+
+    _logger?.info('Retrying connection : $_reconnectAttempt');
 
     if (_reconnectAttempt >= maxReconnectAttempts) {
       _logger?.severe('Max reconnect attempts reached: $maxReconnectAttempts');
@@ -266,10 +305,6 @@ class WebSocket with TimerHelper {
     }
 
     _reconnectRequestInProgress = true;
-
-    _stopMonitoringEvents();
-    // Closing any previously opened web-socket
-    _closeWebSocketChannel();
 
     _reconnectAttempt += 1;
     _connectionStatus = ConnectionStatus.connecting;
@@ -283,6 +318,9 @@ class WebSocket with TimerHelper {
         //
         // In either case, we should not attempt to reconnect.
         if (_user == null) return;
+
+        // Reconnect may have been paused while the delay was pending.
+        if (!_reconnectEnabled) return;
 
         final uri = await _buildUri(
           refreshToken: refreshToken,
@@ -409,8 +447,7 @@ class WebSocket with TimerHelper {
   }
 
   void _onConnectionError(error, [stacktrace]) {
-    _logger?.warning(
-        '[onConnectionError] #ws; error occurred', error, stacktrace);
+    _logger?.warning('[onConnectionError] #ws; error occurred', error, stacktrace);
 
     StreamWebSocketError wsError;
     if (error is WebSocketChannelException) {

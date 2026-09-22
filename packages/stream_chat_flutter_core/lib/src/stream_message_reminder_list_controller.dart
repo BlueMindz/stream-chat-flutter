@@ -5,8 +5,8 @@ import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:stream_chat/stream_chat.dart';
-import 'package:stream_chat_flutter_core/src/paged_value_notifier.dart';
-import 'package:stream_chat_flutter_core/src/stream_message_reminder_list_event_handler.dart';
+import 'paged_value_notifier.dart';
+import 'stream_message_reminder_list_event_handler.dart';
 
 /// The default message reminder page limit to load.
 const defaultMessageReminderPagedLimit = 10;
@@ -29,8 +29,7 @@ const _kDefaultBackendPaginationLimit = 30;
 /// This controller is typically used in conjunction with UI components
 /// to display and interact with a list of message reminders.
 /// {@endtemplate}
-class StreamMessageReminderListController
-    extends PagedValueNotifier<String, MessageReminder> {
+class StreamMessageReminderListController extends PagedValueNotifier<String, MessageReminder> {
   /// {@macro streamMessageReminderListController}
   StreamMessageReminderListController({
     required this.client,
@@ -38,10 +37,10 @@ class StreamMessageReminderListController
     this.filter,
     this.sort = defaultMessageReminderListSort,
     this.limit = defaultMessageReminderPagedLimit,
-  })  : _activeFilter = filter,
-        _activeSort = sort,
-        _eventHandler = eventHandler ?? StreamMessageReminderListEventHandler(),
-        super(const PagedValue.loading());
+  }) : _activeFilter = filter,
+       _activeSort = sort,
+       _eventHandler = eventHandler ?? StreamMessageReminderListEventHandler(),
+       super(const PagedValue.loading());
 
   /// Creates a [StreamMessageReminderListController] from the passed [value].
   StreamMessageReminderListController.fromValue(
@@ -51,9 +50,9 @@ class StreamMessageReminderListController
     this.filter,
     this.sort = defaultMessageReminderListSort,
     this.limit = defaultMessageReminderPagedLimit,
-  })  : _activeFilter = filter,
-        _activeSort = sort,
-        _eventHandler = eventHandler ?? StreamMessageReminderListEventHandler();
+  }) : _activeFilter = filter,
+       _activeSort = sort,
+       _eventHandler = eventHandler ?? StreamMessageReminderListEventHandler();
 
   /// The Stream client used to perform the queries.
   final StreamChatClient client;
@@ -98,11 +97,11 @@ class StreamMessageReminderListController
     super.value = switch (_activeSort) {
       null => newValue,
       final reminderSort => newValue.maybeMap(
-          orElse: () => newValue,
-          (success) => success.copyWith(
-            items: success.items.sorted(reminderSort.compare),
-          ),
+        orElse: () => newValue,
+        (success) => success.copyWith(
+          items: success.items.sorted(reminderSort.compare),
         ),
+      ),
     };
   }
 
@@ -126,6 +125,7 @@ class StreamMessageReminderListController
         nextPageKey: nextKey,
       );
       // Start listening to events
+      if (disposed) return;
       _subscribeToReminderListEvents();
     } on StreamChatError catch (error) {
       value = PagedValue.error(error);

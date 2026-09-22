@@ -1,6 +1,6 @@
 import 'package:json_annotation/json_annotation.dart';
-import 'package:stream_chat/src/core/models/channel_model.dart';
-import 'package:stream_chat/src/core/models/user.dart';
+import 'channel_model.dart';
+import 'user.dart';
 
 part 'channel_mute.g.dart';
 
@@ -17,8 +17,7 @@ class ChannelMute {
   });
 
   /// Create a new instance from a json
-  factory ChannelMute.fromJson(Map<String, dynamic> json) =>
-      _$ChannelMuteFromJson(json);
+  factory ChannelMute.fromJson(Map<String, dynamic> json) => _$ChannelMuteFromJson(json);
 
   /// The user that performed the muting action
   final User user;

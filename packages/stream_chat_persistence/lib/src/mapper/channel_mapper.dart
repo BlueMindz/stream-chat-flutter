@@ -1,5 +1,5 @@
 import 'package:stream_chat/stream_chat.dart';
-import 'package:stream_chat_persistence/src/db/drift_chat_database.dart';
+import '../db/drift_chat_database.dart';
 
 /// Useful mapping functions for [ChannelEntity]
 extension ChannelEntityX on ChannelEntity {
@@ -21,6 +21,7 @@ extension ChannelEntityX on ChannelEntity {
       deletedAt: deletedAt,
       createdBy: createdBy,
       filterTags: filterTags,
+      team: team,
       extraData: extraData ?? {},
     );
   }
@@ -32,34 +33,34 @@ extension ChannelEntityX on ChannelEntity {
     List<Read> reads = const [],
     List<Message> messages = const [],
     List<Message> pinnedMessages = const [],
-  }) =>
-      ChannelState(
-        members: members,
-        read: reads,
-        messages: messages,
-        pinnedMessages: pinnedMessages,
-        channel: toChannelModel(createdBy: createdBy),
-      );
+  }) => ChannelState(
+    members: members,
+    read: reads,
+    messages: messages,
+    pinnedMessages: pinnedMessages,
+    channel: toChannelModel(createdBy: createdBy),
+  );
 }
 
 /// Useful mapping functions for [ChannelModel]
 extension ChannelModelX on ChannelModel {
   /// Maps a [ChannelModel] into [ChannelEntity]
   ChannelEntity toEntity() => ChannelEntity(
-        id: id,
-        type: type,
-        cid: cid,
-        ownCapabilities: ownCapabilities,
-        config: config.toJson(),
-        frozen: frozen,
-        lastMessageAt: lastMessageAt,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-        deletedAt: deletedAt,
-        memberCount: memberCount,
-        messageCount: messageCount,
-        createdById: createdBy?.id,
-        filterTags: filterTags,
-        extraData: extraData,
-      );
+    id: id,
+    type: type,
+    cid: cid,
+    ownCapabilities: ownCapabilities,
+    config: config.toJson(),
+    frozen: frozen,
+    lastMessageAt: lastMessageAt,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    deletedAt: deletedAt,
+    memberCount: memberCount,
+    messageCount: messageCount,
+    createdById: createdBy?.id,
+    filterTags: filterTags,
+    team: team,
+    extraData: extraData,
+  );
 }

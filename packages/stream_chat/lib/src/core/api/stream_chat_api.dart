@@ -1,21 +1,23 @@
 import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
-import 'package:stream_chat/src/core/api/attachment_file_uploader.dart';
-import 'package:stream_chat/src/core/api/call_api.dart';
-import 'package:stream_chat/src/core/api/channel_api.dart';
-import 'package:stream_chat/src/core/api/device_api.dart';
-import 'package:stream_chat/src/core/api/general_api.dart';
-import 'package:stream_chat/src/core/api/guest_api.dart';
-import 'package:stream_chat/src/core/api/message_api.dart';
-import 'package:stream_chat/src/core/api/moderation_api.dart';
-import 'package:stream_chat/src/core/api/polls_api.dart';
-import 'package:stream_chat/src/core/api/reminders_api.dart';
-import 'package:stream_chat/src/core/api/threads_api.dart';
-import 'package:stream_chat/src/core/api/user_api.dart';
-import 'package:stream_chat/src/core/http/connection_id_manager.dart';
-import 'package:stream_chat/src/core/http/stream_http_client.dart';
-import 'package:stream_chat/src/core/http/system_environment_manager.dart';
-import 'package:stream_chat/src/core/http/token_manager.dart';
+
+import '../http/connection_id_manager.dart';
+import '../http/stream_http_client.dart';
+import '../http/system_environment_manager.dart';
+import '../http/token_manager.dart';
+import 'attachment_file_uploader.dart';
+import 'channel_api.dart';
+import 'device_api.dart';
+import 'general_api.dart';
+import 'guest_api.dart';
+import 'message_api.dart';
+import 'moderation_api.dart';
+import 'polls_api.dart';
+import 'reminders_api.dart';
+import 'roles_api.dart';
+import 'threads_api.dart';
+import 'user_api.dart';
+import 'user_groups_api.dart';
 
 export 'device_api.dart' show PushProvider;
 
@@ -29,23 +31,23 @@ class StreamChatApi {
     TokenManager? tokenManager,
     ConnectionIdManager? connectionIdManager,
     SystemEnvironmentManager? systemEnvironmentManager,
-    AttachmentFileUploaderProvider attachmentFileUploaderProvider =
-        StreamAttachmentFileUploader.new,
+    AttachmentFileUploaderProvider attachmentFileUploaderProvider = StreamAttachmentFileUploader.new,
     Logger? logger,
     Iterable<Interceptor>? interceptors,
     HttpClientAdapter? httpClientAdapter,
-  })  : _fileUploaderProvider = attachmentFileUploaderProvider,
-        _client = client ??
-            StreamHttpClient(
-              apiKey,
-              options: options,
-              tokenManager: tokenManager,
-              connectionIdManager: connectionIdManager,
-              systemEnvironmentManager: systemEnvironmentManager,
-              logger: logger,
-              interceptors: interceptors,
-              httpClientAdapter: httpClientAdapter,
-            );
+  }) : _fileUploaderProvider = attachmentFileUploaderProvider,
+       _client =
+           client ??
+           StreamHttpClient(
+             apiKey,
+             options: options,
+             tokenManager: tokenManager,
+             connectionIdManager: connectionIdManager,
+             systemEnvironmentManager: systemEnvironmentManager,
+             logger: logger,
+             interceptors: interceptors,
+             httpClientAdapter: httpClientAdapter,
+           );
 
   final StreamHttpClient _client;
   final AttachmentFileUploaderProvider _fileUploaderProvider;
@@ -70,12 +72,6 @@ class StreamChatApi {
   ThreadsApi get threads => _threads ??= ThreadsApi(_client);
   ThreadsApi? _threads;
 
-  /// Api dedicated to call operations
-  @Deprecated('Will be removed in the next major version')
-  CallApi get call => _call ??= CallApi(_client);
-  @Deprecated('Will be removed in the next major version')
-  CallApi? _call;
-
   /// Api dedicated to channel operations
   ChannelApi get channel => _channel ??= ChannelApi(_client);
   ChannelApi? _channel;
@@ -92,12 +88,19 @@ class StreamChatApi {
   RemindersApi get reminders => _reminders ??= RemindersApi(_client);
   RemindersApi? _reminders;
 
+  /// Api dedicated to user groups operations
+  UserGroupsApi get userGroups => _userGroups ??= UserGroupsApi(_client);
+  UserGroupsApi? _userGroups;
+
+  /// Api dedicated to roles operations
+  RolesApi get roles => _roles ??= RolesApi(_client);
+  RolesApi? _roles;
+
   /// Api dedicated to general operations
   GeneralApi get general => _general ??= GeneralApi(_client);
   GeneralApi? _general;
 
   /// Class responsible for uploading images and files to a given channel
-  AttachmentFileUploader get fileUploader =>
-      _fileUploader ??= _fileUploaderProvider.call(_client);
+  AttachmentFileUploader get fileUploader => _fileUploader ??= _fileUploaderProvider.call(_client);
   AttachmentFileUploader? _fileUploader;
 }

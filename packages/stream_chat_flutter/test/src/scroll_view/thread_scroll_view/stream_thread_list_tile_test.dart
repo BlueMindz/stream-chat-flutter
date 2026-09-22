@@ -68,11 +68,74 @@ void main() {
       fileName: 'stream_thread_list_tile_${brightness.name}',
       constraints: const BoxConstraints.tightFor(width: 600, height: 150),
       builder: () => _wrapWithMaterialApp(
-        brightness: brightness,
         StreamThreadListTile(thread: thread, currentUser: user2),
+        brightness: brightness,
       ),
     );
   }
+
+  group('StreamThreadListTile a11y', () {
+    testWidgets(
+      'merges children into a single accessible node with the composed label',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+
+        await tester.pumpWidget(
+          _wrapWithMaterialApp(
+            StreamThreadListTile(thread: thread, currentUser: user2),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        // The tile's composed label carries the channel name, unread
+        // badge, message preview, reply count, and timestamp — merged
+        // into one accessible node. MergeSemantics joins the child
+        // labels with newlines, so match with `dotAll: true` so `.`
+        // crosses breaks.
+        expect(
+          find.bySemanticsLabel(
+            RegExp(
+              'Group ride.*3 unread messages.*group ride this Saturday.*1 reply',
+              dotAll: true,
+            ),
+          ),
+          findsOneWidget,
+        );
+
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'unread count == 0 omits the unread label from the announcement',
+      (tester) async {
+        final handle = tester.ensureSemantics();
+
+        final threadWithoutUnread = thread.copyWith(
+          read: [
+            Read(user: user2, lastRead: createdAt, unreadMessages: 0),
+          ],
+        );
+
+        await tester.pumpWidget(
+          _wrapWithMaterialApp(
+            StreamThreadListTile(
+              thread: threadWithoutUnread,
+              currentUser: user2,
+            ),
+          ),
+        );
+
+        await tester.pumpAndSettle();
+
+        expect(find.bySemanticsLabel(RegExp('Group ride')), findsOneWidget);
+        expect(find.bySemanticsLabel(RegExp('unread')), findsNothing);
+
+        handle.dispose();
+      },
+    );
+  });
 
   group('Formatter Tests', () {
     testWidgets(
@@ -133,7 +196,7 @@ void main() {
 
 Widget _wrapWithMaterialApp(
   Widget widget, {
-  Brightness? brightness,
+  Brightness brightness = Brightness.light,
 }) {
   final client = MockClient();
   final clientState = MockClientState();
@@ -143,16 +206,16 @@ Widget _wrapWithMaterialApp(
   when(() => clientState.currentUser).thenReturn(currentUser);
 
   return MaterialApp(
+    theme: ThemeData(brightness: brightness),
     home: StreamChat(
       client: client,
-      streamChatConfigData: StreamChatConfigurationData(),
+      configData: StreamChatConfigurationData(),
       connectivityStream: Stream.value([ConnectivityResult.wifi]),
-      streamChatThemeData: StreamChatThemeData(brightness: brightness),
+      themeData: StreamChatThemeData(),
       child: Builder(
         builder: (context) {
-          final theme = StreamChatTheme.of(context);
           return Scaffold(
-            backgroundColor: theme.colorTheme.appBg,
+            backgroundColor: context.streamColorScheme.backgroundApp,
             body: Center(child: widget),
           );
         },

@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:stream_chat/src/core/error/error.dart';
+import '../error/error.dart';
 
 /// Error class specific to StreamChat and Dio
 class StreamChatDioError extends DioException {
@@ -12,9 +12,9 @@ class StreamChatDioError extends DioException {
     StackTrace? stackTrace,
     super.message,
   }) : super(
-          error: error,
-          stackTrace: stackTrace ?? StackTrace.current,
-        );
+         error: error,
+         stackTrace: stackTrace ?? StackTrace.current,
+       );
 
   @override
   final StreamChatNetworkError error;

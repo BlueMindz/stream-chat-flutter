@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:stream_chat_flutter/src/video/vlc/vlc_manager_desktop.dart';
 import 'package:stream_chat_flutter/stream_chat_flutter.dart';
 
 class MockClient extends Mock implements StreamChatClient {
   MockClient() {
     when(() => wsConnectionStatus).thenReturn(ConnectionStatus.connected);
-    when(() => wsConnectionStatusStream)
-        .thenAnswer((_) => Stream.value(ConnectionStatus.connected));
+    when(() => wsConnectionStatusStream).thenAnswer((_) => Stream.value(ConnectionStatus.connected));
+    when(() => state).thenReturn(MockClientState());
   }
 }
 
@@ -21,7 +20,16 @@ class MockChannel extends Mock implements Channel {
       ChannelCapability.sendMessage,
       ChannelCapability.uploadFile,
     ],
-  });
+    Stream<Event>? eventStream,
+  }) : _eventStream = eventStream ?? const Stream.empty() {
+    registerFallbackValue(DraftMessage());
+    when(() => createDraft(any())).thenAnswer((_) async => CreateDraftResponse());
+    when(deleteDraft).thenAnswer((_) async => EmptyResponse());
+    when(() => deleteDraft(parentId: any(named: 'parentId'))).thenAnswer((_) async => EmptyResponse());
+    when(() => currentUserLastMessageAtStream).thenAnswer((_) => Stream.value(null));
+    when(() => isGroup).thenReturn(false);
+    when(() => isOneToOne).thenReturn(false);
+  }
 
   @override
   final String type;
@@ -61,6 +69,19 @@ class MockChannel extends Mock implements Channel {
   Future<void> keyStroke([String? parentId]) async {
     return;
   }
+
+  final Stream<Event> _eventStream;
+
+  @override
+  Stream<Event> on([
+    String? eventType,
+    String? eventType2,
+    String? eventType3,
+    String? eventType4,
+  ]) {
+    if (eventType == null) return _eventStream;
+    return _eventStream.where((e) => e.type == eventType);
+  }
 }
 
 class MockChannelState extends Mock implements ChannelClientState {
@@ -69,7 +90,10 @@ class MockChannelState extends Mock implements ChannelClientState {
     when(() => typingEventsStream).thenAnswer((_) => Stream.value({}));
     when(() => unreadCount).thenReturn(0);
     when(() => isUpToDate).thenReturn(true);
+    when(() => isMarkedAsUnread).thenReturn(false);
     when(() => read).thenReturn([]);
+    when(() => draftStream).thenAnswer((_) => Stream.value(null));
+    when(() => threadDraftStream(any())).thenAnswer((_) => Stream.value(null));
   }
 }
 
@@ -93,10 +117,7 @@ class MockOwnUser extends Mock implements OwnUser {}
 
 class MockAttachment extends Mock implements Attachment {}
 
-class MockVlcManagerDesktop extends Mock implements VlcManagerDesktop {}
-
-class MockStreamMemberListController extends Mock
-    implements StreamMemberListController {
+class MockStreamMemberListController extends Mock implements StreamMemberListController {
   @override
   PagedValue<int, Member> value = const PagedValue.loading();
 }

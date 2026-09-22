@@ -2,8 +2,9 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:get_thumbnail_video/index.dart';
-import 'package:stream_chat_flutter/src/video/video_service.dart';
+import 'package:stream_thumbnail/stream_thumbnail.dart';
+
+import 'video_service.dart';
 
 /// {@template video_thumbnail_image}
 /// A custom [ImageProvider] class for loading video thumbnails as images in
@@ -41,13 +42,12 @@ import 'package:stream_chat_flutter/src/video/video_service.dart';
 /// ```
 /// {@end-tool}
 /// {@endtemplate}
-class StreamVideoThumbnailImage
-    extends ImageProvider<StreamVideoThumbnailImage> {
+class StreamVideoThumbnailImage extends ImageProvider<StreamVideoThumbnailImage> {
   /// {@macro video_thumbnail_image}
   const StreamVideoThumbnailImage({
     required this.video,
     this.headers,
-    this.imageFormat = ImageFormat.PNG,
+    this.imageFormat = .png,
     this.maxHeight = 0,
     this.maxWidth = 0,
     this.timeMs = 0,
@@ -62,7 +62,7 @@ class StreamVideoThumbnailImage
   final Map<String, String>? headers;
 
   /// The format of the generated thumbnail image.
-  final ImageFormat imageFormat;
+  final StreamThumbnailFormat imageFormat;
 
   /// The maximum height of the generated thumbnail image.
   final int maxHeight;
@@ -87,10 +87,9 @@ class StreamVideoThumbnailImage
   }
 
   @override
-  @Deprecated('Will get replaced by loadImage in the next major version.')
-  ImageStreamCompleter loadBuffer(
+  ImageStreamCompleter loadImage(
     StreamVideoThumbnailImage key,
-    DecoderBufferCallback decode,
+    ImageDecoderCallback decode,
   ) {
     return MultiFrameImageStreamCompleter(
       codec: _loadAsync(key, decode),
@@ -103,10 +102,9 @@ class StreamVideoThumbnailImage
     );
   }
 
-  @Deprecated('Will get replaced by loadImage in the next major version.')
   Future<ui.Codec> _loadAsync(
     StreamVideoThumbnailImage key,
-    DecoderBufferCallback decode,
+    ImageDecoderCallback decode,
   ) async {
     assert(key == this, '$key is not $this');
 
@@ -133,9 +131,7 @@ class StreamVideoThumbnailImage
     if (other.runtimeType != runtimeType) {
       return false;
     }
-    return other is StreamVideoThumbnailImage &&
-        other.video == video &&
-        other.scale == scale;
+    return other is StreamVideoThumbnailImage && other.video == video && other.scale == scale;
   }
 
   @override

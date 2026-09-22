@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/intl.dart';
 import 'package:stream_chat_flutter/stream_chat_flutter.dart';
 
 part 'stream_chat_localizations_ca.dart';
@@ -112,16 +113,31 @@ GlobalStreamChatLocalizations? getStreamChatTranslation(Locale locale) {
 /// )
 /// ```
 ///
-abstract class GlobalStreamChatLocalizations
-    implements StreamChatLocalizations {
+abstract class GlobalStreamChatLocalizations implements StreamChatLocalizations {
   /// Initializes an object that defines the StreamChat widget's localized
   /// strings for the given `localeName`.
-  const GlobalStreamChatLocalizations({
-    required String localeName,
-  }) : _localeName = localeName;
+  const GlobalStreamChatLocalizations({required this.localeName});
 
-  // ignore: unused_field
-  final String _localeName;
+  /// The BCP-47 locale name this translation instance targets
+  /// (e.g. `'en'`, `'de'`, `'fr'`).
+  final String localeName;
+
+  /// The label for the unread messages separator, e.g. "5 unread messages".
+  ///
+  /// Falls back to the count-less `unreadMessagesSeparatorText`, so a
+  /// subclass written before this method existed keeps rendering the custom
+  /// text it already overrides instead of reverting to the built-in copy.
+  /// The bundled locales override this to include the count.
+  ///
+  /// Note that the fallback only helps classes that extend (or mix in)
+  /// [GlobalStreamChatLocalizations]: Dart does not inherit method bodies
+  /// through `implements`, so a class implementing [StreamChatLocalizations]
+  /// directly has to add this member. See the CHANGELOG for the migration.
+  @override
+  String unreadMessagesSeparatorLabel({required int count}) {
+    // ignore: deprecated_member_use
+    return unreadMessagesSeparatorText();
+  }
 
   /// A [LocalizationsDelegate] for [StreamChatLocalizations].
   ///
@@ -129,8 +145,7 @@ abstract class GlobalStreamChatLocalizations
   /// [GlobalStreamChatLocalizations.delegates] as the value of
   /// [MaterialApp.localizationsDelegates] to include the localizations for both
   /// the flutter and stream chat widget libraries.
-  static const LocalizationsDelegate<StreamChatLocalizations> delegate =
-      _StreamChatLocalizationsDelegate();
+  static const LocalizationsDelegate<StreamChatLocalizations> delegate = _StreamChatLocalizationsDelegate();
 
   /// A value for [MaterialApp.localizationsDelegates] that's typically used by
   /// internationalized apps.
@@ -160,16 +175,13 @@ abstract class GlobalStreamChatLocalizations
   ];
 }
 
-class _StreamChatLocalizationsDelegate
-    extends LocalizationsDelegate<StreamChatLocalizations> {
+class _StreamChatLocalizationsDelegate extends LocalizationsDelegate<StreamChatLocalizations> {
   const _StreamChatLocalizationsDelegate();
 
   @override
-  bool isSupported(Locale locale) =>
-      kStreamChatSupportedLanguages.contains(locale.languageCode);
+  bool isSupported(Locale locale) => kStreamChatSupportedLanguages.contains(locale.languageCode);
 
-  static final _loadedTranslations =
-      <Locale, Future<StreamChatLocalizations>>{};
+  static final _loadedTranslations = <Locale, Future<StreamChatLocalizations>>{};
 
   @override
   Future<StreamChatLocalizations> load(Locale locale) {
@@ -186,6 +198,7 @@ class _StreamChatLocalizationsDelegate
   bool shouldReload(_StreamChatLocalizationsDelegate old) => false;
 
   @override
-  String toString() => 'GlobalStreamChatLocalizations.delegate('
+  String toString() =>
+      'GlobalStreamChatLocalizations.delegate('
       '${kStreamChatSupportedLanguages.length} locales)';
 }

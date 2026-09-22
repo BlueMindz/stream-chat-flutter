@@ -1,14 +1,190 @@
+## 10.4.0
+
+🔄 Changed
+
+- Raised minimum Flutter to `>=3.44.0` and Dart SDK to `^3.12.0`.
+
+## 10.3.0
+
+✅ Added
+
+- Added `StreamChannelState.retry()` to re-run a failed channel initialization, for use as the retry action in `StreamChannel.errorBuilder`.
+- Added `DefaultStreamChannelBuilders`, an inherited widget that supplies default loading and error builders to descendant `StreamChannel`s (resolved via `loadingBuilderOf`/`errorBuilderOf`).
+- Added `StreamChannel.openAtFirstUnread`, defaulting to `true` (preserving existing behavior). Set to `false` to always open a channel at the latest message, instead of scrolling to the first pre-existing unread message.
+- Added `search()`, `searchWithFilter()`, and `clearResults()` to `StreamMessageSearchListController`, `StreamUserListController`, and `StreamMemberListController`. `search()`/`searchWithFilter()` debounce reloads by the search-text length (a filter with no search text reloads immediately) and drop superseded results; `clearResults()` cancels any pending search and clears the results.
+
+🐞 Fixed
+
+- Fixed `StreamChannel`'s default error state exposing raw error details; it now shows a safe error state (icon, message, and a Try Again button wired to `retry()`) that adapts to the failure type.
+- Fixed `StreamChannelListController` crashing with a null-check error when its local sort ran over a channel disposed mid-query (e.g. a client disconnect/logout racing an in-flight `loadMore`); such channels are now sorted last instead.
+
+## 10.2.0
+
+🐞 Fixed
+
+- Fixed `StreamChannelListController` not handling `notification.channel_deleted` event.
+- Fixed backwards pagination not working if channel was never opened.
+- Guarded `StreamChannelListController`'s `channel.updated`, `member.updated`, and `user.presence.changed`/`user.updated` event handlers to skip the full list re-sort when the event doesn't affect any listed channel.
+
+## 10.1.0
+
+🐛 Fixed
+
+- Fixed a use-after-dispose race condition in all `PagedValueNotifier` subclasses (`StreamChannelListController`, `StreamUserListController`, `StreamMemberListController`, `StreamThreadListController`, `StreamDraftListController`, `StreamMessageReminderListController`, `StreamPollVoteListController`, `StreamReactionListController`, `StreamMessageSearchListController`): in-flight async loads could write `value` after `dispose()` had been called, triggering a `notifyListeners()` assertion throw in debug mode. A new `DisposeAwareValueNotifier` mixin guards the `value` setter and also prevents event subscriptions from being set up post-dispose.
+
+✅ Added
+
+- Added `DisposeAwareValueNotifier<T>` mixin on `ValueNotifier<T>` that silently drops post-dispose `value` writes and exposes a `disposed` getter. Useful for any `ValueNotifier` subclass with async methods.
+- Added `mentionedChannel`, `mentionedHere`, `mentionedRoles`, `addMentionedRole`, `mentionedUserGroups`, and `addMentionedUserGroup` to `StreamMessageComposerController` for composing enhanced mentions.
+- Added `StreamMessageComposerController.setCommand(Command)` and `activeCommand` getter for set-aware command activation and tracking.
+- Added `StreamMessageComposerController.validateCommand(Command)` returning a nullable `CommandUnavailableReason` so callers can gate activation against the composer state.
+- Added `CommandUnavailableReason` enum (`editing`, `quotedMessage`, `other`) and `CommandValidator` typedef.
+
+⚠️ Deprecated
+
+- Deprecated `set command(String?)` on `StreamMessageComposerController`; use `setCommand(Command)` or `clearCommand()` instead.
+
+🔄 Changed
+
+- `StreamMessageComposerController.quotedMessage` now auto-clears an active moderation-set command (backend doesn't support activating a moderation command alongside a quoted message).
+- `StreamMessageComposerController.editMessage` now clears any active command (backend doesn't process commands on edit).
+- `StreamMessageComposerController.setCommand` now also clears `mentionedChannel`, `mentionedHere`, `mentionedRoles`, and `mentionedGroups`/`mentionedGroupIds` (was only clearing `mentionedUsers`); `clearCommand` restores them.
+
+🐞 Fixed
+
+- Fixed a reconnect storm when the OS closed the WebSocket during the background keep-alive window; reconnects are now paused on background and resumed on foreground.
+
+## 10.0.1
+
+🛑️ Breaking
+
+- Renamed `StreamMessageInputController` → `StreamMessageComposerController`.
+- Renamed `StreamRestorableMessageInputController` → `StreamRestorableMessageComposerController`.
+- Renamed `StreamMessageComposerController.editingOriginalMessage` → `messageBeingEdited`.
+- `StreamMessageComposerController` constructor no longer accepts non-initial messages;
+  use `editMessage()` to enter edit mode.
+- `StreamMessageComposerController.cancelEditMessage()` is now a no-op when no edit is active.
+- `StreamMessageComposerController.clear()` no longer exits edit mode;
+  use `cancelEditMessage()` instead.
+
+✅ Added
+
+- Added support for predefined filters on `StreamChannelListController`.
+- Added `StreamMessageComposerController.isEditing` getter.
+- Added `StreamMessageComposerController.clearCommand()`; setting `command = null` is
+  now an alias for it.
+- `StreamMessageComposerController.editMessage()` and the `command` setter are now
+  re-entrant — repeated calls preserve the original restore snapshot.
+
+🔄 Changed
+
+- Widened `device_info_plus` to `>=12.4.0 <14.0.0`, `package_info_plus` to `>=9.0.1 <11.0.0`, and `connectivity_plus` to `>=7.1.1 <8.0.0` so apps can adopt the latest majors. Floors raised to current resolved versions.
+- Raised minimum Flutter to `>=3.41.0` and Dart SDK to `^3.11.0`.
+- `StreamChatCore` now sets `client.recoverStateOnReconnect = false` on mount; refreshes on `connectionRecovered` are driven by the list controllers in this package, avoiding a duplicate `queryChannels` round-trip and the historical event-replay flicker on reactions, polls, and quoted messages.
+- Apps watching a `Channel` outside any list controller (e.g. a deep link into a single channel screen) should subscribe to `client.on(EventType.connectionRecovered)` and call `channel.watch()` themselves to refresh state on reconnect.
+- Changed the default `backgroundKeepAlive` from 1 minute to 15 seconds — covers quick app-switches and notification-shade checks while closing cleanly before the server's 35-second read timeout. Still configurable.
+
+🐞 Fixed
+
+- Fixed `StreamChatCore` disconnecting the WebSocket immediately on background when no `onBackgroundEventReceived` handler was provided; the keep-alive timer now fires before the connection closes regardless of whether a handler is set.
+- Fixed `StreamMessageComposerController.cancelEditMessage` losing the pre-edit draft when a remote update arrived for the message being edited.
+
+## 9.25.0
+
+✅ Added
+
+- Added `StreamChannel.value` — exposes an already-initialized channel without running channel-page
+  positioning. Use it for sub-route and overlay wraps.
+- Added `StreamStateScope<T>` — a generic `InheritedWidget` that exposes a `State` to descendants for
+  O(1) `.of(context)` lookup. Use it to back `static of(BuildContext)` accessors instead of
+  `BuildContext.findAncestorStateOfType`.
+
+🐞 Fixed
+
+- Fixed `StreamChannel.getMessage` hitting the network for thread replies and pinned messages
+  already in local state.
+- Fixed `MessageListCore` reloading the parent channel from its dispose path when running in
+  thread mode.
+- Fixed `StreamChannel.reloadChannel` merging the latest page on top of the previously loaded
+  window instead of replacing it. The reload now matches a fresh open of the channel.
+
+🚀 Performance
+
+- `StreamChannel.of` and `StreamChatCore.of` now resolve via `StreamStateScope<T>` instead of
+  `findAncestorStateOfType`, replacing an O(tree-depth) element walk with an O(1) inherited-widget
+  lookup. Callers and behavior are unchanged.
+
+## 9.24.0
+
+✅ Added
+
+- `MessageListCore` now accepts `maximumMessageLimit` and `retentionTrimBuffer` to cap the loaded
+  message list. Trim fires on new messages past `limit + buffer`; top pagination, edits, deletions,
+  jump-to-message, and threads don't trigger it. Disabled by default.
+- Added `StreamChannel.pruneOldest(int)` — delegates to `ChannelClientState.pruneOldest` and resets
+  the top-pagination tracker.
+
+🔄 Changed
+
+- `defaultMessageFilter` now accepts an optional `currentUserId`; passing `null` treats every
+  message as not-my-message.
+
+🚀 Performance
+
+- `MessageListCore` now caches the resolved `messagesStream`, avoiding subscription churn on
+  every parent rebuild.
+- `MessageListCore` now applies its message filter and reversal in a single lazy pass, dropping
+  two intermediate `List<Message>` allocations per emission.
+- `MessageListCore` no longer applies a redundant `ListEquality` comparator on its
+  `BetterStreamBuilder` outputs.
+
+🐞 Fixed
+
+- Fixed `MessageListController.paginateData` not being cleared when `MessageListCore` is
+  disposed or its controller is swapped.
+- Fixed `BetterStreamBuilder` rendering the previous stream's last value for one frame after
+  the stream changes.
+- Fixed `BetterStreamBuilder` getting stuck on the error state when the next stream event
+  equals the cached value.
+- Fixed `BetterStreamBuilder` silently swallowing stream errors when no `errorBuilder` is
+  provided; errors now route through `FlutterError.reportError`.
+- Debounced connectivity events by 3 seconds in `StreamChatCore`. Rapid network flaps (cellular
+  handovers, brief drops) now collapse into a single reconnect instead of firing a fresh
+  `connectionRecovered` per emission.
+
+## 10.0.0-beta.13
+
+🛑️ Breaking
+- SDK Redesign Changes. For more details, please refer to the [migration guide](https://github.com/GetStream/stream-chat-flutter/blob/210ff93f955be3f85c62e860309bd9aa240a5446/migrations).
+  The SDK redesign introduces a fresher default UI, but also better APIs for customization of the components.
+
+## 10.0.0-beta.12
+
+- Included the changes from version [`9.23.0`](https://pub.dev/packages/stream_chat_flutter_core/changelog).
+
 ## 9.23.0
 
 - Updated `stream_chat` dependency to [`9.23.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 10.0.0-beta.11
+
+- Included the changes from version [`9.22.0`](https://pub.dev/packages/stream_chat_flutter_core/changelog).
 
 ## 9.22.0
 
 - Updated `stream_chat` dependency to [`9.22.0`](https://pub.dev/packages/stream_chat/changelog).
 
+## 10.0.0-beta.10
+
+- Included the changes from version [`9.21.0`](https://pub.dev/packages/stream_chat_flutter_core/changelog).
+
 ## 9.21.0
 
 - Updated `stream_chat` dependency to [`9.21.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 10.0.0-beta.9
+
+- Included the changes from version [`9.20.0`](https://pub.dev/packages/stream_chat_flutter_core/changelog).
 
 ## 9.20.0
 
@@ -17,17 +193,33 @@
 - Fixed race condition where `connectUser` could be blocked when connectivity monitoring triggers
   during initial connection. [[#2409]](https://github.com/GetStream/stream-chat-flutter/issues/2409)
 
+## 10.0.0-beta.8
+
+- Included the changes from version [`9.19.0`](https://pub.dev/packages/stream_chat_flutter_core/changelog).
+
 ## 9.19.0
 
 - Updated `stream_chat` dependency to [`9.19.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 10.0.0-beta.7
+
+- Included the changes from version [`9.18.0`](https://pub.dev/packages/stream_chat_flutter_core/changelog).
 
 ## 9.18.0
 
 - Updated `stream_chat` dependency to [`9.18.0`](https://pub.dev/packages/stream_chat/changelog).
 
+## 10.0.0-beta.6
+
+- Included the changes from version [`9.17.0`](https://pub.dev/packages/stream_chat_flutter_core/changelog).
+
 ## 9.17.0
 
 - Updated `stream_chat` dependency to [`9.17.0`](https://pub.dev/packages/stream_chat/changelog).
+
+## 10.0.0-beta.5
+
+- Included the changes from version [`9.16.0`](https://pub.dev/packages/stream_chat_flutter_core/changelog).
 
 ## 9.16.0
 
@@ -38,6 +230,10 @@
 ✅ Added
 
 - Added methods for paginating thread replies in `StreamChannel`.
+
+## 10.0.0-beta.4
+
+- Included the changes from version [`9.15.0`](https://pub.dev/packages/stream_chat_flutter_core/changelog).
 
 ## 9.15.0
 
@@ -53,6 +249,10 @@
 - Ensure `StreamChannel` future builder completes after channel
   initialization. [[#2323]](https://github.com/GetStream/stream-chat-flutter/issues/2323)
 
+## 10.0.0-beta.3
+
+- Included the changes from version [`9.14.0`](https://pub.dev/packages/stream_chat_flutter_core/changelog).
+
 ## 9.14.0
 
 🐞 Fixed
@@ -60,12 +260,20 @@
 - Fixed cached messages are cleared from channels with unread messages when accessed
   offline. [[#2083]](https://github.com/GetStream/stream-chat-flutter/issues/2083)
 
+## 10.0.0-beta.2
+
+- Included the changes from version [`9.13.0`](https://pub.dev/packages/stream_chat_flutter_core/changelog).
+
 ## 9.13.0
 
 🐞 Fixed
 
 - Fixed pagination end detection logic to properly determine when the top or bottom of the message
   list has been reached.
+
+## 10.0.0-beta.1
+
+- Updated `stream_chat` dependency to [`10.0.0-beta.1`](https://pub.dev/packages/stream_chat/changelog).
 
 ## 9.12.0
 

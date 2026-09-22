@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
-import 'package:stream_chat_flutter/stream_chat_flutter.dart';
+import '../../../../stream_chat_flutter.dart';
 
 /// Widget used to capture video using the device camera.
 class StreamVideoPicker extends StatelessWidget {
@@ -28,55 +28,81 @@ class StreamVideoPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = StreamChatTheme.of(context);
-    return OptionDrawer(
-      child: EndOfFrameCallbackWidget(
-        child: StreamSvgIcon(
-          size: 240,
-          icon: StreamSvgIcons.record,
-          color: theme.colorTheme.disabled,
-        ),
-        onEndOfFrame: (_) async {
-          final pickedVideo = await runInPermissionRequestLock(() {
-            return StreamAttachmentHandler.instance.pickVideo(
-              source: source,
-              preferredCameraDevice: preferredCameraDevice,
-              maxDuration: maxDuration,
-            );
-          });
+    final spacing = context.streamSpacing;
+    final textTheme = context.streamTextTheme;
+    final colorScheme = context.streamColorScheme;
 
-          onVideoPicked.call(pickedVideo);
-        },
+    Future<void> onPickVideo() async {
+      final pickedVideo = await runInPermissionRequestLock(() {
+        return StreamAttachmentHandler.instance.pickVideo(
+          source: source,
+          preferredCameraDevice: preferredCameraDevice,
+          maxDuration: maxDuration,
+        );
+      });
+
+      return onVideoPicked.call(pickedVideo);
+    }
+
+    final drawer = OptionDrawer(
+      child: EndOfFrameCallbackWidget(
+        child: Center(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                size: 32,
+                context.streamIcons.video,
+                color: colorScheme.textTertiary,
+              ),
+              SizedBox(height: spacing.xs),
+              Text(
+                context.translations.takeVideoAndShareLabel,
+                style: textTheme.bodyDefault.copyWith(color: colorScheme.textSecondary),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: spacing.md),
+              StreamButton(
+                type: .outline,
+                style: .secondary,
+                onPressed: onPickVideo,
+                child: Text(context.translations.openCameraLabel),
+              ),
+            ],
+          ),
+        ),
+        onEndOfFrame: (_) => onPickVideo(),
         errorBuilder: (context, error, stacktrace) {
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              StreamSvgIcon(
-                size: 240,
-                icon: StreamSvgIcons.record,
-                color: theme.colorTheme.disabled,
+              Icon(
+                size: 32,
+                context.streamIcons.video,
+                color: colorScheme.textTertiary,
               ),
+              SizedBox(height: spacing.xs),
               Text(
                 context.translations.enablePhotoAndVideoAccessMessage,
-                style: theme.textTheme.body.copyWith(
-                  color: theme.colorTheme.textLowEmphasis,
+                style: textTheme.bodyDefault.copyWith(
+                  color: colorScheme.textSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
-              TextButton(
+              SizedBox(height: spacing.md),
+              StreamButton(
+                type: .outline,
+                style: .secondary,
                 onPressed: PhotoManager.openSetting,
-                child: Text(
-                  context.translations.allowGalleryAccessMessage,
-                  style: theme.textTheme.bodyBold.copyWith(
-                    color: theme.colorTheme.accentPrimary,
-                  ),
-                ),
+                child: Text(context.translations.allowGalleryAccessMessage),
               ),
             ],
           );
         },
       ),
     );
+
+    return MergeSemantics(child: drawer);
   }
 }

@@ -1,8 +1,8 @@
 import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:json_annotation/json_annotation.dart';
-import 'package:stream_chat/src/core/models/message.dart';
-import 'package:stream_chat/src/core/models/user.dart';
+import 'message.dart';
+import 'user.dart';
 
 part 'read.g.dart';
 
@@ -58,8 +58,7 @@ class Read extends Equatable {
       user: user ?? this.user,
       unreadMessages: unreadMessages ?? this.unreadMessages,
       lastDeliveredAt: lastDeliveredAt ?? this.lastDeliveredAt,
-      lastDeliveredMessageId:
-          lastDeliveredMessageId ?? this.lastDeliveredMessageId,
+      lastDeliveredMessageId: lastDeliveredMessageId ?? this.lastDeliveredMessageId,
     );
   }
 
@@ -79,13 +78,13 @@ class Read extends Equatable {
 
   @override
   List<Object?> get props => [
-        lastRead,
-        lastReadMessageId,
-        user,
-        unreadMessages,
-        lastDeliveredAt,
-        lastDeliveredMessageId,
-      ];
+    lastRead,
+    lastReadMessageId,
+    user,
+    unreadMessages,
+    lastDeliveredAt,
+    lastDeliveredMessageId,
+  ];
 }
 
 /// Helper extension methods for [Iterable]<[Read]>.

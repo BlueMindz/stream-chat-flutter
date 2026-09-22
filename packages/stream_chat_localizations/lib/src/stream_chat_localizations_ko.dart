@@ -6,6 +6,9 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   const StreamChatLocalizationsKo({super.localeName = 'ko'});
 
   @override
+  AccessibilityTranslations get accessibility => _AccessibilityTranslationsKo(localeName: localeName);
+
+  @override
   String get launchUrlError => 'URL을 시작할 수 없습니다';
 
   @override
@@ -37,7 +40,10 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   }
 
   @override
-  String get threadReplyLabel => '스레드 응답입니다';
+  String get threadReplyLabel => '스레드 답변';
+
+  @override
+  String get threadLabel => '스레드';
 
   @override
   String get onlyVisibleToYouText => '당신만 볼 수 있습니다';
@@ -47,10 +53,9 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
 
   @override
   String attachmentsUploadProgressText({
-    required int remaining,
+    required int completed,
     required int total,
-  }) =>
-      '$remaining/${total}mb를 업로드중...';
+  }) => '$total개 중 $completed개 업로드됨...';
 
   @override
   String pinnedByUserText({
@@ -66,7 +71,7 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String get sendMessagePermissionError => '메시지를 보낼 수 있는 권한이 없습니다';
 
   @override
-  String get emptyMessagesText => '현재 메시지가 없습니다';
+  String get emptyMessagesText => '아직 메시지가 없습니다';
 
   @override
   String get genericErrorText => '뭔가 잘못됐습니다';
@@ -117,10 +122,19 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String get searchGifLabel => 'GIF 검색';
 
   @override
-  String get writeAMessageLabel => '메시지 쓰기';
+  String get writeAMessageLabel => '메시지 보내기';
 
   @override
   String get instantCommandsLabel => '인스턴트 커맨즈';
+
+  @override
+  String get commandUnavailableWhileEditingError => 'Not available while editing';
+
+  @override
+  String get commandUnavailableWhileQuotingError => 'Not available while replying';
+
+  @override
+  String get commandUnavailableError => 'Command not available';
 
   @override
   String fileTooLargeAfterCompressionError(double limitInMB) =>
@@ -129,8 +143,13 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
       '우리는 압축해 보았지만 충분하지 않았습니다.';
 
   @override
-  String fileTooLargeError(double limitInMB) =>
-      '파일이 너무 커서 업로드할 수 없습니다. 파일 크기 제한은 ${limitInMB}MB입니다.';
+  String fileTooLargeError(double limitInMB) => '파일이 너무 커서 업로드할 수 없습니다. 파일 크기 제한은 ${limitInMB}MB입니다.';
+
+  @override
+  String fileTypeNotSupportedError(String? extension) {
+    if (extension != null) return "'.$extension' 파일은 업로드를 지원하지 않습니다.";
+    return '이 파일 형식은 업로드를 지원하지 않습니다.';
+  }
 
   @override
   String get couldNotReadBytesFromFileError => '파일에서 바이트를 읽을 수 없습니다.';
@@ -160,11 +179,28 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String get somethingWentWrongError => '뭔가 잘못됐습느다';
 
   @override
-  String get addMoreFilesLabel => '파일을 추가함';
+  String get connectionErrorTitle => '인터넷 연결 없음';
 
   @override
-  String get enablePhotoAndVideoAccessMessage => '친구와 공유할 수 있도록 사진과'
-      '\n동영상에 액세스할 수 있도록 설정하십시오.';
+  String get connectionErrorDescription => '인터넷 연결을 확인해 주세요';
+
+  @override
+  String get slowConnectionErrorTitle => '인터넷 연결이 느림';
+
+  @override
+  String get slowConnectionErrorDescription => '인터넷 연결에 문제가 있는 것 같습니다';
+
+  @override
+  String get genericErrorTitle => '오류';
+
+  @override
+  String get genericErrorDescription => '앗, 문제가 발생했습니다';
+
+  @override
+  String get addMoreFilesLabel => '더 추가';
+
+  @override
+  String get enablePhotoAndVideoAccessMessage => '친구와 공유할 수 있도록 사진과 동영상에 액세스할 수 있도록 설정하십시오.';
 
   @override
   String get allowGalleryAccessMessage => '갤러리에 대한 액세스를 허용합니다';
@@ -229,6 +265,9 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   @override
   String get photosLabel => '사진';
 
+  @override
+  String get photosAndVideosLabel => '사진 및 동영상';
+
   String _getDay(DateTime dateTime) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -282,7 +321,7 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String get deleteConversationQuestion => '대화를 삭제하시겠습니까?';
 
   @override
-  String get streamChatLabel => '스트림 채팅';
+  String get streamChatLabel => '채팅';
 
   @override
   String get searchingForNetworkText => '네트워크를 검색하는 중입니다.';
@@ -298,6 +337,16 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
 
   @override
   String watchersCountText(int count) => '$count명이 온라인';
+
+  @override
+  String membersCountWithOnlineText({
+    required int memberCount,
+    required int onlineCount,
+  }) {
+    final members = membersCountText(memberCount);
+    if (onlineCount <= 0) return members;
+    return '$members, ${watchersCountText(onlineCount)}';
+  }
 
   @override
   String get viewInfoLabel => '정보를 보기';
@@ -350,8 +399,7 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String galleryPaginationText({
     required int currentPage,
     required int totalPages,
-  }) =>
-      '${currentPage + 1} / $totalPages';
+  }) => '${currentPage + 1} / $totalPages';
 
   //3 / 11
 
@@ -362,15 +410,17 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String get replyToMessageLabel => '메시지에 회신합니다.';
 
   @override
-  String get slowModeOnLabel => '슬로모드 켜짐';
+  String slowModeOnLabel(int cooldownTimeOut) => '슬로모드, $cooldownTimeOut초만 기다려 주세요\u2026';
+
+  @override
+  String get commandUsernameLabel => '@username';
 
   @override
   @override
   String get viewLibrary => '라이브러리 보기';
 
   @override
-  String attachmentLimitExceedError(int limit) =>
-      '첨부 파일 제한 초과: $limit 이상의 첨부 파일을 추가할 수 없습니다';
+  String attachmentLimitExceedError(int limit) => '첨부 파일 제한 초과: $limit 이상의 첨부 파일을 추가할 수 없습니다';
 
   @override
   String get downloadLabel => '다운로드';
@@ -382,6 +432,12 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
     } else {
       return '사용자 음소거';
     }
+  }
+
+  @override
+  String toggleBlockUnblockUserText({required bool isBlocked}) {
+    if (isBlocked) return '사용자 차단 해제';
+    return '사용자 차단';
   }
 
   @override
@@ -430,6 +486,16 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String unreadMessagesSeparatorText() => '새 메시지.';
 
   @override
+  String unreadMessagesSeparatorLabel({required int count}) {
+    return Intl.plural(
+      count,
+      one: '읽지 않은 메시지 $count개',
+      other: '읽지 않은 메시지 $count개',
+      locale: localeName,
+    );
+  }
+
+  @override
   String get enableFileAccessMessage => '친구와 공유할 수 있도록 파일에 대한 액세스를 허용하세요.';
 
   @override
@@ -455,7 +521,7 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   }
 
   @override
-  String get questionsLabel => '질문';
+  String questionLabel({bool isPlural = false}) => '질문';
 
   @override
   String get askAQuestionLabel => '질문하기';
@@ -538,7 +604,10 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String get enterYourCommentLabel => '댓글 입력';
 
   @override
-  String get endVoteConfirmationText => '투표를 종료하시겠습니까?';
+  String get endVoteConfirmationTitle => '투표를 종료하시겠습니까?';
+
+  @override
+  String get endVoteConfirmationMessage => '지금 이 투표를 종료하시겠습니까? 종료하면 더 이상 아무도 이 투표에 참여할 수 없습니다.';
 
   @override
   String get deletePollOptionLabel => '옵션을 삭제합니다.';
@@ -581,17 +650,30 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String get pollResultsLabel => '투표 결과';
 
   @override
+  String get pollVotesLabel => '투표';
+
+  @override
   String showAllVotesLabel({int? count}) {
     if (count == null) return '모든 투표 보기';
     return '모든 $count 투표 보기';
   }
 
   @override
+  String get viewAllLabel => '모두 보기';
+
+  @override
   String voteCountLabel({int? count}) => switch (count) {
-        null || < 1 => '0 표',
-        1 => '1 표',
-        _ => '$count 표',
-      };
+    null || < 1 => '0 표',
+    1 => '1 표',
+    _ => '$count 표',
+  };
+
+  @override
+  String totalVoteCountLabel({int? count}) => switch (count) {
+    null || < 1 => '총 0 표',
+    1 => '총 1 표',
+    _ => '총 $count 표',
+  };
 
   @override
   String get noPollVotesLabel => '현재 투표가 없습니다';
@@ -606,6 +688,9 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String newThreadsLabel({required int count}) {
     return '$count개의 새 스레드';
   }
+
+  @override
+  String get loadingLabel => '로딩 중...';
 
   @override
   String get slideToCancelLabel => '슬라이드하여 취소';
@@ -623,8 +708,7 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String get moderationReviewModalTitle => '확실합니까?';
 
   @override
-  String get moderationReviewModalDescription =>
-      '''귀하의 댓글이 다른 사람들에게 어떤 영향을 미칠 수 있는지 고려하고 커뮤니티 가이드라인을 준수하세요.''';
+  String get moderationReviewModalDescription => '''귀하의 댓글이 다른 사람들에게 어떤 영향을 미칠 수 있는지 고려하고 커뮤니티 가이드라인을 준수하세요.''';
 
   @override
   String get emptyMessagePreviewText => '';
@@ -642,6 +726,21 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
   String get videoAttachmentText => '비디오';
 
   @override
+  String get fileAttachmentText => '파일';
+
+  @override
+  String get linkAttachmentText => '링크';
+
+  @override
+  String filesAttachmentCountText(int count) => count == 1 ? '파일' : '파일 $count개';
+
+  @override
+  String photosAttachmentCountText(int count) => count == 1 ? '사진' : '사진 $count장';
+
+  @override
+  String videosAttachmentCountText(int count) => count == 1 ? '동영상' : '동영상 $count개';
+
+  @override
   String get pollYouVotedText => '투표했습니다';
 
   @override
@@ -655,4 +754,505 @@ class StreamChatLocalizationsKo extends GlobalStreamChatLocalizations {
 
   @override
   String get draftLabel => '임시글';
+
+  @override
+  String locationLabel({bool isLive = false}) {
+    if (isLive) return '실시간 위치';
+    return '위치';
+  }
+
+  @override
+  String get noConversationsYetText => '아직 대화가 없습니다';
+
+  @override
+  String get replyToStartThreadText => '스레드를 시작하려면 메시지에 답장하세요';
+
+  @override
+  String get sendMessageToStartConversationText => '대화를 시작하려면 메시지를 보내세요';
+
+  @override
+  String get savedForLaterLabel => '나중을 위해 저장됨';
+
+  @override
+  String get repliedToThreadAnnotationLabel => '스레드에 답장함';
+
+  @override
+  String get alsoSentInChannelAnnotationLabel => '채널에도 전송됨';
+
+  @override
+  String get viewLabel => '보기';
+
+  @override
+  String get reminderSetLabel => '리마인더 설정됨';
+
+  @override
+  String reminderAtText(String time) => '오늘 $time';
+
+  @override
+  String get translatedLabel => '번역됨';
+
+  @override
+  String get originalLabel => '원본';
+
+  @override
+  String get showOriginalLabel => '원본 보기';
+
+  @override
+  String get showTranslationLabel => '번역 보기';
+
+  @override
+  String translatedFromLanguageText(String languageCode) => '${_languageNameKo(languageCode)}에서 번역됨';
+
+  @override
+  String get createPollPromptLabel => '투표를 만들고 모두에게 투표하게 하세요!';
+
+  @override
+  String get takePhotoAndShareLabel => '사진을 찍고 공유';
+
+  @override
+  String get takeVideoAndShareLabel => '동영상을 찍고 공유';
+
+  @override
+  String get openCameraLabel => '카메라 열기';
+
+  @override
+  String get selectFilesToShareLabel => '공유할 파일 선택';
+
+  @override
+  String get openFilesLabel => '파일 열기';
+
+  @override
+  String get unsupportedAttachmentLabel => '지원되지 않는 첨부파일';
+
+  @override
+  String get confirmLabel => '확인';
+
+  @override
+  String get emptyReactionsText => '아직 반응이 없습니다';
+
+  @override
+  String get loadingReactionsError => '반응을 불러오는 중 오류가 발생했습니다';
+
+  @override
+  String get tapToRemoveReactionLabel => '탭하여 제거';
+
+  @override
+  String reactionsCountText(int count) => '반응 $count개';
+
+  @override
+  String get justNowLabel => '방금';
+
+  @override
+  String replyToUserLabel(String userName) => '$userName님에게 답장';
+
+  @override
+  String get multipleAnswersDescription => '여러 옵션 선택';
+
+  @override
+  String maximumVotesPerPersonDescription([Range<int>? range]) {
+    final (:min, :max) = range ?? (min: 2, max: 10);
+    return '$min\u2013$max개의 옵션 중에서 선택';
+  }
+
+  @override
+  String get anonymousPollDescription => '투표자 숨기기';
+
+  @override
+  String get suggestAnOptionDescription => '다른 사람이 옵션을 추가하도록 허용';
+
+  @override
+  String get addACommentDescription => '다른 사람이 댓글을 추가하도록 허용';
+
+  @override
+  String get notifyChannelText => '이 채널의 모든 사람에게 알림';
+
+  @override
+  String get notifyHereText => '이 채널의 모든 온라인 사용자에게 알림';
+
+  @override
+  String notifyRoleText(String role) => '모든 $role 멤버에게 알림';
 }
+
+class _AccessibilityTranslationsKo extends AccessibilityTranslations {
+  const _AccessibilityTranslationsKo({super.localeName = 'ko'});
+
+  @override
+  String get sendMessageTooltip => '메시지 보내기';
+
+  @override
+  String get saveEditTooltip => '편집 저장';
+
+  @override
+  String get sendCommandTooltip => '명령어 보내기';
+
+  @override
+  String slowModeTooltip({required int seconds}) {
+    return '슬로모드: $seconds초';
+  }
+
+  @override
+  String get recordVoiceRecordingLabel => '음성 메시지 녹음';
+
+  @override
+  String get cancelRecordingTooltip => '녹음 취소';
+
+  @override
+  String get stopRecordingTooltip => '녹음 중지';
+
+  @override
+  String get sendRecordingTooltip => '녹음 전송';
+
+  @override
+  String recordingDurationLabel({required Duration duration}) => '녹음 길이, ${formatDuration(duration)}';
+
+  @override
+  String voiceRecordingPreviewPlayLabel({required Duration duration}) => '음성 녹음 재생, ${formatDuration(duration)}';
+
+  @override
+  String voiceRecordingPreviewPauseLabel({required Duration duration}) => '음성 녹음 일시정지, ${formatDuration(duration)}';
+
+  @override
+  String get attachmentPickerTooltip => '첨부 파일 선택 전환';
+
+  @override
+  String get attachmentPickerOpenHint => '두 번 탭하여 첨부 파일 선택 열기';
+
+  @override
+  String get attachmentPickerCloseHint => '두 번 탭하여 첨부 파일 선택 닫기';
+
+  @override
+  String get attachmentPickerOpenTapHint => '첨부 파일 선택 열기';
+
+  @override
+  String get attachmentPickerCloseTapHint => '첨부 파일 선택 닫기';
+
+  @override
+  String get attachmentPickerOpenedAnnouncement => '첨부 파일 선택이 열렸습니다';
+
+  @override
+  String get attachmentPickerClosedAnnouncement => '첨부 파일 선택이 닫혔습니다';
+
+  @override
+  String voiceRecordingAttachmentLabel({Duration? duration}) {
+    if (duration == null) return '음성 메시지';
+    return '음성 메시지, ${formatDuration(duration)}';
+  }
+
+  @override
+  String videoAttachmentLabel({String? title}) {
+    if (title == null || title.isEmpty) return '동영상';
+    return '동영상, $title';
+  }
+
+  @override
+  String get gifAttachmentLabel => 'GIF';
+
+  @override
+  String imageAttachmentLabel({String? title}) {
+    if (title == null || title.isEmpty) return '사진';
+    return '사진, $title';
+  }
+
+  @override
+  String attachmentPositionLabel({required int index, required int total}) => '$total개 중 $index번째';
+
+  @override
+  String get outgoingReplyToOwnMessageLabel => '내 메시지에 답장했습니다';
+
+  @override
+  String outgoingReplyToMessageLabel({required String authorName}) => '$authorName님의 메시지에 답장했습니다';
+
+  @override
+  String incomingReplyToOwnMessageLabel({required String replierName}) => '$replierName님이 내 메시지에 답장했습니다';
+
+  @override
+  String incomingReplyToMessageLabel({required String replierName, required String authorName}) =>
+      '$replierName님이 $authorName님의 메시지에 답장했습니다';
+
+  @override
+  String get voiceRecordingPlayTooltip => '재생';
+
+  @override
+  String get voiceRecordingPauseTooltip => '일시정지';
+
+  @override
+  String get voiceRecordingLoadingTooltip => '불러오는 중';
+
+  @override
+  String get channelInfoLabel => '채널 정보';
+
+  @override
+  String get messageActionsLabel => '메시지 작업';
+
+  @override
+  String galleryImageLabel({DateTime? createdAt}) {
+    if (createdAt == null) return '사진';
+    return '사진, ${formatDateTime(createdAt)}';
+  }
+
+  @override
+  String galleryVideoLabel({
+    DateTime? createdAt,
+    Duration? duration,
+  }) {
+    final parts = <String>[
+      '동영상',
+      if (duration != null) formatDuration(duration),
+      if (createdAt != null) formatDateTime(createdAt),
+    ];
+    return parts.join(', ');
+  }
+
+  @override
+  String get selectMediaTapHint => '선택';
+
+  @override
+  String get deselectMediaTapHint => '선택 해제';
+
+  @override
+  String get outgoingMessagePreviewLabel => '나';
+
+  @override
+  String incomingMessagePreviewLabel({String? senderName}) {
+    return senderName ?? '메시지';
+  }
+
+  @override
+  String outgoingMessageLabel({required String body}) => '내 메시지, $body';
+
+  @override
+  String incomingMessageLabel({required String senderName, required String body}) => '$senderName님의 메시지, $body';
+
+  @override
+  String outgoingDeletedMessageLabel({required String body}) => '나, $body';
+
+  @override
+  String incomingDeletedMessageLabel({required String senderName, required String body}) => '$senderName님, $body';
+
+  @override
+  String get pollPreviewLabel => '투표';
+
+  @override
+  String get draftPreviewLabel => '임시 저장';
+
+  @override
+  String get messageSendingStatusLabel => '보내는 중';
+
+  @override
+  String get messageSentStatusLabel => '보냄';
+
+  @override
+  String get messageDeliveredStatusLabel => '전달됨';
+
+  @override
+  String get messageReadStatusLabel => '읽음';
+
+  @override
+  String get messageFailedStatusLabel => '메시지를 보내지 못했습니다';
+
+  @override
+  String unreadMessagesLabel({required int count}) {
+    return Intl.plural(
+      count,
+      one: '읽지 않은 메시지 $count개',
+      other: '읽지 않은 메시지 $count개',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String get channelGroupLabel => '그룹';
+
+  @override
+  String get systemMessagePreviewLabel => '시스템';
+
+  @override
+  String get channelMutedLabel => '음소거됨';
+
+  @override
+  String get channelPinnedLabel => '고정됨';
+
+  @override
+  String get savePollTooltip => '투표 저장';
+
+  @override
+  String removePollOptionTooltip({String? optionText}) {
+    final trimmed = optionText?.trim();
+    if (trimmed == null || trimmed.isEmpty) return '항목 삭제';
+    return '항목 $trimmed 삭제';
+  }
+
+  @override
+  String get recordingStartedAnnouncement => '녹음을 시작했습니다. 왼쪽으로 밀어 취소, 위로 밀어 잠그기.';
+
+  @override
+  String get recordingLockedAnnouncement => '녹음이 잠겼습니다';
+
+  @override
+  String get recordingStoppedAnnouncement => '녹음이 중지되었습니다';
+
+  @override
+  String get recordingCancelledAnnouncement => '녹음이 취소되었습니다';
+
+  @override
+  String get recordingCompletedAnnouncement => '녹음 완료';
+
+  @override
+  String get imageAttachmentAddedAnnouncement => '사진이 추가되었습니다';
+
+  @override
+  String get imageAttachmentRemovedAnnouncement => '사진이 삭제되었습니다';
+
+  @override
+  String get videoAttachmentAddedAnnouncement => '동영상이 추가되었습니다';
+
+  @override
+  String get videoAttachmentRemovedAnnouncement => '동영상이 삭제되었습니다';
+
+  @override
+  String get gifAttachmentAddedAnnouncement => 'GIF가 추가되었습니다';
+
+  @override
+  String get gifAttachmentRemovedAnnouncement => 'GIF가 삭제되었습니다';
+
+  @override
+  String get fileAttachmentAddedAnnouncement => '파일이 추가되었습니다';
+
+  @override
+  String get fileAttachmentRemovedAnnouncement => '파일이 삭제되었습니다';
+
+  @override
+  String get voiceRecordingAttachmentAddedAnnouncement => '음성 메시지가 추가되었습니다';
+
+  @override
+  String get voiceRecordingAttachmentRemovedAnnouncement => '음성 메시지가 삭제되었습니다';
+
+  @override
+  String get attachmentAddedAnnouncement => '첨부 파일이 추가되었습니다';
+
+  @override
+  String get attachmentRemovedAnnouncement => '첨부 파일이 삭제되었습니다';
+
+  @override
+  String attachmentsAddedAnnouncement({required int count}) {
+    return Intl.plural(
+      count,
+      one: '첨부 파일 $count개가 추가되었습니다',
+      other: '첨부 파일 $count개가 추가되었습니다',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String attachmentsRemovedAnnouncement({required int count}) {
+    return Intl.plural(
+      count,
+      one: '첨부 파일 $count개가 삭제되었습니다',
+      other: '첨부 파일 $count개가 삭제되었습니다',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String formatRecentDateTime(DateTime date) {
+    if (date.isWithinLastMinute) return '방금';
+
+    final localDate = date.toLocal();
+    final jiffyDate = Jiffy.parseFromDateTime(localDate);
+    final time = jiffyDate.jm;
+
+    if (localDate.isToday) return '오늘 $time';
+    if (localDate.isYesterday) return '어제 $time';
+    if (localDate.isWithinLastWeek) return '${jiffyDate.EEEE} $time';
+    if (localDate.isInSameYear) {
+      return '${jiffyDate.format(pattern: 'M월 d일')} $time';
+    }
+    return '${jiffyDate.format(pattern: 'yyyy년 M월 d일')} $time';
+  }
+
+  @override
+  String formatDateTime(DateTime dateTime) {
+    final jiffy = Jiffy.parseFromDateTime(dateTime);
+    return '${jiffy.EEEE} ${jiffy.yMMMMd} ${jiffy.jm}';
+  }
+
+  @override
+  String formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    // Korean time-units have no grammatical number; comma-space between
+    // parts gives the screen reader a pause between units.
+    final parts = <String>[
+      if (hours > 0) '$hours시간',
+      if (minutes > 0) '$minutes분',
+      if (seconds > 0 || (hours == 0 && minutes == 0)) '$seconds초',
+    ];
+    return parts.join(', ');
+  }
+}
+
+// Display name for each language code Stream Chat's translation API
+// supports (`Message.i18n['language']`). Falls back to the uppercased code
+// itself for anything unrecognized.
+String _languageNameKo(String code) => _languageNamesKo[code] ?? code.toUpperCase();
+
+const _languageNamesKo = <String, String>{
+  'af': '아프리칸스어',
+  'sq': '알바니아어',
+  'am': '암하라어',
+  'ar': '아랍어',
+  'az': '아제르바이잔어',
+  'bn': '벵골어',
+  'bs': '보스니아어',
+  'bg': '불가리아어',
+  'zh': '중국어(간체)',
+  'zh-TW': '중국어(번체)',
+  'hr': '크로아티아어',
+  'cs': '체코어',
+  'da': '덴마크어',
+  'fa-AF': '다리어',
+  'nl': '네덜란드어',
+  'en': '영어',
+  'et': '에스토니아어',
+  'fi': '핀란드어',
+  'fr': '프랑스어',
+  'fr-CA': '프랑스어(캐나다)',
+  'ka': '조지아어',
+  'de': '독일어',
+  'el': '그리스어',
+  'ht': '아이티 크리올어',
+  'ha': '하우사어',
+  'he': '히브리어',
+  'hi': '힌디어',
+  'hu': '헝가리어',
+  'id': '인도네시아어',
+  'it': '이탈리아어',
+  'ja': '일본어',
+  'ko': '한국어',
+  'lv': '라트비아어',
+  'lt': '리투아니아어',
+  'ms': '말레이어',
+  'no': '노르웨이어',
+  'fa': '페르시아어',
+  'ps': '파슈토어',
+  'pl': '폴란드어',
+  'pt': '포르투갈어',
+  'ro': '루마니아어',
+  'ru': '러시아어',
+  'sr': '세르비아어',
+  'sk': '슬로바키아어',
+  'sl': '슬로베니아어',
+  'so': '소말리어',
+  'es': '스페인어',
+  'es-MX': '스페인어(멕시코)',
+  'sw': '스와힐리어',
+  'sv': '스웨덴어',
+  'tl': '타갈로그어',
+  'ta': '타밀어',
+  'th': '태국어',
+  'tr': '터키어',
+  'uk': '우크라이나어',
+  'ur': '우르두어',
+  'vi': '베트남어',
+};

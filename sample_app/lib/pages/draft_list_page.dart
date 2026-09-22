@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:sample_app/pages/channel_page.dart';
-import 'package:sample_app/pages/thread_page.dart';
 import 'package:stream_chat_flutter/stream_chat_flutter.dart';
+
+import '../widgets/stream_draft_list_view.dart';
 
 class DraftListPage extends StatefulWidget {
   const DraftListPage({super.key});
@@ -39,9 +39,9 @@ class _DraftListPageState extends State<DraftListPage> {
               children: [
                 CustomSlidableAction(
                   backgroundColor: Colors.red,
-                  child: const StreamSvgIcon(
+                  child: Icon(
+                    context.streamIcons.delete,
                     size: 24,
-                    icon: StreamSvgIcons.delete,
                     color: Colors.white,
                   ),
                   onPressed: (context) {
@@ -70,10 +70,10 @@ class _DraftListPageState extends State<DraftListPage> {
                   channel: channel,
                   initialMessageId: draft.parentId,
                   child: switch (draft.parentMessage) {
-                    final parent? => ThreadPage(
-                        parent: parent.copyWith(draft: draft),
-                      ),
-                    _ => const ChannelPage(),
+                    final parent? => StreamThreadPage(
+                      parent: parent.copyWith(draft: draft),
+                    ),
+                    _ => const StreamChannelPage(),
                   },
                 );
               },

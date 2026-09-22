@@ -31,13 +31,12 @@ class PaginationParams extends Equatable {
     this.createdAtBefore,
     this.createdAtAround,
   }) : assert(
-          offset == null || offset == 0 || next == null,
-          'Cannot specify non-zero `offset` with `next` parameter',
-        );
+         offset == null || offset == 0 || next == null,
+         'Cannot specify non-zero `offset` with `next` parameter',
+       );
 
   /// Create a new instance from a json
-  factory PaginationParams.fromJson(Map<String, dynamic> json) =>
-      _$PaginationParamsFromJson(json);
+  factory PaginationParams.fromJson(Map<String, dynamic> json) => _$PaginationParamsFromJson(json);
 
   /// The amount of items requested from the APIs.
   final int limit;
@@ -108,41 +107,38 @@ class PaginationParams extends Equatable {
     DateTime? createdAtBeforeOrEqual,
     DateTime? createdAtBefore,
     DateTime? createdAtAround,
-  }) =>
-      PaginationParams(
-        limit: limit ?? this.limit,
-        offset: offset ?? this.offset,
-        idAround: idAround ?? this.idAround,
-        next: next ?? this.next,
-        greaterThan: greaterThan ?? this.greaterThan,
-        greaterThanOrEqual: greaterThanOrEqual ?? this.greaterThanOrEqual,
-        lessThan: lessThan ?? this.lessThan,
-        lessThanOrEqual: lessThanOrEqual ?? this.lessThanOrEqual,
-        createdAtAfterOrEqual:
-            createdAtAfterOrEqual ?? this.createdAtAfterOrEqual,
-        createdAtAfter: createdAtAfter ?? this.createdAtAfter,
-        createdAtBeforeOrEqual:
-            createdAtBeforeOrEqual ?? this.createdAtBeforeOrEqual,
-        createdAtBefore: createdAtBefore ?? this.createdAtBefore,
-        createdAtAround: createdAtAround ?? this.createdAtAround,
-      );
+  }) => PaginationParams(
+    limit: limit ?? this.limit,
+    offset: offset ?? this.offset,
+    idAround: idAround ?? this.idAround,
+    next: next ?? this.next,
+    greaterThan: greaterThan ?? this.greaterThan,
+    greaterThanOrEqual: greaterThanOrEqual ?? this.greaterThanOrEqual,
+    lessThan: lessThan ?? this.lessThan,
+    lessThanOrEqual: lessThanOrEqual ?? this.lessThanOrEqual,
+    createdAtAfterOrEqual: createdAtAfterOrEqual ?? this.createdAtAfterOrEqual,
+    createdAtAfter: createdAtAfter ?? this.createdAtAfter,
+    createdAtBeforeOrEqual: createdAtBeforeOrEqual ?? this.createdAtBeforeOrEqual,
+    createdAtBefore: createdAtBefore ?? this.createdAtBefore,
+    createdAtAround: createdAtAround ?? this.createdAtAround,
+  );
 
   @override
   List<Object?> get props => [
-        limit,
-        offset,
-        next,
-        idAround,
-        greaterThan,
-        greaterThanOrEqual,
-        lessThan,
-        lessThanOrEqual,
-        createdAtAfterOrEqual,
-        createdAtAfter,
-        createdAtBeforeOrEqual,
-        createdAtBefore,
-        createdAtAround,
-      ];
+    limit,
+    offset,
+    next,
+    idAround,
+    greaterThan,
+    greaterThanOrEqual,
+    lessThan,
+    lessThanOrEqual,
+    createdAtAfterOrEqual,
+    createdAtAfter,
+    createdAtBeforeOrEqual,
+    createdAtBefore,
+    createdAtAround,
+  ];
 }
 
 /// Request model for the [client.partialUpdateUser] api call.
@@ -180,8 +176,8 @@ class ThreadOptions extends Equatable {
   const ThreadOptions({
     this.watch = true,
     this.replyLimit = 2,
-    this.participantLimit = 100,
-    this.memberLimit = 100,
+    this.participantLimit = 10,
+    this.memberLimit = 10,
   });
 
   /// If true, the client will watch for changes in the thread.
@@ -196,12 +192,12 @@ class ThreadOptions extends Equatable {
 
   /// The number of thread participants to return per thread.
   ///
-  /// Defaults to 100.
+  /// Defaults to 10.
   final int participantLimit;
 
   /// The number of members to return per thread.
   ///
-  /// Defaults to 100.
+  /// Defaults to 10.
   final int memberLimit;
 
   /// Serialize model to json

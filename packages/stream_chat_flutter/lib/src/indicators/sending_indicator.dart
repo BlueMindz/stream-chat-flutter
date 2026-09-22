@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:stream_chat_flutter/src/misc/empty_widget.dart';
-import 'package:stream_chat_flutter/stream_chat_flutter.dart';
+
+import '../../stream_chat_flutter.dart';
+import '../message_widget/message_status_labels.dart';
+import '../misc/empty_widget.dart';
 
 /// {@template streamSendingIndicator}
 /// Shows the sending status of a message.
@@ -12,7 +14,8 @@ class StreamSendingIndicator extends StatelessWidget {
     required this.message,
     this.isMessageRead = false,
     this.isMessageDelivered = false,
-    this.size = 12,
+    this.size,
+    this.color,
   });
 
   /// The message whose sending status is to be shown.
@@ -27,43 +30,45 @@ class StreamSendingIndicator extends StatelessWidget {
   /// The size of the indicator icon.
   final double? size;
 
+  /// The color of the indicator icon.
+  ///
+  /// When null, read messages use `StreamColorScheme.accentPrimary` and every
+  /// other state uses `StreamColorScheme.textSecondary`.
+  final Color? color;
+
   @override
   Widget build(BuildContext context) {
-    final streamChatTheme = StreamChatTheme.of(context);
-    final colorTheme = streamChatTheme.colorTheme;
+    final status = MessageDeliveryStatus.of(
+      message,
+      isMessageRead: isMessageRead,
+      isMessageDelivered: isMessageDelivered,
+    );
 
-    if (isMessageRead) {
-      return StreamSvgIcon(
-        size: size,
-        icon: StreamSvgIcons.checkAll,
-        color: colorTheme.accentPrimary,
-      );
-    }
+    // A failed send is shown as an error badge on the bubble rather than a
+    // footer tick, so it has no icon of its own here.
+    final icon = switch (status) {
+      .read || .delivered => context.streamIcons.checks,
+      .sent => context.streamIcons.checkmark,
+      .sending => context.streamIcons.clock,
+      .failed || .none => null,
+    };
 
-    if (isMessageDelivered) {
-      return StreamSvgIcon(
-        size: size,
-        icon: StreamSvgIcons.checkAll,
-        color: colorTheme.textLowEmphasis,
-      );
-    }
+    if (icon == null) return const Empty();
 
-    if (message.state.isCompleted) {
-      return StreamSvgIcon(
-        size: size,
-        icon: StreamSvgIcons.check,
-        color: colorTheme.textLowEmphasis,
-      );
-    }
+    final colorScheme = context.streamColorScheme;
 
-    if (message.state.isOutgoing) {
-      return StreamSvgIcon(
-        size: size,
-        icon: StreamSvgIcons.time,
-        color: colorTheme.textLowEmphasis,
-      );
-    }
-
-    return const Empty();
+    return Icon(
+      icon,
+      size: size,
+      color:
+          color ??
+          switch (status) {
+            .read => colorScheme.accentPrimary,
+            _ => colorScheme.textSecondary,
+          },
+      // Derived from the same resolved status as the icon, so the two cannot
+      // describe different states.
+      semanticLabel: status.label(context.translations),
+    );
   }
 }

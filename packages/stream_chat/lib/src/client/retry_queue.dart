@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:collection/collection.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:stream_chat/stream_chat.dart';
+import '../../stream_chat.dart';
 
 /// The retry queue associated to a channel.
 class RetryQueue {
@@ -31,12 +31,16 @@ class RetryQueue {
   final _messageQueue = HeapPriorityQueue(_byDate);
 
   void _listenConnectionRecovered() {
-    client.on(EventType.connectionRecovered).distinct().listen((event) {
-      if (event.online == true) {
-        logger?.info('Connection recovered, retrying failed messages');
-        channel.state?.retryFailedMessages();
-      }
-    }).addTo(_compositeSubscription);
+    client
+        .on(EventType.connectionRecovered)
+        .distinct()
+        .listen((event) {
+          if (event.online == true) {
+            logger?.info('Connection recovered, retrying failed messages');
+            channel.state?.retryFailedMessages();
+          }
+        })
+        .addTo(_compositeSubscription);
   }
 
   /// Add a list of messages.
@@ -119,10 +123,11 @@ class RetryQueue {
   }
 
   static DateTime? _getMessageDate(Message message) {
-    return message.state.maybeWhen(
-      failed: (state, _) => state.when(
-        sendingFailed: () => message.createdAt,
-        updatingFailed: () => message.updatedAt,
+    return message.state.maybeMap(
+      failed: (it) => it.state.map(
+        sendingFailed: (_) => message.createdAt,
+        updatingFailed: (_) => message.updatedAt,
+        partialUpdatingFailed: (_) => message.updatedAt,
         deletingFailed: (_) => message.deletedAt,
       ),
       orElse: () => null,

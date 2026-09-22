@@ -1,9 +1,14 @@
+// ignore_for_file: lines_longer_than_80_chars
+
 part of 'stream_chat_localizations.dart';
 
 /// The translations for Catalan (`ca`).
 class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   /// Create an instance of the translation bundle for Catalan.
   const StreamChatLocalizationsCa({super.localeName = 'ca'});
+
+  @override
+  AccessibilityTranslations get accessibility => _AccessibilityTranslationsCa(localeName: localeName);
 
   @override
   String get launchUrlError => "No s'ha pogut obrir l'enllaç";
@@ -40,6 +45,9 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String get threadReplyLabel => 'Respon al fil';
 
   @override
+  String get threadLabel => 'Fil';
+
+  @override
   String get onlyVisibleToYouText => 'Només visible per a tu';
 
   @override
@@ -47,10 +55,9 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
 
   @override
   String attachmentsUploadProgressText({
-    required int remaining,
+    required int completed,
     required int total,
-  }) =>
-      'Transferència en curs $remaining/$total ...';
+  }) => 'Pujats $completed de $total ...';
 
   @override
   String pinnedByUserText({
@@ -63,18 +70,16 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   }
 
   @override
-  String get sendMessagePermissionError =>
-      'No tens permís per enviar missatges';
+  String get sendMessagePermissionError => 'No tens permís per enviar missatges';
 
   @override
-  String get emptyMessagesText => 'Actualment no hi ha missatges';
+  String get emptyMessagesText => 'Encara no hi ha missatges';
 
   @override
   String get genericErrorText => 'Hi ha hagut un problema';
 
   @override
-  String get loadingMessagesError =>
-      'Hi ha hagut un error mentre carregava el missatge';
+  String get loadingMessagesError => 'Hi ha hagut un error mentre carregava el missatge';
 
   @override
   String resultCountText(int count) => '$count resultats';
@@ -113,8 +118,7 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String get reconnectingLabel => 'Reconnectant...';
 
   @override
-  String get alsoSendAsDirectMessageLabel =>
-      'Enviar també com a missatge directe';
+  String get alsoSendAsDirectMessageLabel => 'Enviar també com a missatge directe';
 
   @override
   String get addACommentOrSendLabel => 'Afegir un comentari o enviar';
@@ -123,10 +127,19 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String get searchGifLabel => 'Cerca de GIFs';
 
   @override
-  String get writeAMessageLabel => 'Escriure un missatge';
+  String get writeAMessageLabel => 'Enviar un missatge';
 
   @override
   String get instantCommandsLabel => 'Commandes instantànies';
+
+  @override
+  String get commandUnavailableWhileEditingError => 'Not available while editing';
+
+  @override
+  String get commandUnavailableWhileQuotingError => 'Not available while replying';
+
+  @override
+  String get commandUnavailableError => 'Command not available';
 
   @override
   String fileTooLargeAfterCompressionError(double limitInMB) =>
@@ -140,8 +153,13 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
       'La mida màxima del fitxer és de $limitInMB MB.';
 
   @override
-  String get couldNotReadBytesFromFileError =>
-      "No s'han pogut llegir els bytes del fitxer.";
+  String fileTypeNotSupportedError(String? extension) {
+    if (extension != null) return "Els fitxers '.$extension' no s'admeten per pujar.";
+    return "Aquest tipus de fitxer no s'admet per pujar.";
+  }
+
+  @override
+  String get couldNotReadBytesFromFileError => "No s'han pogut llegir els bytes del fitxer.";
 
   @override
   String get addAFileLabel => 'Afegeix un fitxer';
@@ -168,12 +186,29 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String get somethingWentWrongError => 'Alguna cosa ha anat malament';
 
   @override
-  String get addMoreFilesLabel => 'Afegir més fitxers';
+  String get connectionErrorTitle => 'Sense connexió a Internet';
+
+  @override
+  String get connectionErrorDescription => 'Comprova la teva connexió a Internet';
+
+  @override
+  String get slowConnectionErrorTitle => 'Connexió a Internet lenta';
+
+  @override
+  String get slowConnectionErrorDescription => 'Sembla que hi ha un problema amb la teva connexió a Internet';
+
+  @override
+  String get genericErrorTitle => 'Error';
+
+  @override
+  String get genericErrorDescription => 'Vaja, alguna cosa ha anat malament';
+
+  @override
+  String get addMoreFilesLabel => 'Afegir més';
 
   @override
   String get enablePhotoAndVideoAccessMessage =>
-      "Si us plau, permet l'accés a les teves fotos"
-      '\ni vídeos per a que puguis compartir-los';
+      "Si us plau, permet l'accés a les teves fotos i vídeos per a que puguis compartir-los";
 
   @override
   String get allowGalleryAccessMessage => "Permet l'accés a la galeria";
@@ -183,35 +218,31 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
 
   @override
   String get flagMessageQuestion =>
-      "Vols enviar una còpia d'aquest missatge a un"
-      '\nmoderador per una major investigació?';
+      "Vols enviar una còpia d'aquest missatge a un moderador per una major investigació?";
 
   @override
-  String get flagLabel => 'REPORTA';
+  String get flagLabel => 'Reporta';
 
   @override
-  String get cancelLabel => 'CANCEL·LA';
+  String get cancelLabel => 'Cancel·la';
 
   @override
   String get flagMessageSuccessfulLabel => 'Missatge reportat';
 
   @override
-  String get flagMessageSuccessfulText =>
-      'Aquest missatge ha estat reportat a un moderador';
+  String get flagMessageSuccessfulText => 'Aquest missatge ha estat reportat a un moderador';
 
   @override
-  String get deleteLabel => 'ESBORRA';
+  String get deleteLabel => 'Esborra';
 
   @override
   String get deleteMessageLabel => 'Esborra el missatge';
 
   @override
-  String get deleteMessageQuestion =>
-      'Estàs segur que vols esborrar aquest\nmissatge de forma permanent?';
+  String get deleteMessageQuestion => 'Estàs segur que vols esborrar aquest missatge de forma permanent?';
 
   @override
-  String get operationCouldNotBeCompletedText =>
-      "L'operació no s'ha pogut completar";
+  String get operationCouldNotBeCompletedText => "L'operació no s'ha pogut completar";
 
   @override
   String get replyLabel => 'Respondre';
@@ -242,6 +273,9 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
 
   @override
   String get photosLabel => 'Fotos';
+
+  @override
+  String get photosAndVideosLabel => 'Fotos i vídeos';
 
   String _getDay(DateTime dateTime) {
     final now = DateTime.now();
@@ -281,8 +315,7 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String get letsStartChattingLabel => 'Comencem a parlar!';
 
   @override
-  String get sendingFirstMessageLabel =>
-      'Què et sembla enviar el teu primer missatge?';
+  String get sendingFirstMessageLabel => 'Què et sembla enviar el teu primer missatge?';
 
   @override
   String get startAChatLabel => 'Inicia una conversa';
@@ -294,11 +327,10 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String get deleteConversationLabel => 'Esborra la conversa';
 
   @override
-  String get deleteConversationQuestion =>
-      'Estàs segur que vols esborrar aquesta conversa?';
+  String get deleteConversationQuestion => 'Estàs segur que vols esborrar aquesta conversa?';
 
   @override
-  String get streamChatLabel => 'Stream Chat';
+  String get streamChatLabel => 'Converses';
 
   @override
   String get searchingForNetworkText => 'Cercant xarxa';
@@ -322,6 +354,16 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   }
 
   @override
+  String membersCountWithOnlineText({
+    required int memberCount,
+    required int onlineCount,
+  }) {
+    final members = membersCountText(memberCount);
+    if (onlineCount <= 0) return members;
+    return '$members, ${watchersCountText(onlineCount)}';
+  }
+
+  @override
   String get viewInfoLabel => 'Veure informació';
 
   @override
@@ -334,8 +376,7 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String get leaveConversationLabel => 'Surt de la conversa';
 
   @override
-  String get leaveConversationQuestion =>
-      "Estàs segur que vols sortir d'aquesta conversa?";
+  String get leaveConversationQuestion => "Estàs segur que vols sortir d'aquesta conversa?";
 
   @override
   String get showInChatLabel => 'Mostra al xat';
@@ -371,8 +412,7 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String galleryPaginationText({
     required int currentPage,
     required int totalPages,
-  }) =>
-      '${currentPage + 1} de $totalPages';
+  }) => '${currentPage + 1} de $totalPages';
 
   @override
   String get fileText => 'Fitxer';
@@ -381,14 +421,16 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String get replyToMessageLabel => 'Respondre al missatge';
 
   @override
-  String attachmentLimitExceedError(int limit) =>
-      'No és possible afegir més de $limit fitxers adjunts';
+  String attachmentLimitExceedError(int limit) => 'No és possible afegir més de $limit fitxers adjunts';
 
   @override
   String get viewLibrary => 'Veure llibreria';
 
   @override
-  String get slowModeOnLabel => 'Mode lent activat';
+  String slowModeOnLabel(int cooldownTimeOut) => 'Mode lent, espera ${cooldownTimeOut}s\u2026';
+
+  @override
+  String get commandUsernameLabel => '@username';
 
   @override
   String get downloadLabel => 'Descarrega';
@@ -400,6 +442,12 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
     } else {
       return "Silencia l'usuari";
     }
+  }
+
+  @override
+  String toggleBlockUnblockUserText({required bool isBlocked}) {
+    if (isBlocked) return "Desbloquejar l'usuari";
+    return "Bloquejar l'usuari";
   }
 
   @override
@@ -439,8 +487,7 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   }
 
   @override
-  String get linkDisabledDetails =>
-      'No es permet enviar enllaços a aquesta conversa';
+  String get linkDisabledDetails => 'No es permet enviar enllaços a aquesta conversa';
 
   @override
   String get linkDisabledError => 'Els enllaços estan deshabilitats';
@@ -449,8 +496,17 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String unreadMessagesSeparatorText() => 'Missatges nous';
 
   @override
-  String get enableFileAccessMessage => "Habilita l'accés als fitxers"
-      '\nper poder compartir-los amb amics';
+  String unreadMessagesSeparatorLabel({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count missatge no llegit',
+      other: '$count missatges no llegits',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String get enableFileAccessMessage => "Habilita l'accés als fitxers per poder compartir-los amb amics";
 
   @override
   String get allowFileAccessMessage => "Permet l'accés als fitxers";
@@ -476,7 +532,10 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   }
 
   @override
-  String get questionsLabel => 'Preguntes';
+  String questionLabel({bool isPlural = false}) {
+    if (isPlural) return 'Preguntes';
+    return 'Pregunta';
+  }
 
   @override
   String get askAQuestionLabel => 'Fes una pregunta';
@@ -559,15 +618,17 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String get enterYourCommentLabel => 'Introdueix el teu comentari';
 
   @override
-  String get endVoteConfirmationText =>
-      'Estàs segur que vols finalitzar la votació?';
+  String get endVoteConfirmationTitle => 'Estàs segur que vols finalitzar la votació?';
+
+  @override
+  String get endVoteConfirmationMessage =>
+      'Vols finalitzar aquesta enquesta ara? Ningú no podrà votar més en aquesta enquesta.';
 
   @override
   String get deletePollOptionLabel => 'Eliminar opció';
 
   @override
-  String get deletePollOptionQuestion =>
-      'Estàs segur que vols eliminar aquesta opció?';
+  String get deletePollOptionQuestion => 'Estàs segur que vols eliminar aquesta opció?';
 
   @override
   String get createLabel => 'Crear';
@@ -604,17 +665,30 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String get pollResultsLabel => 'Resultats de la votació';
 
   @override
+  String get pollVotesLabel => 'Vots';
+
+  @override
   String showAllVotesLabel({int? count}) {
     if (count == null) return 'Mostrar tots els vots';
     return 'Mostrar tots els $count vots';
   }
 
   @override
+  String get viewAllLabel => 'Veure-ho tot';
+
+  @override
   String voteCountLabel({int? count}) => switch (count) {
-        null || < 1 => '0 vots',
-        1 => '1 vot',
-        _ => '$count vots',
-      };
+    null || < 1 => '0 vots',
+    1 => '1 vot',
+    _ => '$count vots',
+  };
+
+  @override
+  String totalVoteCountLabel({int? count}) => switch (count) {
+    null || < 1 => '0 vots en total',
+    1 => '1 vot en total',
+    _ => '$count vots en total',
+  };
 
   @override
   String get noPollVotesLabel => 'No hi ha vots en aquest moment';
@@ -632,18 +706,19 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   }
 
   @override
+  String get loadingLabel => 'Carregant...';
+
+  @override
   String get slideToCancelLabel => 'Llisca per cancel·lar';
 
   @override
-  String get holdToRecordLabel =>
-      'Mantén premut per gravar, deixa anar per enviar';
+  String get holdToRecordLabel => 'Mantén premut per gravar, deixa anar per enviar';
 
   @override
   String get sendAnywayLabel => 'Enviar igualment';
 
   @override
-  String get moderatedMessageBlockedText =>
-      'Missatge bloquejat per les polítiques de moderació';
+  String get moderatedMessageBlockedText => 'Missatge bloquejat per les polítiques de moderació';
 
   @override
   String get moderationReviewModalTitle => 'Estàs segur?';
@@ -668,6 +743,21 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
   String get videoAttachmentText => 'Vídeo';
 
   @override
+  String get fileAttachmentText => 'Fitxer';
+
+  @override
+  String get linkAttachmentText => 'Enllaç';
+
+  @override
+  String filesAttachmentCountText(int count) => count == 1 ? 'Fitxer' : '$count fitxers';
+
+  @override
+  String photosAttachmentCountText(int count) => count == 1 ? 'Foto' : '$count fotos';
+
+  @override
+  String videosAttachmentCountText(int count) => count == 1 ? 'Vídeo' : '$count vídeos';
+
+  @override
   String get pollYouVotedText => 'Has votat';
 
   @override
@@ -681,4 +771,508 @@ class StreamChatLocalizationsCa extends GlobalStreamChatLocalizations {
 
   @override
   String get draftLabel => 'Esborrany';
+
+  @override
+  String locationLabel({bool isLive = false}) {
+    if (isLive) return 'Ubicació en directe';
+    return 'Ubicació';
+  }
+
+  @override
+  String get noConversationsYetText => 'Encara no hi ha converses';
+
+  @override
+  String get replyToStartThreadText => 'Respon a un missatge per iniciar un fil';
+
+  @override
+  String get sendMessageToStartConversationText => 'Envia un missatge per iniciar la conversa';
+
+  @override
+  String get savedForLaterLabel => 'Desat per a més tard';
+
+  @override
+  String get repliedToThreadAnnotationLabel => 'Ha respost a un fil';
+
+  @override
+  String get alsoSentInChannelAnnotationLabel => 'També enviat al canal';
+
+  @override
+  String get viewLabel => 'Veure';
+
+  @override
+  String get reminderSetLabel => 'Recordatori establert';
+
+  @override
+  String reminderAtText(String time) => 'Avui a les $time';
+
+  @override
+  String get translatedLabel => 'Traduït';
+
+  @override
+  String get originalLabel => 'Original';
+
+  @override
+  String get showOriginalLabel => "Mostra l'original";
+
+  @override
+  String get showTranslationLabel => 'Mostra la traducció';
+
+  @override
+  String translatedFromLanguageText(String languageCode) => 'Traduït de ${_languageNameCa(languageCode)}';
+
+  @override
+  String get createPollPromptLabel => 'Crea una enquesta i deixa que tothom voti!';
+
+  @override
+  String get takePhotoAndShareLabel => 'Fes una foto i comparteix';
+
+  @override
+  String get takeVideoAndShareLabel => 'Grava un vídeo i comparteix';
+
+  @override
+  String get openCameraLabel => 'Obrir càmera';
+
+  @override
+  String get selectFilesToShareLabel => 'Seleccioneu fitxers per compartir';
+
+  @override
+  String get openFilesLabel => 'Obrir fitxers';
+
+  @override
+  String get unsupportedAttachmentLabel => 'Adjunt no compatible';
+
+  @override
+  String get confirmLabel => 'CONFIRMAR';
+
+  @override
+  String get emptyReactionsText => 'Encara no hi ha reaccions';
+
+  @override
+  String get loadingReactionsError => 'Error en carregar les reaccions';
+
+  @override
+  String get tapToRemoveReactionLabel => 'Toca per eliminar';
+
+  @override
+  String reactionsCountText(int count) => '$count reaccions';
+
+  @override
+  String get justNowLabel => 'Ara mateix';
+
+  @override
+  String replyToUserLabel(String userName) => 'Respon a $userName';
+
+  @override
+  String get multipleAnswersDescription => "Selecciona més d'una opció";
+
+  @override
+  String maximumVotesPerPersonDescription([Range<int>? range]) {
+    final (:min, :max) = range ?? (min: 2, max: 10);
+    return 'Tria entre $min\u2013$max opcions';
+  }
+
+  @override
+  String get anonymousPollDescription => 'Amaga qui ha votat';
+
+  @override
+  String get suggestAnOptionDescription => 'Permet que altres afegeixin opcions';
+
+  @override
+  String get addACommentDescription => 'Permet que altres afegeixin comentaris';
+
+  @override
+  String get notifyChannelText => "Notifica a tothom d'aquest canal";
+
+  @override
+  String get notifyHereText => "Notifica a tots els membres connectats d'aquest canal";
+
+  @override
+  String notifyRoleText(String role) => 'Notifica tots els membres $role';
 }
+
+class _AccessibilityTranslationsCa extends AccessibilityTranslations {
+  const _AccessibilityTranslationsCa({super.localeName = 'ca'});
+
+  @override
+  String get sendMessageTooltip => 'Envia el missatge';
+
+  @override
+  String get saveEditTooltip => "Desa l'edició";
+
+  @override
+  String get sendCommandTooltip => "Envia l'ordre";
+
+  @override
+  String slowModeTooltip({required int seconds}) {
+    if (seconds == 1) return 'Mode lent: 1 segon';
+    return 'Mode lent: $seconds segons';
+  }
+
+  @override
+  String get recordVoiceRecordingLabel => 'Enregistra un missatge de veu';
+
+  @override
+  String get cancelRecordingTooltip => "Cancel·la l'enregistrament";
+
+  @override
+  String get stopRecordingTooltip => "Atura l'enregistrament";
+
+  @override
+  String get sendRecordingTooltip => "Envia l'enregistrament";
+
+  @override
+  String recordingDurationLabel({required Duration duration}) => "Durada d'enregistrament, ${formatDuration(duration)}";
+
+  @override
+  String voiceRecordingPreviewPlayLabel({required Duration duration}) =>
+      "Reprodueix l'enregistrament de veu, ${formatDuration(duration)}";
+
+  @override
+  String voiceRecordingPreviewPauseLabel({required Duration duration}) =>
+      "Pausa l'enregistrament de veu, ${formatDuration(duration)}";
+
+  @override
+  String get attachmentPickerTooltip => 'Alterna el selector de fitxers adjunts';
+
+  @override
+  String get attachmentPickerOpenHint => 'toca dos vegades per obrir el selector de fitxers adjunts';
+
+  @override
+  String get attachmentPickerCloseHint => 'toca dos vegades per tancar el selector de fitxers adjunts';
+
+  @override
+  String get attachmentPickerOpenTapHint => 'obrir el selector de fitxers adjunts';
+
+  @override
+  String get attachmentPickerCloseTapHint => 'tancar el selector de fitxers adjunts';
+
+  @override
+  String get attachmentPickerOpenedAnnouncement => 'Selector de fitxers adjunts obert';
+
+  @override
+  String get attachmentPickerClosedAnnouncement => 'Selector de fitxers adjunts tancat';
+
+  @override
+  String voiceRecordingAttachmentLabel({Duration? duration}) {
+    if (duration == null) return 'Missatge de veu';
+    return 'Missatge de veu, ${formatDuration(duration)}';
+  }
+
+  @override
+  String videoAttachmentLabel({String? title}) {
+    if (title == null || title.isEmpty) return 'Vídeo';
+    return 'Vídeo, $title';
+  }
+
+  @override
+  String get gifAttachmentLabel => 'GIF';
+
+  @override
+  String imageAttachmentLabel({String? title}) {
+    if (title == null || title.isEmpty) return 'Foto';
+    return 'Foto, $title';
+  }
+
+  @override
+  String attachmentPositionLabel({required int index, required int total}) => '$index de $total';
+
+  @override
+  String get outgoingReplyToOwnMessageLabel => 'Has respost al teu propi missatge';
+
+  @override
+  String outgoingReplyToMessageLabel({required String authorName}) => 'Has respost al missatge de $authorName';
+
+  @override
+  String incomingReplyToOwnMessageLabel({required String replierName}) => '$replierName ha respost al teu missatge';
+
+  @override
+  String incomingReplyToMessageLabel({required String replierName, required String authorName}) =>
+      '$replierName ha respost al missatge de $authorName';
+
+  @override
+  String get voiceRecordingPlayTooltip => 'Reprodueix';
+
+  @override
+  String get voiceRecordingPauseTooltip => 'Pausa';
+
+  @override
+  String get voiceRecordingLoadingTooltip => 'Carregant';
+
+  @override
+  String get channelInfoLabel => 'Informació del canal';
+
+  @override
+  String get messageActionsLabel => 'Accions del missatge';
+
+  @override
+  String galleryImageLabel({DateTime? createdAt}) {
+    if (createdAt == null) return 'Foto';
+    return 'Foto, ${formatDateTime(createdAt)}';
+  }
+
+  @override
+  String galleryVideoLabel({
+    DateTime? createdAt,
+    Duration? duration,
+  }) {
+    final parts = <String>[
+      'Vídeo',
+      if (duration != null) formatDuration(duration),
+      if (createdAt != null) formatDateTime(createdAt),
+    ];
+    return parts.join(', ');
+  }
+
+  @override
+  String get selectMediaTapHint => 'selecciona';
+
+  @override
+  String get deselectMediaTapHint => 'desselecciona';
+
+  @override
+  String get outgoingMessagePreviewLabel => 'Tu';
+
+  @override
+  String incomingMessagePreviewLabel({String? senderName}) {
+    return senderName ?? 'Missatge';
+  }
+
+  @override
+  String outgoingMessageLabel({required String body}) => 'Has dit, $body';
+
+  @override
+  String incomingMessageLabel({required String senderName, required String body}) => '$senderName ha dit, $body';
+
+  @override
+  String outgoingDeletedMessageLabel({required String body}) => 'Tu, $body';
+
+  @override
+  String incomingDeletedMessageLabel({required String senderName, required String body}) => '$senderName, $body';
+
+  @override
+  String get pollPreviewLabel => 'Enquesta';
+
+  @override
+  String get draftPreviewLabel => 'Esborrany';
+
+  @override
+  String get messageSendingStatusLabel => "S'està enviant";
+
+  @override
+  String get messageSentStatusLabel => 'Enviat';
+
+  @override
+  String get messageDeliveredStatusLabel => 'Lliurat';
+
+  @override
+  String get messageReadStatusLabel => 'Llegit';
+
+  @override
+  String get messageFailedStatusLabel => "No s'ha pogut enviar el missatge";
+
+  @override
+  String unreadMessagesLabel({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count missatge no llegit',
+      other: '$count missatges no llegits',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String get channelGroupLabel => 'Grup';
+
+  @override
+  String get systemMessagePreviewLabel => 'Sistema';
+
+  @override
+  String get channelMutedLabel => 'silenciat';
+
+  @override
+  String get channelPinnedLabel => 'fixat';
+
+  @override
+  String get savePollTooltip => "Desa l'enquesta";
+
+  @override
+  String removePollOptionTooltip({String? optionText}) {
+    final trimmed = optionText?.trim();
+    if (trimmed == null || trimmed.isEmpty) return "Elimina l'opció";
+    return "Elimina l'opció $trimmed";
+  }
+
+  @override
+  String get recordingStartedAnnouncement =>
+      "Enregistrament iniciat. Llisca cap a l'esquerra per cancel·lar. Llisca cap amunt per bloquejar.";
+
+  @override
+  String get recordingLockedAnnouncement => 'Enregistrament bloquejat';
+
+  @override
+  String get recordingStoppedAnnouncement => 'Enregistrament aturat';
+
+  @override
+  String get recordingCancelledAnnouncement => 'Enregistrament cancel·lat';
+
+  @override
+  String get recordingCompletedAnnouncement => 'Enregistrament completat';
+
+  @override
+  String get imageAttachmentAddedAnnouncement => 'Foto afegida';
+
+  @override
+  String get imageAttachmentRemovedAnnouncement => 'Foto eliminada';
+
+  @override
+  String get videoAttachmentAddedAnnouncement => 'Vídeo afegit';
+
+  @override
+  String get videoAttachmentRemovedAnnouncement => 'Vídeo eliminat';
+
+  @override
+  String get gifAttachmentAddedAnnouncement => 'GIF afegit';
+
+  @override
+  String get gifAttachmentRemovedAnnouncement => 'GIF eliminat';
+
+  @override
+  String get fileAttachmentAddedAnnouncement => 'Fitxer afegit';
+
+  @override
+  String get fileAttachmentRemovedAnnouncement => 'Fitxer eliminat';
+
+  @override
+  String get voiceRecordingAttachmentAddedAnnouncement => 'Missatge de veu afegit';
+
+  @override
+  String get voiceRecordingAttachmentRemovedAnnouncement => 'Missatge de veu eliminat';
+
+  @override
+  String get attachmentAddedAnnouncement => 'Fitxer adjunt afegit';
+
+  @override
+  String get attachmentRemovedAnnouncement => 'Fitxer adjunt eliminat';
+
+  @override
+  String attachmentsAddedAnnouncement({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count fitxer adjunt afegit',
+      other: '$count fitxers adjunts afegits',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String attachmentsRemovedAnnouncement({required int count}) {
+    return Intl.plural(
+      count,
+      one: '$count fitxer adjunt eliminat',
+      other: '$count fitxers adjunts eliminats',
+      locale: localeName,
+    );
+  }
+
+  @override
+  String formatRecentDateTime(DateTime date) {
+    if (date.isWithinLastMinute) return 'Ara mateix';
+
+    final localDate = date.toLocal();
+    final jiffyDate = Jiffy.parseFromDateTime(localDate);
+    final time = jiffyDate.jm;
+
+    if (localDate.isToday) return 'Avui a les $time';
+    if (localDate.isYesterday) return 'Ahir a les $time';
+    if (localDate.isWithinLastWeek) return '${jiffyDate.EEEE} a les $time';
+    if (localDate.isInSameYear) {
+      return '${jiffyDate.format(pattern: 'd MMM')} a les $time';
+    }
+    return '${jiffyDate.format(pattern: 'd MMM yyyy')} a les $time';
+  }
+
+  @override
+  String formatDateTime(DateTime dateTime) {
+    final jiffy = Jiffy.parseFromDateTime(dateTime);
+    return '${jiffy.EEEE}, ${jiffy.yMMMMd}, ${jiffy.jm}';
+  }
+
+  @override
+  String formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    final parts = <String>[
+      if (hours > 0) Intl.plural(hours, one: '$hours hora', other: '$hours hores', locale: localeName),
+      if (minutes > 0) Intl.plural(minutes, one: '$minutes minut', other: '$minutes minuts', locale: localeName),
+      if (seconds > 0 || (hours == 0 && minutes == 0))
+        Intl.plural(seconds, one: '$seconds segon', other: '$seconds segons', locale: localeName),
+    ];
+    return parts.join(', ');
+  }
+}
+
+// Display name for each language code Stream Chat's translation API
+// supports (`Message.i18n['language']`). Falls back to the uppercased code
+// itself for anything unrecognized.
+String _languageNameCa(String code) => _languageNamesCa[code] ?? code.toUpperCase();
+
+const _languageNamesCa = <String, String>{
+  'af': 'Afrikaans',
+  'sq': 'Albanès',
+  'am': 'Amhàric',
+  'ar': 'Àrab',
+  'az': 'Azerbaidjanès',
+  'bn': 'Bengalí',
+  'bs': 'Bosnià',
+  'bg': 'Búlgar',
+  'zh': 'Xinès (simplificat)',
+  'zh-TW': 'Xinès (tradicional)',
+  'hr': 'Croat',
+  'cs': 'Txec',
+  'da': 'Danès',
+  'fa-AF': 'Dari',
+  'nl': 'Neerlandès',
+  'en': 'Anglès',
+  'et': 'Estonià',
+  'fi': 'Finès',
+  'fr': 'Francès',
+  'fr-CA': 'Francès (Canadà)',
+  'ka': 'Georgià',
+  'de': 'Alemany',
+  'el': 'Grec',
+  'ht': 'Crioll haitià',
+  'ha': 'Haussa',
+  'he': 'Hebreu',
+  'hi': 'Hindi',
+  'hu': 'Hongarès',
+  'id': 'Indonesi',
+  'it': 'Italià',
+  'ja': 'Japonès',
+  'ko': 'Coreà',
+  'lv': 'Letó',
+  'lt': 'Lituà',
+  'ms': 'Malai',
+  'no': 'Noruec',
+  'fa': 'Persa',
+  'ps': 'Paixtu',
+  'pl': 'Polonès',
+  'pt': 'Portuguès',
+  'ro': 'Romanès',
+  'ru': 'Rus',
+  'sr': 'Serbi',
+  'sk': 'Eslovac',
+  'sl': 'Eslovè',
+  'so': 'Somali',
+  'es': 'Espanyol',
+  'es-MX': 'Espanyol (Mèxic)',
+  'sw': 'Swahili',
+  'sv': 'Suec',
+  'tl': 'Tagal',
+  'ta': 'Tàmil',
+  'th': 'Tailandès',
+  'tr': 'Turc',
+  'uk': 'Ucraïnès',
+  'ur': 'Urdú',
+  'vi': 'Vietnamita',
+};
