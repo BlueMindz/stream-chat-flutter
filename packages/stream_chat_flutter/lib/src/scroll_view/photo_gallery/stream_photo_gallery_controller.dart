@@ -25,7 +25,14 @@ class StreamPhotoGalleryController extends PagedValueNotifier<int, AssetEntity> 
     return PhotoManager.getAssetPathList(
       type: type,
       onlyAll: true,
-      filterOption: filterOption,
+      // Newest first; with no order the platforms return oldest first.
+      filterOption:
+          filterOption ??
+          FilterOptionGroup(
+            orders: [
+              const OrderOption(type: OrderOptionType.createDate, asc: false),
+            ],
+          ),
     ).then((it) => it.firstOrNull);
   }
 
